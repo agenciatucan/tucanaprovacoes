@@ -14,8 +14,7 @@ const FORMAT_OPTS = [
   { value: 'outro',        label: 'Outro' },
 ];
 
-// Fallback usado apenas quando ainda não há posts no cronograma
-const DEFAULT_WEEK_SUGGESTIONS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+const DEFAULT_WEEKS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
 
 interface PostFormProps {
   campaignId: string;
@@ -101,12 +100,9 @@ export default function PostForm({ campaignId, returnHref, existingWeeks, initia
 
   const isReels = form.format === 'reels';
 
-  // Sugestões do datalist: semanas existentes primeiro (para facilitar reusar),
-  // depois as padrão que ainda não estiverem na lista.
-  // Assim o usuário sempre vê pelo menos Semana 1–5 e também as já criadas.
-  const weekOptions = [
-    ...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEK_SUGGESTIONS]),
-  ];
+  // Semanas existentes no cronograma primeiro; depois as padrão ainda ausentes.
+  // Garante ao menos Semana 1–5 disponíveis em qualquer cronograma.
+  const weekOptions = [...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEKS])];
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -114,15 +110,14 @@ export default function PostForm({ campaignId, returnHref, existingWeeks, initia
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="week_label">Semana <span style={{ color: 'var(--orange)' }}>*</span></label>
-          <input
-            id="week_label" required list="week-suggestions" className="input"
-            placeholder="Ex.: Semana 1"
+          <select
+            id="week_label" required className="input"
             value={form.week_label}
             onChange={(e) => set('week_label', e.target.value)}
-          />
-          <datalist id="week-suggestions">
-            {weekOptions.map((w) => <option key={w} value={w} />)}
-          </datalist>
+            style={{ appearance: 'none', cursor: 'pointer' }}
+          >
+            {weekOptions.map((w) => <option key={w} value={w}>{w}</option>)}
+          </select>
         </div>
         <div className="field">
           <label className="field-label" htmlFor="format">Formato <span style={{ color: 'var(--orange)' }}>*</span></label>
