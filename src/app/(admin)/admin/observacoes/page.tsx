@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import ResolveCommentButton from '@/components/admin/ResolveCommentButton';
+import FilterSelect from '@/components/ui/FilterSelect';
 
 export const metadata: Metadata = { title: 'Observações' };
 
@@ -81,20 +82,14 @@ export default async function ObservacoesPage({
 
         {/* Filter by client */}
         {clients && clients.length > 0 && (
-          <div>
-            <select
-              className="input"
-              style={{ height: 36, paddingLeft: 10, paddingRight: 10, fontSize: 13, appearance: 'none' }}
-              value={filterCliente ?? ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                const base = filterStatus && filterStatus !== 'aberta' ? `?status=${filterStatus}` : '';
-                window.location.href = `/admin/observacoes${base}${v ? (base ? '&' : '?') + 'cliente=' + v : ''}`;
-              }}>
-              <option value="">Todos os clientes</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.company_name || c.name}</option>)}
-            </select>
-          </div>
+          <FilterSelect
+            basePath="/admin/observacoes"
+            paramName="cliente"
+            value={filterCliente ?? ''}
+            preserveParams={{ status: filterStatus !== 'aberta' ? filterStatus : undefined }}
+            placeholder="Todos os clientes"
+            options={clients.map((c) => ({ value: c.id, label: c.company_name || c.name || '' }))}
+          />
         )}
       </div>
 

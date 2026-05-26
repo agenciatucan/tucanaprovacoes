@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
+import FilterSelect from '@/components/ui/FilterSelect';
 
 export const metadata: Metadata = { title: 'Kanban' };
 
@@ -63,17 +64,14 @@ export default async function KanbanPage({
       {/* Filters */}
       <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '10px 14px', display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <Icon name="filter" size={14} color="var(--muted)" />
-        <select
-          className="input"
-          style={{ height: 36, fontSize: 13, appearance: 'none', minWidth: 180 }}
+        <FilterSelect
+          basePath="/admin/kanban"
+          paramName="cliente"
           value={filterClient ?? ''}
-          onChange={(e) => {
-            const v = e.target.value;
-            window.location.href = `/admin/kanban${v ? `?cliente=${v}` : ''}`;
-          }}>
-          <option value="">Todos os clientes</option>
-          {clients?.map((c) => <option key={c.id} value={c.id}>{c.company_name ?? c.name}</option>)}
-        </select>
+          placeholder="Todos os clientes"
+          style={{ minWidth: 180 }}
+          options={(clients ?? []).map((c) => ({ value: c.id, label: c.company_name ?? c.name ?? '' }))}
+        />
         {(filterClient || filterCampaign) && (
           <Link href="/admin/kanban" className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
             Limpar filtros
