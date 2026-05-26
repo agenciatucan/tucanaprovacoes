@@ -97,7 +97,7 @@ export default async function CronogramaPage({ params }: Props) {
       </div>
 
       {/* Week tabs */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface)', padding: 4, borderRadius: 12, border: '1px solid var(--line)' }}>
           {weekKeys.map((week) => (
             <span key={week} style={{ height: 36, padding: '0 14px', display: 'inline-flex', alignItems: 'center', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
@@ -120,7 +120,7 @@ export default async function CronogramaPage({ params }: Props) {
             <h2 className="h2" style={{ fontSize: 18, color: 'var(--ink)' }}>{week}</h2>
             <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
             {weeks[week]?.map((post) => (
               <PostCard key={post.id} post={post} campaignId={id} />
             ))}

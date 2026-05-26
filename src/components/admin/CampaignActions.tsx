@@ -55,22 +55,22 @@ export default function CampaignActions({ campaignId, status, approvalLink, isLo
   const canEdit = !isLocked && status !== 'aprovado';
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
+    <div className="flex w-full flex-wrap gap-2 sm:w-auto">
       {canEdit && (
-        <Link href={editHref as Route} className="btn btn-ghost btn-sm">
+        <Link href={editHref as Route} className="btn btn-ghost btn-sm flex-1 sm:flex-none">
           <Icon name="edit" size={14} /> Editar
         </Link>
       )}
 
       {/* Copy link */}
-      <button className="btn btn-ghost btn-sm" onClick={handleCopyLink} style={{ maxWidth: 220, overflow: 'hidden' }}>
+      <button className="btn btn-ghost btn-sm flex-1 sm:flex-none" onClick={handleCopyLink} style={{ maxWidth: 220, overflow: 'hidden' }}>
         <Icon name="link" size={14} />
         {copied ? 'Copiado!' : 'Copiar link'}
       </button>
 
       {/* Regenerate token */}
       <button
-        className="btn btn-ghost btn-sm"
+        className="btn btn-ghost btn-sm flex-1 sm:flex-none"
         onClick={handleRegenerateToken}
         disabled={loading === 'regen'}
         title="Gerar novo link (invalida o antigo)">
@@ -81,7 +81,7 @@ export default function CampaignActions({ campaignId, status, approvalLink, isLo
       {/* Send for approval */}
       {canSend && (
         <button
-          className="btn btn-primary btn-sm"
+          className="btn btn-primary btn-sm flex-1 sm:flex-none"
           onClick={handleSendForApproval}
           disabled={loading === 'send'}>
           <Icon name="arrow" size={14} />

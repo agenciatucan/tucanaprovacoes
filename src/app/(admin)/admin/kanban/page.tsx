@@ -53,7 +53,7 @@ export default async function KanbanPage({
   return (
     <div className="page" style={{ maxWidth: 1600, paddingBottom: 60 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">Tucan · Interno</div>
           <h1 className="h1" style={{ marginTop: 6 }}>Kanban</h1>
@@ -82,7 +82,7 @@ export default async function KanbanPage({
       </div>
 
       {/* Kanban board */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, alignItems: 'start' }}>
         {COLUMNS.map((col) => {
           const colItems = grouped[col.key] ?? [];
           return (

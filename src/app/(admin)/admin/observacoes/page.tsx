@@ -49,7 +49,7 @@ export default async function ObservacoesPage({
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">Tucan · Interno</div>
           <h1 className="h1" style={{ marginTop: 6 }}>Observações</h1>
@@ -96,7 +96,7 @@ export default async function ObservacoesPage({
       {/* List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {total === 0 && (
-          <div className="card" style={{ padding: 48, textAlign: 'center' }}>
+          <div className="card" style={{ padding: 'clamp(28px, 7vw, 48px)', textAlign: 'center' }}>
             <p className="muted">Nenhuma observação {showing.toLowerCase()} encontrada.</p>
           </div>
         )}

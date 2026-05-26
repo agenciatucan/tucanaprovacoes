@@ -270,3 +270,89 @@ textarea.input { height: auto; padding: 12px 14px; resize: vertical; line-height
     radial-gradient(circle at 80% 10%, rgba(235,96,19,0.18) 0%, transparent 35%),
     radial-gradient(circle at 0% 100%, rgba(255,255,255,0.05) 0%, transparent 40%);
 }
+
+/* ── Mobile responsiveness patch ───────────────────────── */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 24px 16px 40px;
+    max-width: 100% !important;
+    overflow-x: hidden;
+  }
+
+  .page-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .h1 {
+    font-size: 30px;
+    line-height: 1.08;
+  }
+
+  .h2 {
+    font-size: 20px;
+  }
+
+  .card,
+  .card-lg,
+  .card-flat {
+    padding: 16px;
+  }
+
+  .btn {
+    min-height: 40px;
+  }
+
+  .btn:not(.btn-icon) {
+    white-space: normal;
+  }
+
+  .status,
+  .chip,
+  .fmt {
+    max-width: 100%;
+  }
+
+  .crumb {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .h1 {
+    font-size: 28px;
+  }
+
+  .topbar {
+    height: 64px;
+    padding: 0 16px;
+  }
+}

@@ -76,7 +76,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Nome + Empresa */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="name">Nome do contato <span style={{ color: 'var(--orange)' }}>*</span></label>
           <input id="name" required className="input" placeholder="Ex.: Dr. João Silva" value={form.name} onChange={(e) => set('name', e.target.value)} />
@@ -88,7 +88,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
       </div>
 
       {/* Email + WhatsApp */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="email">E-mail do aprovador <span style={{ color: 'var(--orange)' }}>*</span></label>
           <input
@@ -107,7 +107,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
       </div>
 
       {/* Responsável + Status */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="internal_owner_id">Responsável interno <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
           <select id="internal_owner_id" className="input" value={form.internal_owner_id} onChange={(e) => set('internal_owner_id', e.target.value)} style={{ appearance: 'none', cursor: 'pointer' }}>

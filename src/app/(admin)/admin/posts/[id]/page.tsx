@@ -42,7 +42,7 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
           Novo post
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div className="eyebrow">{client?.company_name ?? client?.name}</div>
             <h1 className="h1" style={{ marginTop: 6 }}>Novo post</h1>
@@ -90,7 +90,7 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
         {post.title}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">{client?.company_name ?? client?.name}</div>
           <h1 className="h1" style={{ marginTop: 6, fontSize: 26 }}>{post.title}</h1>
@@ -101,7 +101,7 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
         </Link>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'start' }}>
         {/* Form */}
         <div className="card card-lg">
           <h2 className="h2" style={{ fontSize: 16, marginBottom: 20 }}>Editar conteúdo</h2>

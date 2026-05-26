@@ -16,14 +16,14 @@ export default async function NovoClientePage() {
     .order('name');
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
+    <div className="page" style={{ maxWidth: 860 }}>
       <div className="crumb" style={{ marginBottom: 20 }}>
         <Link href="/admin/clientes">Clientes</Link>
         <span>/</span>
         Novo cliente
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 className="h1">Novo cliente</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>O e-mail do aprovador será usado para o acesso ao portal.</p>

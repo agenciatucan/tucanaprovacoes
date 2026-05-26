@@ -51,7 +51,7 @@ export default async function ClienteDetailPage({ params }: Props) {
         {client.name}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 28 }}>
         {/* Left — info + edit */}
         <div>
           {/* Client header */}

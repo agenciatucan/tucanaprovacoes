@@ -6,9 +6,9 @@ export const metadata: Metadata = { title: 'Entrar' };
 
 export default function LoginPage() {
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '5fr 6fr' }}>
+    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
       {/* Left — brand panel */}
-      <div className="pattern-green" style={{ position: 'relative', color: '#fff', padding: '40px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden' }}>
+      <div className="pattern-green" style={{ position: 'relative', color: '#fff', padding: '32px clamp(16px, 4vw, 48px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden' }}>
         {/* Tucano watermark */}
         <div style={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: 'url(/assets/tucano.png)', backgroundSize: '110px', backgroundRepeat: 'repeat', transform: 'rotate(-12deg) scale(1.2)', pointerEvents: 'none' }} />
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right — form */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(28px, 7vw, 48px)', background: '#fff' }}>
         <div style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div>
             <h1 className="h1" style={{ fontSize: 28 }}>Entrar no portal</h1>

@@ -97,7 +97,7 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Semana + Formato + Ordem */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="week_label">Semana <span style={{ color: 'var(--orange)' }}>*</span></label>
           <input
@@ -134,7 +134,7 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
       </div>
 
       {/* Tema + Objetivo */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="theme">Tema</label>
           <input id="theme" className="input" placeholder="Tema principal do post" value={form.theme} onChange={(e) => set('theme', e.target.value)} />
@@ -166,7 +166,7 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
       )}
 
       {/* Referência + Notas internas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="reference_url">URL de referência <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
           <input id="reference_url" type="url" className="input" placeholder="https://…" value={form.reference_url} onChange={(e) => set('reference_url', e.target.value)} />

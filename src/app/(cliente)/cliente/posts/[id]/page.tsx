@@ -73,14 +73,14 @@ export default async function PostDetailPage({ params }: Props) {
       </div>
 
       {/* Title row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 16, flexWrap: 'wrap', gap: 24 }}>
         <div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <span className="chip">{post.week_label}</span>
             <span className={FMT_CLASS[post.format] ?? 'fmt'}>{FMT_LABEL[post.format] ?? post.format}</span>
             <StatusBadge kind={statusKind as any} />
           </div>
-          <h1 className="h1" style={{ fontSize: 26, maxWidth: 720 }}>{post.title}</h1>
+          <h1 className="h1" style={{ fontSize: 26, maxWidth: '100%' }}>{post.title}</h1>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <Link href={`/cliente/cronogramas/${campaign?.id}`} className="btn btn-ghost btn-sm">
@@ -93,7 +93,7 @@ export default async function PostDetailPage({ params }: Props) {
       </div>
 
       {/* Main grid: preview + details */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
         {/* Left — preview + files */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Post preview tile */}

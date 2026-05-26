@@ -36,7 +36,7 @@ export default async function CalendarioPage() {
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">Tucan · Interno</div>
           <h1 className="h1" style={{ marginTop: 6 }}>Calendário</h1>
@@ -48,7 +48,7 @@ export default async function CalendarioPage() {
       </div>
 
       {monthKeys.length === 0 ? (
-        <div className="card" style={{ padding: 64, textAlign: 'center' }}>
+        <div className="card" style={{ padding: 'clamp(32px, 8vw, 64px)', textAlign: 'center' }}>
           <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--green-50)', color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <Icon name="calendar" size={28} stroke={1.5} />
           </div>
@@ -74,7 +74,7 @@ export default async function CalendarioPage() {
                 </div>
 
                 {/* Timeline cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 52 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 'clamp(0px, 5vw, 52px)' }}>
                   {monthItems.map((c) => {
                     const client = Array.isArray(c.clients) ? c.clients[0] : c.clients;
                     const items = Array.isArray(c.content_items) ? c.content_items : [];

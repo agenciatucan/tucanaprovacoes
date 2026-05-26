@@ -21,7 +21,7 @@ export default async function EditarCronogramaPage({ params }: Props) {
   if (!campaign) notFound();
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
+    <div className="page" style={{ maxWidth: 860 }}>
       <div className="crumb" style={{ marginBottom: 20 }}>
         <Link href="/admin/cronogramas">Cronogramas</Link>
         <span>/</span>
@@ -30,7 +30,7 @@ export default async function EditarCronogramaPage({ params }: Props) {
         Editar
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 className="h1">Editar cronograma</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>Atualize as informações do cronograma.</p>

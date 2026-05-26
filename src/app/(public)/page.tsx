@@ -12,7 +12,7 @@ export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       {/* Top nav */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 48px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px clamp(16px, 4vw, 48px)' }}>
         <Image src="/assets/tucan-logo.png" alt="Tucan Marketing Digital" height={26} width={105} style={{ height: 26, width: 'auto' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <a style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500, cursor: 'pointer' }}>Sobre a Tucan</a>
@@ -21,9 +21,9 @@ export default function LandingPage() {
       </div>
 
       {/* Hero — split */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, padding: '24px 48px 48px', alignItems: 'stretch' }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 48, padding: '24px clamp(16px, 4vw, 48px) 48px', alignItems: 'stretch' }}>
         {/* Left */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingLeft: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingLeft: 0 }}>
           <div className="eyebrow" style={{ color: 'var(--orange)' }}>
             Portal Tucan · Aprovações
           </div>
@@ -35,7 +35,7 @@ export default function LandingPage() {
             Acompanhe semana a semana, aprove com um clique, peça ajustes sem perder o histórico.
           </p>
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 32, flexWrap: 'wrap' }}>
             <Link href="/login" className="btn btn-primary btn-lg">
               Entrar no portal <Icon name="arrow" size={16} />
             </Link>
@@ -44,7 +44,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div style={{ display: 'flex', gap: 28, marginTop: 48 }}>
+          <div style={{ display: 'flex', gap: 20, marginTop: 40, flexWrap: 'wrap' }}>
             {features.map((f) => (
               <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink-2)' }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--green-50)', color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,7 +57,7 @@ export default function LandingPage() {
         </div>
 
         {/* Right — tucano hero card */}
-        <div style={{ background: 'var(--green)', borderRadius: 28, overflow: 'hidden', position: 'relative', color: '#fff', padding: 36, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--green)', borderRadius: 28, overflow: 'hidden', position: 'relative', color: '#fff', padding: 'clamp(20px, 5vw, 36px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           {/* Repeating tucano watermark */}
           <div style={{ position: 'absolute', inset: 0, opacity: 0.07, backgroundImage: 'url(/assets/tucano.png)', backgroundSize: '120px', backgroundRepeat: 'repeat', transform: 'rotate(-8deg) scale(1.1)', transformOrigin: 'center', pointerEvents: 'none' }} />
 

@@ -16,7 +16,7 @@ export default async function NovoCronogramaPage() {
     .order('name');
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
+    <div className="page" style={{ maxWidth: 860 }}>
       {/* Breadcrumb */}
       <div className="crumb" style={{ marginBottom: 20 }}>
         <Link href="/admin/cronogramas">Cronogramas</Link>
@@ -24,7 +24,7 @@ export default async function NovoCronogramaPage() {
         Novo cronograma
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 className="h1">Novo cronograma</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>Preencha as informações para criar um novo cronograma de aprovação.</p>

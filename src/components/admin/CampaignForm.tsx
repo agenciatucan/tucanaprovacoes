@@ -111,7 +111,7 @@ export default function CampaignForm({ clients, initial }: CampaignFormProps) {
       </div>
 
       {/* Tipo + Data início */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="type">Tipo <span style={{ color: 'var(--orange)' }}>*</span></label>
           <select id="type" required className="input" value={form.type} onChange={(e) => set('type', e.target.value)} style={{ appearance: 'none', cursor: 'pointer' }}>
@@ -125,7 +125,7 @@ export default function CampaignForm({ clients, initial }: CampaignFormProps) {
       </div>
 
       {/* Período + Data fim */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="period_label">Período textual <span style={{ color: 'var(--orange)' }}>*</span></label>
           <input
