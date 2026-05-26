@@ -47,11 +47,9 @@ export async function createContentItem(
     .from("campaigns").select("client_id").eq("id", parsed.data.campaign_id).single();
   if (!campaign) return { success: false, error: "Cronograma não encontrado" };
 
-  // Se não foi passado order_index explícito, calcular o próximo
-  let orderIndex = parsed.data.order_index;
-  if (orderIndex === undefined || orderIndex === null) {
-    orderIndex = await getNextOrderIndex(supabase, parsed.data.campaign_id);
-  }
+  // Sempre calcula o próximo índice disponível para evitar violação de
+  // UNIQUE (campaign_id, order_index) — o form começa em 0, mas pode já existir
+  const orderIndex = await getNextOrderIndex(supabase, parsed.data.campaign_id);
 
   const { data, error } = await supabase
     .from("content_items")
@@ -70,8 +68,8 @@ export async function createContentItem(
     .single();
 
   if (error || !data) {
-    console.error("[createContentItem]", error?.message);
-    return { success: false, error: "Erro ao criar post" };
+    console.error("[createContentItem]", error?.message, error?.code, error?.details);
+    return { success: false, error: error?.message ?? "Erro ao criar post" };
   }
 
   revalidatePath(`/admin/cronogramas/${parsed.data.campaign_id}`);
@@ -99,8 +97,8 @@ export async function updateContentItem(
     .eq("id", id);
 
   if (error) {
-    console.error("[updateContentItem]", error.message);
-    return { success: false, error: "Erro ao atualizar post" };
+    console.error("[updateContentItem]", error.message, error.code, error.details);
+    return { success: false, error: error.message ?? "Erro ao atualizar post" };
   }
 
   revalidatePath(`/admin/cronogramas/${campaign_id}`);

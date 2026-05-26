@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
@@ -125,7 +126,7 @@ export default async function GerenciarCronogramaPage({ params }: Props) {
       {/* Posts */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 className="h2" style={{ fontSize: 18 }}>Posts do cronograma</h2>
-        <Link href={`/admin/posts/novo?campaign=${id}`} className="btn btn-primary btn-sm">
+        <Link href={`/admin/posts/novo?campaign=${id}` as Route} className="btn btn-primary btn-sm">
           <Icon name="plus" size={14} /> Adicionar post
         </Link>
       </div>
@@ -133,7 +134,7 @@ export default async function GerenciarCronogramaPage({ params }: Props) {
       {total === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: 'center' }}>
           <p className="muted" style={{ marginBottom: 12 }}>Nenhum post ainda. Adicione o primeiro post ao cronograma.</p>
-          <Link href={`/admin/posts/novo?campaign=${id}`} className="btn btn-primary">
+          <Link href={`/admin/posts/novo?campaign=${id}` as Route} className="btn btn-primary">
             <Icon name="plus" size={16} /> Adicionar primeiro post
           </Link>
         </div>
@@ -172,7 +173,7 @@ export default async function GerenciarCronogramaPage({ params }: Props) {
                     </div>
                     <div><StatusBadge kind={postKind as Parameters<typeof StatusBadge>[0]['kind']} /></div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                      <Link href={`/admin/posts/${post.id}`} className="btn btn-ghost btn-sm" style={{ height: 30, padding: '0 10px', fontSize: 12 }}>
+                      <Link href={`/admin/posts/${post.id}` as Route} className="btn btn-ghost btn-sm" style={{ height: 30, padding: '0 10px', fontSize: 12 }}>
                         <Icon name="edit" size={12} /> Editar
                       </Link>
                     </div>
