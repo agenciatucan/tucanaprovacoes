@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    // Next.js / React
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+
+    // TypeScript
+    "ms-vscode.vscode-typescript-next",
+
+    // Supabase
+    "supabase.supabase-editor",
+
+    // Git
+    "eamodio.gitlens",
+
+    // DX
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv",
+    "formulahendry.auto-rename-tag",
+    "usernamehw.errorlens"
+  ]
+}

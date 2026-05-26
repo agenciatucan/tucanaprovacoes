@@ -1,0 +1,16 @@
+# Normaliza quebras de linha: LF no repositório, conversão automática no checkout
+* text=auto eol=lf
+
+# Arquivos binários — sem conversão
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+
+# JSONs e lock files — manter como estão
+package-lock.json text eol=lf
