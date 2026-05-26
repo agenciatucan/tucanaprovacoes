@@ -101,11 +101,12 @@ export default function PostForm({ campaignId, returnHref, existingWeeks, initia
 
   const isReels = form.format === 'reels';
 
-  // Sugestões do datalist: semanas já existentes no cronograma (se houver),
-  // caso contrário mostra os valores padrão. O usuário pode digitar qualquer valor.
-  const weekOptions = existingWeeks && existingWeeks.length > 0
-    ? existingWeeks
-    : DEFAULT_WEEK_SUGGESTIONS;
+  // Sugestões do datalist: semanas existentes primeiro (para facilitar reusar),
+  // depois as padrão que ainda não estiverem na lista.
+  // Assim o usuário sempre vê pelo menos Semana 1–5 e também as já criadas.
+  const weekOptions = [
+    ...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEK_SUGGESTIONS]),
+  ];
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
