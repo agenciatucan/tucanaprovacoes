@@ -36,10 +36,10 @@ export async function createCampaign(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autorizado" };
 
-  // Apenas admin pode criar cronogramas
+  // Apenas admin/equipe pode criar cronogramas
   const { data: profile } = await supabase
     .from("user_profiles")
-    .select("role")
+    .select("id, role")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -57,13 +57,14 @@ export async function createCampaign(
       approval_token: generateApprovalToken(),
       token_expires_at: getTokenExpiry(),
       is_locked: false,
-      created_by: user.id,
+      created_by: profile.id,   // user_profiles.id, não auth_user_id
     })
     .select("id")
     .single();
 
   if (error || !data) {
-    return { success: false, error: "Erro ao criar cronograma" };
+    console.error("[createCampaign] Supabase error:", error);
+    return { success: false, error: error?.message ?? "Erro ao criar cronograma" };
   }
 
   revalidatePath("/admin/cronogramas");
