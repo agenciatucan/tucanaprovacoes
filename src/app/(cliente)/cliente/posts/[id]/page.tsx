@@ -5,6 +5,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import ApprovalPanel from '@/components/aprovacao/ApprovalPanel';
+import MediaGallery from '@/components/cliente/MediaGallery';
+import CopyButton from '@/components/cliente/CopyButton';
 
 export const metadata: Metadata = { title: 'Post' };
 
@@ -36,7 +38,6 @@ export default async function PostDetailPage({ params }: Props) {
   if (!post) notFound();
 
   const campaign = Array.isArray(post.campaigns) ? post.campaigns[0] : post.campaigns;
-  const client = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
 
   // Verify access
   const { data: access } = await supabase
@@ -51,15 +52,21 @@ export default async function PostDetailPage({ params }: Props) {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  // Files
+  // Files visible to client
   const { data: files } = await supabase
     .from('files')
     .select('id, file_name, file_url, file_type, file_size_bytes')
     .eq('content_item_id', id)
-    .eq('visible_to_client', true);
+    .eq('visible_to_client', true)
+    .order('created_at', { ascending: true });
 
-  const STATUS_KIND: Record<string, string> = { pendente: 'aguardando', em_revisao: 'revisao', aprovado: 'aprovado', em_producao: 'agendado', finalizado: 'publicado' };
+  const STATUS_KIND: Record<string, string> = {
+    pendente: 'aguardando', em_revisao: 'revisao', aprovado: 'aprovado',
+    em_producao: 'agendado', finalizado: 'publicado',
+  };
   const statusKind = STATUS_KIND[post.general_status as string] ?? 'rascunho';
+  const fmtClass   = FMT_CLASS[post.format] ?? 'fmt';
+  const fmtLabel   = FMT_LABEL[post.format] ?? post.format;
 
   return (
     <div className="page" style={{ maxWidth: 1320 }}>
@@ -77,7 +84,7 @@ export default async function PostDetailPage({ params }: Props) {
         <div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <span className="chip">{post.week_label}</span>
-            <span className={FMT_CLASS[post.format] ?? 'fmt'}>{FMT_LABEL[post.format] ?? post.format}</span>
+            <span className={fmtClass}>{fmtLabel}</span>
             <StatusBadge kind={statusKind as any} />
           </div>
           <h1 className="h1" style={{ fontSize: 26, maxWidth: 720 }}>{post.title}</h1>
@@ -86,86 +93,67 @@ export default async function PostDetailPage({ params }: Props) {
           <Link href={`/cliente/cronogramas/${campaign?.id}`} className="btn btn-ghost btn-sm">
             <Icon name="arrow-left" size={14} /> Voltar
           </Link>
-          {(files?.length ?? 0) > 0 && (
-            <button className="btn btn-ghost btn-sm"><Icon name="download" size={14} /> Baixar arquivos</button>
-          )}
         </div>
       </div>
 
       {/* Main grid: preview + details */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 24 }}>
-        {/* Left — preview + files */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Post preview tile */}
-          <div className="card" style={{ padding: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-            <div style={{ width: '100%', maxWidth: 480, height: 320, borderRadius: 16, background: '#e8f0e5', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ textAlign: 'center', padding: 24 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)', lineHeight: 1.4 }}>"{post.title}"</div>
-              </div>
-              <div style={{ position: 'absolute', bottom: 12, left: 12, right: 12, background: 'rgba(0,0,0,0.5)', borderRadius: 8, padding: '6px 10px' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Prévia do conteúdo — {FMT_LABEL[post.format] ?? post.format}</div>
-              </div>
-            </div>
-          </div>
+        {/* Left — media gallery */}
+        <MediaGallery
+          files={files ?? []}
+          postTitle={post.title}
+          postFormat={fmtLabel}
+        />
 
-          {/* Files */}
-          {files && files.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {files.map((f) => (
-                <a key={f.id} href={f.file_url} target="_blank" rel="noreferrer" className="chip chip-outline" style={{ textDecoration: 'none' }}>
-                  <Icon name="file" size={12} /> {f.file_name}
-                </a>
-              ))}
+        {/* Right — content details */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Briefing */}
+          {(post.theme || post.objective || post.creative_concept) && (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {post.theme && (
+                <div>
+                  <div className="eyebrow">Tema</div>
+                  <div style={{ marginTop: 4, fontWeight: 600, fontSize: 15 }}>{post.theme}</div>
+                </div>
+              )}
+              {post.theme && post.objective && <div className="divider" />}
+              {post.objective && (
+                <div>
+                  <div className="eyebrow">Objetivo</div>
+                  <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>{post.objective}</div>
+                </div>
+              )}
+              {post.objective && post.creative_concept && <div className="divider" />}
+              {post.creative_concept && (
+                <div>
+                  <div className="eyebrow">Conceito criativo</div>
+                  <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>{post.creative_concept}</div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-
-        {/* Right — content details + approval */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Content details */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {post.theme && (
-              <div>
-                <div className="eyebrow">Tema</div>
-                <div style={{ marginTop: 4, fontWeight: 600, fontSize: 15 }}>{post.theme}</div>
-              </div>
-            )}
-            {post.theme && post.objective && <div className="divider" />}
-            {post.objective && (
-              <div>
-                <div className="eyebrow">Objetivo</div>
-                <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>{post.objective}</div>
-              </div>
-            )}
-            {post.objective && post.creative_concept && <div className="divider" />}
-            {post.creative_concept && (
-              <div>
-                <div className="eyebrow">Conceito criativo</div>
-                <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-2)' }}>{post.creative_concept}</div>
-              </div>
-            )}
-          </div>
 
           {/* Caption */}
           {post.caption && (
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div className="eyebrow">Legenda sugerida</div>
-                <button className="btn-text tiny" style={{ color: 'var(--ink-2)', fontWeight: 600 }}>
-                  <Icon name="link" size={12} /> Copiar
-                </button>
+                <CopyButton text={post.caption} />
               </div>
-              <div style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+              <div style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
                 {post.caption}
               </div>
             </div>
           )}
 
-          {/* Script (for Reels) */}
+          {/* Script (Reels) */}
           {post.script && (
             <div className="card">
-              <div className="eyebrow" style={{ marginBottom: 8 }}>Roteiro</div>
-              <div style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div className="eyebrow">Roteiro</div>
+                <CopyButton text={post.script} />
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
                 {post.script}
               </div>
             </div>
@@ -173,7 +161,7 @@ export default async function PostDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Approval panel — interactive client component */}
+      {/* Approval panel */}
       <div style={{ marginTop: 24 }}>
         <ApprovalPanel
           post={{
