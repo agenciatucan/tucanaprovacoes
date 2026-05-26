@@ -34,7 +34,7 @@ export const clientSchema = z.object({
   email:             z.string().email("E-mail inválido"),
   whatsapp:          z.string()
                        .regex(/^\+?[\d\s\-()]{10,20}$/, "WhatsApp inválido")
-                       .optional().or(z.literal("")).transform(v => v || null),
+                       .nullish().or(z.literal("")).transform(v => v || null),
   internal_owner_id: UUID.optional().nullable(),
   status:            z.enum(["ativo", "inativo"]).default("ativo"),
   internal_notes:    OPTIONAL_TEXT(1000),

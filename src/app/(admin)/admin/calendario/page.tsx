@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -86,7 +87,7 @@ export default async function CalendarioPage() {
                     const endDate = c.end_date ? new Date(c.end_date + 'T00:00:00') : null;
 
                     return (
-                      <Link key={c.id} href={`/admin/cronogramas/${c.id}`} className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 20px', textDecoration: 'none', color: 'inherit', transition: 'box-shadow .15s' }}>
+                      <Link key={c.id} href={`/admin/cronogramas/${c.id}` as Route} className="card" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 20px', textDecoration: 'none', color: 'inherit', transition: 'box-shadow .15s' }}>
                         {/* Date badge */}
                         <div style={{ textAlign: 'center', minWidth: 44, flexShrink: 0 }}>
                           <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: 'var(--green)' }}>
