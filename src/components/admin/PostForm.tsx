@@ -166,11 +166,11 @@ export default function PostForm({ campaignId, returnHref, existingWeeks, initia
         <textarea id="caption" rows={5} className="input" placeholder="Texto completo da legenda para o cliente aprovar…" value={form.caption} onChange={(e) => set('caption', e.target.value)} />
       </div>
 
-      {/* Roteiro (apenas Reels) */}
+      {/* Roteiro (apenas Reels — obrigatório) */}
       {isReels && (
         <div className="field">
           <label className="field-label" htmlFor="script">Roteiro <span style={{ color: 'var(--orange)' }}>*</span></label>
-          <textarea id="script" rows={5} className="input" placeholder="Roteiro completo para o Reels (cenas, falas, referências visuais)…" value={form.script} onChange={(e) => set('script', e.target.value)} />
+          <textarea id="script" required rows={5} className="input" placeholder="Roteiro completo para o Reels (cenas, falas, referências visuais)…" value={form.script} onChange={(e) => set('script', e.target.value)} />
         </div>
       )}
 
