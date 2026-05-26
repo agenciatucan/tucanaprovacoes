@@ -4,10 +4,12 @@ import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Icon } from './Icon';
+import { signOut } from '@/actions/auth';
 
 interface Props {
   variant: 'admin' | 'client';
   initials?: string;
+  name?: string;
 }
 
 const CLIENT_LINKS = [
@@ -25,7 +27,7 @@ const ADMIN_LINKS = [
   { href: '/admin/observacoes',     label: 'Observações' },
 ];
 
-export function TopBar({ variant, initials = 'TU' }: Props) {
+export function TopBar({ variant, initials = 'TU', name }: Props) {
   const pathname = usePathname();
   const links = variant === 'admin' ? ADMIN_LINKS : CLIENT_LINKS;
 
@@ -50,7 +52,26 @@ export function TopBar({ variant, initials = 'TU' }: Props) {
           aria-label="Notificações">
           <Icon name="bell" size={16} />
         </button>
-        <div className="avatar">{initials}</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {name && (
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {name}
+            </span>
+          )}
+          <div className="avatar" title={name}>{initials}</div>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="btn-icon"
+              title="Sair"
+              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.6)', transition: 'color .15s, background .15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#fff'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(235,96,19,0.3)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.6)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)'; }}>
+              <Icon name="logout" size={15} />
+            </button>
+          </form>
+        </div>
       </div>
     </header>
   );

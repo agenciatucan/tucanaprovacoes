@@ -17,7 +17,7 @@ export default async function ClienteLayout({ children }: { children: React.Reac
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <TopBar variant="client" initials={initials} />
+      <TopBar variant="client" initials={initials} name={profile.name} />
       <main style={{ flex: 1 }}>
         {children}
       </main>

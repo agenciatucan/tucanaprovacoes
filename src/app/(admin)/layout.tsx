@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <TopBar variant="admin" initials={initials} />
+      <TopBar variant="admin" initials={initials} name={profile.name} />
       <main style={{ flex: 1, overflowY: 'auto' }}>
         {children}
       </main>
