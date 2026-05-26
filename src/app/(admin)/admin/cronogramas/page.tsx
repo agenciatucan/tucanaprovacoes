@@ -1,8 +1,10 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
+import SearchInput from '@/components/ui/SearchInput';
 
 export const metadata: Metadata = { title: 'Cronogramas' };
 
@@ -23,9 +25,9 @@ const STATUS_KIND: Record<string, string> = {
 export default async function AdminCronogramasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; cliente?: string }>;
+  searchParams: Promise<{ status?: string; search?: string }>;
 }) {
-  const { status: filterStatus } = await searchParams;
+  const { status: filterStatus, search: filterSearch } = await searchParams;
   const supabase = await getSupabaseServerClient();
 
   let query = supabase
@@ -35,6 +37,10 @@ export default async function AdminCronogramasPage({
 
   if (filterStatus && filterStatus !== 'todos') {
     query = query.eq('status', filterStatus);
+  }
+
+  if (filterSearch?.trim()) {
+    query = query.ilike('name', `%${filterSearch.trim()}%`);
   }
 
   const { data: campaigns } = await query;
@@ -65,19 +71,24 @@ export default async function AdminCronogramasPage({
 
       {/* Filter bar */}
       <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-          <div style={{ position: 'absolute', left: 12, top: 11, pointerEvents: 'none' }}>
-            <Icon name="search" size={16} color="var(--muted-2)" />
-          </div>
-          <input className="input" placeholder="Buscar cronograma ou cliente…" style={{ paddingLeft: 38, height: 38, borderColor: 'transparent', background: 'var(--bg)' }} />
-        </div>
+        <SearchInput
+          basePath="/admin/cronogramas"
+          paramName="search"
+          defaultValue={filterSearch ?? ''}
+          preserveParams={{ status: filterStatus && filterStatus !== 'todos' ? filterStatus : undefined }}
+          placeholder="Buscar cronograma…"
+        />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {filters.map((f) => {
             const active = (!filterStatus && f.key === 'todos') || filterStatus === f.key;
+            const search = filterSearch ? `&search=${filterSearch}` : '';
+            const href = (f.key === 'todos'
+              ? `/admin/cronogramas${filterSearch ? `?search=${filterSearch}` : ''}`
+              : `/admin/cronogramas?status=${f.key}${search}`) as Route;
             return (
               <Link
                 key={f.key}
-                href={f.key === 'todos' ? '/admin/cronogramas' : `/admin/cronogramas?status=${f.key}`}
+                href={href}
                 className="chip"
                 style={{ height: 30, textDecoration: 'none', background: active ? 'var(--green)' : undefined, color: active ? '#fff' : undefined }}>
                 {f.label}
@@ -85,6 +96,11 @@ export default async function AdminCronogramasPage({
             );
           })}
         </div>
+        {(filterStatus || filterSearch) && (
+          <Link href="/admin/cronogramas" className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
+            Limpar filtros
+          </Link>
+        )}
       </div>
 
       {/* List */}
