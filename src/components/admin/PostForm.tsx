@@ -14,11 +14,14 @@ const FORMAT_OPTS = [
   { value: 'outro',        label: 'Outro' },
 ];
 
-const WEEK_SUGGESTIONS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+// Fallback usado apenas quando ainda não há posts no cronograma
+const DEFAULT_WEEK_SUGGESTIONS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
 
 interface PostFormProps {
   campaignId: string;
   returnHref: string;
+  /** Semanas que já existem no cronograma — passadas pela Server Page */
+  existingWeeks?: string[];
   initial?: {
     id: string;
     campaign_id: string;
@@ -36,13 +39,14 @@ interface PostFormProps {
   };
 }
 
-export default function PostForm({ campaignId, returnHref, initial }: PostFormProps) {
+export default function PostForm({ campaignId, returnHref, existingWeeks, initial }: PostFormProps) {
   const router = useRouter();
   const isEdit = !!initial;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     campaign_id:      initial?.campaign_id      ?? campaignId,
-    week_label:       initial?.week_label       ?? 'Semana 1',
+    // Padrão: semana do post (edição), ou última semana existente, ou 'Semana 1'
+    week_label:       initial?.week_label       ?? existingWeeks?.at(-1) ?? 'Semana 1',
     order_index:      initial?.order_index      ?? 0,
     format:           initial?.format           ?? 'post_estatico',
     title:            initial?.title            ?? '',
@@ -97,6 +101,12 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
 
   const isReels = form.format === 'reels';
 
+  // Sugestões do datalist: semanas já existentes no cronograma (se houver),
+  // caso contrário mostra os valores padrão. O usuário pode digitar qualquer valor.
+  const weekOptions = existingWeeks && existingWeeks.length > 0
+    ? existingWeeks
+    : DEFAULT_WEEK_SUGGESTIONS;
+
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Semana + Formato + Ordem */}
@@ -110,7 +120,7 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
             onChange={(e) => set('week_label', e.target.value)}
           />
           <datalist id="week-suggestions">
-            {WEEK_SUGGESTIONS.map((w) => <option key={w} value={w} />)}
+            {weekOptions.map((w) => <option key={w} value={w} />)}
           </datalist>
         </div>
         <div className="field">

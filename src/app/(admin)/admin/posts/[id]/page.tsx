@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import PostForm from '@/components/admin/PostForm';
@@ -22,13 +23,24 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
   if (isNew) {
     if (!campaignIdParam) notFound();
 
-    const { data: campaign } = await supabase
-      .from('campaigns')
-      .select('id, name, client_id, clients(name, company_name)')
-      .eq('id', campaignIdParam)
-      .single();
+    // Busca campanha e semanas existentes em paralelo
+    const [{ data: campaign }, { data: existingItems }] = await Promise.all([
+      supabase
+        .from('campaigns')
+        .select('id, name, client_id, clients(name, company_name)')
+        .eq('id', campaignIdParam)
+        .single(),
+      supabase
+        .from('content_items')
+        .select('week_label')
+        .eq('campaign_id', campaignIdParam)
+        .order('order_index'),
+    ]);
 
     if (!campaign) notFound();
+
+    // Semanas já existentes no cronograma, sem repetição, na ordem em que aparecem
+    const existingWeeks = [...new Set(existingItems?.map((i) => i.week_label) ?? [])];
 
     const client = Array.isArray(campaign.clients) ? campaign.clients[0] : campaign.clients;
 
@@ -37,7 +49,7 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
         <div className="crumb" style={{ marginBottom: 20 }}>
           <Link href="/admin/cronogramas">Cronogramas</Link>
           <span>/</span>
-          <Link href={`/admin/cronogramas/${campaign.id}`}>{campaign.name}</Link>
+          <Link href={`/admin/cronogramas/${campaign.id}` as Route}>{campaign.name}</Link>
           <span>/</span>
           Novo post
         </div>
@@ -48,13 +60,17 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
             <h1 className="h1" style={{ marginTop: 6 }}>Novo post</h1>
             <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>Adicionar ao cronograma: <strong>{campaign.name}</strong></p>
           </div>
-          <Link href={`/admin/cronogramas/${campaign.id}`} className="btn btn-ghost btn-sm">
+          <Link href={`/admin/cronogramas/${campaign.id}` as Route} className="btn btn-ghost btn-sm">
             <Icon name="arrow-left" size={14} /> Voltar
           </Link>
         </div>
 
         <div className="card card-lg">
-          <PostForm campaignId={campaign.id} returnHref={`/admin/cronogramas/${campaign.id}`} />
+          <PostForm
+            campaignId={campaign.id}
+            returnHref={`/admin/cronogramas/${campaign.id}`}
+            existingWeeks={existingWeeks}
+          />
         </div>
       </div>
     );
