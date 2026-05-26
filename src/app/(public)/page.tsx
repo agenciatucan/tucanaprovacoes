@@ -14,10 +14,7 @@ export default function LandingPage() {
       {/* Top nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 48px' }}>
         <Image src="/assets/tucan-logo.png" alt="Tucan Marketing Digital" height={26} width={105} style={{ height: 26, width: 'auto' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <a style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500, cursor: 'pointer' }}>Sobre a Tucan</a>
-          <Link href="/login" className="btn btn-ghost btn-sm">Entrar</Link>
-        </div>
+        <a style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500, cursor: 'pointer' }}>Sobre a Tucan</a>
       </div>
 
       {/* Hero — split */}
