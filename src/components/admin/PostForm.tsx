@@ -63,19 +63,22 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
     e.preventDefault();
     setLoading(true);
 
+    // Envia strings vazias para campos opcionais — o schema Zod (OPTIONAL_TEXT)
+    // aceita "" e transforma para null. NÃO enviar null diretamente porque
+    // o Zod rejeita null em campos definidos como optional() (não nullable()).
     const payload = {
       campaign_id:      form.campaign_id,
       week_label:       form.week_label,
       order_index:      Number(form.order_index),
       format:           form.format as 'reels' | 'carrossel' | 'post_estatico' | 'story' | 'outro',
       title:            form.title,
-      theme:            form.theme || null,
-      objective:        form.objective || null,
-      creative_concept: form.creative_concept || null,
-      caption:          form.caption || null,
-      script:           form.script || null,
-      reference_url:    form.reference_url || null,
-      internal_notes:   form.internal_notes || null,
+      theme:            form.theme,
+      objective:        form.objective,
+      creative_concept: form.creative_concept,
+      caption:          form.caption,
+      script:           form.script,
+      reference_url:    form.reference_url,
+      internal_notes:   form.internal_notes,
     };
 
     const result = isEdit
