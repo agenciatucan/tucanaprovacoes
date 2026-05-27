@@ -47,11 +47,9 @@ export async function createContentItem(
     .from("campaigns").select("client_id").eq("id", parsed.data.campaign_id).single();
   if (!campaign) return { success: false, error: "Cronograma não encontrado" };
 
-  // Se não foi passado order_index explícito, calcular o próximo
-  let orderIndex = parsed.data.order_index;
-  if (orderIndex === undefined || orderIndex === null) {
-    orderIndex = await getNextOrderIndex(supabase, parsed.data.campaign_id);
-  }
+  // Sempre calcula o próximo índice disponível para evitar violação de
+  // UNIQUE (campaign_id, order_index) — o form começa em 0, mas pode já existir
+  const orderIndex = await getNextOrderIndex(supabase, parsed.data.campaign_id);
 
   const { data, error } = await supabase
     .from("content_items")
@@ -70,8 +68,8 @@ export async function createContentItem(
     .single();
 
   if (error || !data) {
-    console.error("[createContentItem]", error?.message);
-    return { success: false, error: "Erro ao criar post" };
+    console.error("[createContentItem]", error?.message, error?.code, error?.details);
+    return { success: false, error: error?.message ?? "Erro ao criar post" };
   }
 
   revalidatePath(`/admin/cronogramas/${parsed.data.campaign_id}`);
@@ -99,8 +97,8 @@ export async function updateContentItem(
     .eq("id", id);
 
   if (error) {
-    console.error("[updateContentItem]", error.message);
-    return { success: false, error: "Erro ao atualizar post" };
+    console.error("[updateContentItem]", error.message, error.code, error.details);
+    return { success: false, error: error.message ?? "Erro ao atualizar post" };
   }
 
   revalidatePath(`/admin/cronogramas/${campaign_id}`);
@@ -142,5 +140,60 @@ export async function updateContentItemStatus(
   if (error) return { success: false, error: "Erro ao atualizar status" };
 
   if (item?.campaign_id) revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
+  return { success: true, data: undefined };
+}
+
+// ── Reenviar post para aprovação do cliente ──────────────────
+// Reseta os campos com ajuste_solicitado de volta para aguardando,
+// mantendo os que já foram aprovados. Recalcula o general_status.
+export async function resendForApproval(id: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { data: item } = await supabase
+    .from("content_items")
+    .select("campaign_id, theme_status, caption_status, artwork_status")
+    .eq("id", id)
+    .single();
+
+  if (!item) return { success: false, error: "Post não encontrado" };
+
+  const NEEDS_RESET = ["ajuste_solicitado", "substituir_tema"];
+
+  const updates: Record<string, string> = {};
+  if (NEEDS_RESET.includes(item.theme_status))   updates.theme_status   = "aguardando";
+  if (NEEDS_RESET.includes(item.caption_status)) updates.caption_status = "aguardando";
+  if (NEEDS_RESET.includes(item.artwork_status)) updates.artwork_status = "aguardando";
+
+  if (Object.keys(updates).length === 0) {
+    return { success: false, error: "Nenhum campo com ajuste pendente" };
+  }
+
+  // Recalcular general_status após reset
+  const newTheme   = updates.theme_status   ?? item.theme_status;
+  const newCaption = updates.caption_status ?? item.caption_status;
+  const newArtwork = updates.artwork_status ?? item.artwork_status;
+  const statuses   = [newTheme, newCaption, newArtwork];
+
+  const allApproved = statuses.every((s) => s === "aprovado");
+  const anyApproved = statuses.some((s) => s === "aprovado");
+  // Após reset, nenhum campo estará em ajuste_solicitado
+  const generalStatus = allApproved ? "aprovado" : anyApproved ? "em_revisao" : "pendente";
+
+  const { error } = await supabase
+    .from("content_items")
+    .update({ ...updates, general_status: generalStatus })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[resendForApproval]", error.message);
+    return { success: false, error: "Erro ao reenviar para aprovação" };
+  }
+
+  revalidatePath(`/admin/posts/${id}`);
+  revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
+  revalidatePath(`/cliente/posts/${id}`);
+  revalidatePath(`/cliente/cronogramas/${item.campaign_id}`);
   return { success: true, data: undefined };
 }

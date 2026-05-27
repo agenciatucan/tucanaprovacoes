@@ -49,8 +49,8 @@ export async function middleware(request: NextRequest) {
 
   // Rota pública — qualquer um pode acessar
   if (isPublicRoute) {
-    // Se já está logado, redireciona para a área correta
-    if (user && pathname === "/login") {
+    // Se já está logado em / ou /login, redireciona para a área correta
+    if (user && (pathname === "/" || pathname === "/login")) {
       const role = await getUserRole(supabase, user.id);
       return NextResponse.redirect(new URL(getDefaultRoute(role), request.url));
     }
@@ -71,8 +71,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/cliente", request.url));
   }
 
-  if (isClientRoute && role === "admin") {
-    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  if (isClientRoute && (role === "admin" || role === "equipe")) {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   return response;

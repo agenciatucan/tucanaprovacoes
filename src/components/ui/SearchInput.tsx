@@ -40,7 +40,7 @@ export default function SearchInput({
   }
 
   return (
-    <div style={{ position: 'relative', flex: 1, width: '100%', maxWidth: 380, minWidth: 220 }}>
+    <div style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
       <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
         <Icon name="search" size={16} color="var(--muted-2)" />
       </div>

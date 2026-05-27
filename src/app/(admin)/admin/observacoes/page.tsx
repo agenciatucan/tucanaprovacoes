@@ -19,7 +19,7 @@ export default async function ObservacoesPage({
     .from('comments_history')
     .select(`
       id, message, status, created_at, resolved_at,
-      user_profiles(name),
+      user_profiles!user_id(name),
       campaigns(id, name),
       content_items(id, title, format),
       clients(id, name, company_name)

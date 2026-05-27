@@ -14,11 +14,13 @@ const FORMAT_OPTS = [
   { value: 'outro',        label: 'Outro' },
 ];
 
-const WEEK_SUGGESTIONS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+const DEFAULT_WEEKS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
 
 interface PostFormProps {
   campaignId: string;
   returnHref: string;
+  /** Semanas que já existem no cronograma — passadas pela Server Page */
+  existingWeeks?: string[];
   initial?: {
     id: string;
     campaign_id: string;
@@ -36,13 +38,14 @@ interface PostFormProps {
   };
 }
 
-export default function PostForm({ campaignId, returnHref, initial }: PostFormProps) {
+export default function PostForm({ campaignId, returnHref, existingWeeks, initial }: PostFormProps) {
   const router = useRouter();
   const isEdit = !!initial;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     campaign_id:      initial?.campaign_id      ?? campaignId,
-    week_label:       initial?.week_label       ?? 'Semana 1',
+    // Padrão: semana do post (edição), ou última semana existente, ou 'Semana 1'
+    week_label:       initial?.week_label       ?? existingWeeks?.at(-1) ?? 'Semana 1',
     order_index:      initial?.order_index      ?? 0,
     format:           initial?.format           ?? 'post_estatico',
     title:            initial?.title            ?? '',
@@ -63,19 +66,22 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
     e.preventDefault();
     setLoading(true);
 
+    // Envia strings vazias para campos opcionais — o schema Zod (OPTIONAL_TEXT)
+    // aceita "" e transforma para null. NÃO enviar null diretamente porque
+    // o Zod rejeita null em campos definidos como optional() (não nullable()).
     const payload = {
       campaign_id:      form.campaign_id,
       week_label:       form.week_label,
       order_index:      Number(form.order_index),
       format:           form.format as 'reels' | 'carrossel' | 'post_estatico' | 'story' | 'outro',
       title:            form.title,
-      theme:            form.theme || null,
-      objective:        form.objective || null,
-      creative_concept: form.creative_concept || null,
-      caption:          form.caption || null,
-      script:           form.script || null,
-      reference_url:    form.reference_url || null,
-      internal_notes:   form.internal_notes || null,
+      theme:            form.theme,
+      objective:        form.objective,
+      creative_concept: form.creative_concept,
+      caption:          form.caption,
+      script:           form.script,
+      reference_url:    form.reference_url,
+      internal_notes:   form.internal_notes,
     };
 
     const result = isEdit
@@ -94,21 +100,24 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
 
   const isReels = form.format === 'reels';
 
+  // Semanas existentes no cronograma primeiro; depois as padrão ainda ausentes.
+  // Garante ao menos Semana 1–5 disponíveis em qualquer cronograma.
+  const weekOptions = [...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEKS])];
+
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Semana + Formato + Ordem */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
         <div className="field">
           <label className="field-label" htmlFor="week_label">Semana <span style={{ color: 'var(--orange)' }}>*</span></label>
-          <input
-            id="week_label" required list="week-suggestions" className="input"
-            placeholder="Ex.: Semana 1"
+          <select
+            id="week_label" required className="input"
             value={form.week_label}
             onChange={(e) => set('week_label', e.target.value)}
-          />
-          <datalist id="week-suggestions">
-            {WEEK_SUGGESTIONS.map((w) => <option key={w} value={w} />)}
-          </datalist>
+            style={{ appearance: 'none', cursor: 'pointer' }}
+          >
+            {weekOptions.map((w) => <option key={w} value={w}>{w}</option>)}
+          </select>
         </div>
         <div className="field">
           <label className="field-label" htmlFor="format">Formato <span style={{ color: 'var(--orange)' }}>*</span></label>
@@ -157,11 +166,11 @@ export default function PostForm({ campaignId, returnHref, initial }: PostFormPr
         <textarea id="caption" rows={5} className="input" placeholder="Texto completo da legenda para o cliente aprovar…" value={form.caption} onChange={(e) => set('caption', e.target.value)} />
       </div>
 
-      {/* Roteiro (apenas Reels) */}
+      {/* Roteiro (apenas Reels — obrigatório) */}
       {isReels && (
         <div className="field">
           <label className="field-label" htmlFor="script">Roteiro <span style={{ color: 'var(--orange)' }}>*</span></label>
-          <textarea id="script" rows={5} className="input" placeholder="Roteiro completo para o Reels (cenas, falas, referências visuais)…" value={form.script} onChange={(e) => set('script', e.target.value)} />
+          <textarea id="script" required rows={5} className="input" placeholder="Roteiro completo para o Reels (cenas, falas, referências visuais)…" value={form.script} onChange={(e) => set('script', e.target.value)} />
         </div>
       )}
 

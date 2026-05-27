@@ -1,5 +1,5 @@
 "use server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import {
   approvalSchema,
   approveCampaignSchema,
@@ -66,26 +66,83 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
   }
 
   // Atualizar status no content_item
+  // Usa serviceClient (service role) para contornar RLS — clientes não têm
+  // policy de UPDATE em content_items, mas a ação é autorizada pelo check acima.
   if (parsed.data.content_item_id) {
-    const fieldMap = {
+    const serviceClient = await getSupabaseServiceClient();
+
+    const fieldMap: Record<string, string> = {
       tema:    "theme_status",
       legenda: "caption_status",
       arte:    "artwork_status",
-    } as const;
+    };
 
-    const field = fieldMap[parsed.data.approval_type as keyof typeof fieldMap];
+    const field = fieldMap[parsed.data.approval_type];
+
     if (field) {
-      await supabase
+      // Aprovação de campo específico (tema / legenda / arte)
+      const { error: updateError } = await serviceClient
         .from("content_items")
         .update({ [field]: parsed.data.status })
+        .eq("id", parsed.data.content_item_id);
+
+      if (updateError) console.error("[submitApproval] field update error:", updateError.message);
+
+      // Recalcular general_status com base nos três campos após a atualização
+      const { data: updatedItem } = await serviceClient
+        .from("content_items")
+        .select("theme_status, caption_status, artwork_status")
         .eq("id", parsed.data.content_item_id)
-        .eq("client_id", campaign.client_id);
-      // O trigger fn_auto_update_post_status cuida do general_status automaticamente
+        .single();
+
+      if (updatedItem) {
+        const statuses = [
+          updatedItem.theme_status,
+          updatedItem.caption_status,
+          updatedItem.artwork_status,
+        ];
+        const allApproved = statuses.every((s) => s === "aprovado");
+        const anyAdjust   = statuses.some((s) => s === "ajuste_solicitado" || s === "substituir_tema");
+        const anyApproved = statuses.some((s) => s === "aprovado");
+
+        let newGeneralStatus: string;
+        if (allApproved)      newGeneralStatus = "aprovado";
+        else if (anyAdjust)   newGeneralStatus = "em_revisao";
+        else if (anyApproved) newGeneralStatus = "em_revisao"; // em progresso
+        else                  newGeneralStatus = "pendente";
+
+        await serviceClient
+          .from("content_items")
+          .update({ general_status: newGeneralStatus })
+          .eq("id", parsed.data.content_item_id);
+      }
+
+    } else if (parsed.data.approval_type === "post_completo") {
+      // Aprovação / ajuste do post inteiro — atualiza os três campos + general_status
+      const subStatus = parsed.data.status; // 'aprovado' ou 'ajuste_solicitado'
+
+      // general_status usa enum post_status — 'ajuste_solicitado' não é válido nele;
+      // nesse caso usa 'em_revisao' (aguardando revisão da equipe)
+      const generalStatus = subStatus === "aprovado" ? "aprovado" : "em_revisao";
+
+      const { error: updateError } = await serviceClient
+        .from("content_items")
+        .update({
+          theme_status:   subStatus,
+          caption_status: subStatus,
+          artwork_status: subStatus,
+          general_status: generalStatus,
+        })
+        .eq("id", parsed.data.content_item_id);
+
+      if (updateError) {
+        console.error("[submitApproval] post_completo update error:", updateError.message);
+        return { success: false, error: "Erro ao atualizar status do post" };
+      }
     }
 
     // Salvar observação no histórico se houver
     if (parsed.data.note) {
-      // Buscar snapshot atual dos status
       const { data: item } = await supabase
         .from("content_items")
         .select("theme_status, caption_status, artwork_status")
@@ -104,9 +161,80 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         snapshot_artwork_status: item?.artwork_status ?? null,
       });
     }
+
+    // Criar notificações para todos os admins/equipe (dentro do bloco content_item_id para serviceClient estar em escopo)
+    if (profile.role === "cliente") {
+      try {
+        const { data: postData } = await serviceClient
+          .from("content_items")
+          .select("title")
+          .eq("id", parsed.data.content_item_id)
+          .single();
+
+        const { data: clientProfile } = await serviceClient
+          .from("user_profiles")
+          .select("name")
+          .eq("id", profile.id)
+          .single();
+
+        const { data: staffProfiles } = await serviceClient
+          .from("user_profiles")
+          .select("id")
+          .in("role", ["admin", "equipe"]);
+
+        if (staffProfiles && staffProfiles.length > 0 && postData) {
+          const isApproval   = parsed.data.status === "aprovado";
+          const clientName   = clientProfile?.name ?? "Cliente";
+          const postTitle    = postData.title;
+          const approvalType = parsed.data.approval_type;
+
+          const FIELD_LABELS: Record<string, string> = {
+            tema:          "tema",
+            legenda:       "legenda",
+            arte:          "arte",
+            post_completo: "post",
+          };
+          const fieldLabel  = FIELD_LABELS[approvalType] ?? approvalType;
+          const isWholePost = approvalType === "post_completo";
+
+          const notifTitle = isApproval
+            ? (isWholePost ? "Post aprovado ✓" : `${fieldLabel.charAt(0).toUpperCase() + fieldLabel.slice(1)} aprovado ✓`)
+            : "Ajuste solicitado";
+
+          const notifMessage = isApproval
+            ? (isWholePost
+                ? `${clientName} aprovou "${postTitle}"`
+                : `${clientName} aprovou o ${fieldLabel} de "${postTitle}"`)
+            : `${clientName} pediu ajuste no ${fieldLabel} de "${postTitle}"${parsed.data.note ? `: ${parsed.data.note}` : ""}`;
+
+          // Somente notificar para ajustes (qualquer campo) e aprovação completa do post
+          // Aprovações de campo individual sem ajuste são silenciosas para não poluir
+          const shouldNotify = !isApproval || isWholePost;
+
+          if (shouldNotify) {
+            await serviceClient.from("notifications").insert(
+              staffProfiles.map((s) => ({
+                user_id:         s.id,
+                client_id:       campaign.client_id,
+                campaign_id:     parsed.data.campaign_id,
+                content_item_id: parsed.data.content_item_id,
+                type:            isApproval ? "post_aprovado" : "ajuste_solicitado",
+                title:           notifTitle,
+                message:         notifMessage,
+              }))
+            );
+          }
+        }
+      } catch (e) {
+        // Notificações são best-effort — não bloquear a aprovação
+        console.warn("[submitApproval] notification error:", e);
+      }
+    }
   }
 
+  revalidatePath(`/cliente/posts/${parsed.data.content_item_id}`);
   revalidatePath(`/cliente/cronogramas/${parsed.data.campaign_id}`);
+  revalidatePath(`/admin/posts/${parsed.data.content_item_id}`);
   revalidatePath(`/admin/cronogramas/${parsed.data.campaign_id}`);
   return { success: true, data: undefined };
 }

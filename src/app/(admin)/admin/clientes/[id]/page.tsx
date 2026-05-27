@@ -5,6 +5,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import ClientForm from '@/components/admin/ClientForm';
+import InactivateClientButton from '@/components/admin/InactivateClientButton';
+import ClientAccessPanel from '@/components/admin/ClientAccessPanel';
 
 export const metadata: Metadata = { title: 'Cliente' };
 
@@ -19,7 +21,7 @@ export default async function ClienteDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
 
-  const [{ data: client }, { data: staffUsers }] = await Promise.all([
+  const [{ data: client }, { data: staffUsers }, { data: clientUsers }] = await Promise.all([
     supabase
       .from('clients')
       .select('*, user_profiles(id, name)')
@@ -30,6 +32,11 @@ export default async function ClienteDetailPage({ params }: Props) {
       .select('id, name')
       .in('role', ['admin', 'equipe'])
       .order('name'),
+    supabase
+      .from('client_users')
+      .select('id, role, user_profiles(id, name, email)')
+      .eq('client_id', id)
+      .order('created_at'),
   ]);
 
   if (!client) notFound();
@@ -107,6 +114,15 @@ export default async function ClienteDetailPage({ params }: Props) {
             ))}
           </div>
 
+          {/* Portal access */}
+          <div className="card">
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Acesso ao portal</div>
+            <ClientAccessPanel
+              clientId={id}
+              clientUsers={clientUsers ?? []}
+            />
+          </div>
+
           {/* Campaigns */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -115,6 +131,7 @@ export default async function ClienteDetailPage({ params }: Props) {
                 <Icon name="plus" size={12} /> Novo
               </Link>
             </div>
+
 
             {(!campaigns || campaigns.length === 0) ? (
               <p className="muted tiny">Nenhum cronograma ainda.</p>
@@ -137,6 +154,28 @@ export default async function ClienteDetailPage({ params }: Props) {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Danger zone */}
+          <div className="card" style={{ border: '1px solid #fecaca' }}>
+            <div className="eyebrow" style={{ color: '#b91c1c', marginBottom: 10 }}>
+              {client.status === 'inativo' ? 'Conta inativa' : 'Zona de risco'}
+            </div>
+            {client.status === 'inativo' && (
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+                Este cliente está inativo. Seus cronogramas foram arquivados automaticamente.
+              </p>
+            )}
+            {client.status === 'ativo' && (
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+                Inativar o cliente arquiva automaticamente todos os cronogramas em andamento.
+              </p>
+            )}
+            <InactivateClientButton
+              clientId={client.id}
+              currentStatus={client.status as 'ativo' | 'inativo'}
+              clientName={client.name}
+            />
           </div>
 
           {/* Notes */}

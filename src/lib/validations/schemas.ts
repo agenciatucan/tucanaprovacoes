@@ -7,7 +7,11 @@ import { z } from "zod";
 // Constantes reutilizáveis
 const UUID = z.string().uuid("ID inválido");
 const DATE_STR = z.string().date("Data inválida");
-const OPTIONAL_TEXT = (max: number) => z.string().max(max).optional().or(z.literal("")).transform(v => v || null);
+// Aceita string, "", null ou undefined — transforma tudo "vazio" em null para o banco.
+// .nullish() = .optional().nullable() garante que null (enviado por alguns forms) não
+// cause "Invalid input" no erro de union do Zod.
+const OPTIONAL_TEXT = (max: number) =>
+  z.string().max(max).nullish().or(z.literal("")).transform(v => v || null);
 
 // ── Login ─────────────────────────────────────────────────────
 export const loginSchema = z.object({
@@ -30,7 +34,7 @@ export const clientSchema = z.object({
   email:             z.string().email("E-mail inválido"),
   whatsapp:          z.string()
                        .regex(/^\+?[\d\s\-()]{10,20}$/, "WhatsApp inválido")
-                       .optional().or(z.literal("")).transform(v => v || null),
+                       .nullish().or(z.literal("")).transform(v => v || null),
   internal_owner_id: UUID.optional().nullable(),
   status:            z.enum(["ativo", "inativo"]).default("ativo"),
   internal_notes:    OPTIONAL_TEXT(1000),
@@ -43,7 +47,7 @@ export const campaignSchema = z.object({
   name:         z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(200),
   type:         z.enum(["mensal", "quinzenal", "semanal", "campanha"]),
   start_date:   DATE_STR,
-  end_date:     DATE_STR.optional().or(z.literal("")).transform(v => v || null),
+  end_date:     DATE_STR.nullish().or(z.literal("")).transform(v => v || null),
   period_label: z.string().min(2, "Período obrigatório").max(100),
   overview:     OPTIONAL_TEXT(3000),
 });
@@ -61,9 +65,12 @@ export const contentItemSchema = z.object({
   creative_concept: OPTIONAL_TEXT(1000),
   caption:          OPTIONAL_TEXT(3000),
   script:           OPTIONAL_TEXT(5000),
-  reference_url:    z.string().url("URL inválida").optional().or(z.literal("")).transform(v => v || null),
+  reference_url:    z.string().url("URL inválida").nullish().or(z.literal("")).transform(v => v || null),
   internal_notes:   OPTIONAL_TEXT(1000),
-});
+}).refine(
+  (data) => !(data.format === "reels" && !data.script),
+  { message: "Roteiro é obrigatório para posts do tipo Reels", path: ["script"] }
+);
 export type ContentItemInput = z.infer<typeof contentItemSchema>;
 
 // ── Aprovação por campo (PDF seção 11) ────────────────────────
@@ -116,7 +123,7 @@ export const fileUploadSchema = z.object({
   content_item_id:  UUID,
   campaign_id:      UUID,
   file_type:        z.enum(["imagem", "video", "pdf", "roteiro", "referencia", "capa"]),
-  visible_to_client: z.boolean().default(false),
+  visible_to_client: z.boolean().default(true),
 });
 export type FileUploadInput = z.infer<typeof fileUploadSchema>;
 
