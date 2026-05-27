@@ -42,7 +42,7 @@ export default async function AprovadosPage() {
   const campaignIds = campaigns?.map((c) => c.id) ?? [];
 
   // Posts aprovados ou finalizados
-  const { data: items } = campaignIds.length > 0
+  const { data: rawItems } = campaignIds.length > 0
     ? await supabase
         .from('content_items')
         .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name)')
@@ -50,7 +50,8 @@ export default async function AprovadosPage() {
         .in('general_status', ['aprovado', 'finalizado'])
         .order('campaign_id')
         .order('week_label')
-    : { data: [] };
+    : { data: null };
+  const items = rawItems ?? [];
 
   // Agrupar por campanha
   const byCampaign: Record<string, { campaignName: string; campaignId: string; items: typeof items }> = {};
