@@ -47,7 +47,7 @@ export default async function PostDetailPage({ params }: Props) {
   // Comments history
   const { data: comments } = await supabase
     .from('comments_history')
-    .select('id, message, status, created_at, user_profiles(name)')
+    .select('id, message, status, created_at, user_profiles!user_id(name)')
     .eq('content_item_id', id)
     .order('created_at', { ascending: false })
     .limit(10);

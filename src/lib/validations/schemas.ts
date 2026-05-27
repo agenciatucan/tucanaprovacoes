@@ -123,7 +123,7 @@ export const fileUploadSchema = z.object({
   content_item_id:  UUID,
   campaign_id:      UUID,
   file_type:        z.enum(["imagem", "video", "pdf", "roteiro", "referencia", "capa"]),
-  visible_to_client: z.boolean().default(false),
+  visible_to_client: z.boolean().default(true),
 });
 export type FileUploadInput = z.infer<typeof fileUploadSchema>;
 

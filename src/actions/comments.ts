@@ -3,7 +3,7 @@
 // SERVER ACTIONS — Observações / Histórico
 // ============================================================
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
@@ -52,7 +52,9 @@ export async function addInternalComment(
     .from("campaigns").select("client_id").eq("id", campaignId).single();
   if (!campaign) return { success: false, error: "Cronograma não encontrado" };
 
-  const { error } = await supabase.from("comments_history").insert({
+  // Usa service client para contornar RLS de INSERT (admins não têm client_users)
+  const serviceClient = await getSupabaseServiceClient();
+  const { error } = await serviceClient.from("comments_history").insert({
     content_item_id: contentItemId,
     campaign_id: campaignId,
     client_id: campaign.client_id,
