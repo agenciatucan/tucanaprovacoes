@@ -41,20 +41,10 @@ export default async function AdminDashboard() {
   return (
     <div className="page">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
-        <div>
-          <div className="eyebrow">Tucan · Interno</div>
-          <h1 className="h1" style={{ marginTop: 6 }}>Visão geral</h1>
-          <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>Acompanhe tudo que está acontecendo na operação.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/admin/clientes/novo" className="btn btn-ghost btn-sm">
-            <Icon name="plus" size={14} /> Novo cliente
-          </Link>
-          <Link href="/admin/cronogramas/novo" className="btn btn-primary">
-            <Icon name="plus" size={16} /> Novo cronograma
-          </Link>
-        </div>
+      <div style={{ marginBottom: 28 }}>
+        <div className="eyebrow">Tucan · Interno</div>
+        <h1 className="h1" style={{ marginTop: 6 }}>Visão geral</h1>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>Acompanhe tudo que está acontecendo na operação.</p>
       </div>
 
       {/* Stats grid */}

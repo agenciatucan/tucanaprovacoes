@@ -39,6 +39,7 @@ interface Post {
   theme_status: string;
   caption_status: string;
   artwork_status: string;
+  thumbnail_url?: string;
 }
 
 export default function PostCard({ post, campaignId }: { post: Post; campaignId: string }) {
@@ -51,16 +52,25 @@ export default function PostCard({ post, campaignId }: { post: Post; campaignId:
       <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'box-shadow .15s, transform .15s' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-2)'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = ''; }}>
-        {/* Preview tile */}
-        <div style={{ height: 160, background: palette.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ textAlign: 'center', maxWidth: '100%' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: palette.fg + '20', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 12, height: 12, borderRadius: 3, background: palette.fg }} />
+        {/* Preview tile — imagem real ou paleta de cor */}
+        <div style={{ height: 160, background: palette.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: post.thumbnail_url ? 0 : 20, overflow: 'hidden', position: 'relative' }}>
+          {post.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={post.thumbnail_url}
+              alt={post.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <div style={{ textAlign: 'center', maxWidth: '100%' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: palette.fg + '20', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: palette.fg }} />
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: palette.fg, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const }}>
+                "{post.title}"
+              </div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: palette.fg, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const }}>
-              "{post.title}"
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Card body */}

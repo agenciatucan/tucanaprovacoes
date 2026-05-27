@@ -6,6 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import CampaignActions from '@/components/admin/CampaignActions';
+import WeekSection from '@/components/admin/WeekSection';
 
 export const metadata: Metadata = { title: 'Gerenciar cronograma' };
 
@@ -139,15 +140,13 @@ export default async function GerenciarCronogramaPage({ params }: Props) {
           </Link>
         </div>
       ) : (
-        weekKeys.map((week) => (
-          <div key={week} style={{ marginBottom: 28 }}>
-            {/* Week header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <h3 className="h3" style={{ color: 'var(--ink)' }}>{week}</h3>
-              <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
-              <span className="muted tiny">{weeks[week]?.length} posts</span>
-            </div>
-
+        weekKeys.map((week, weekIdx) => (
+          <WeekSection
+            key={week}
+            title={week}
+            count={weeks[week]?.length ?? 0}
+            defaultOpen={weekIdx === 0}
+          >
             {/* Posts table for this week */}
             <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--r)', overflow: 'hidden' }}>
               {weeks[week]?.map((post, i) => {
@@ -181,7 +180,7 @@ export default async function GerenciarCronogramaPage({ params }: Props) {
                 );
               })}
             </div>
-          </div>
+          </WeekSection>
         ))
       )}
     </div>

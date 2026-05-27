@@ -5,6 +5,7 @@ import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import PostForm from '@/components/admin/PostForm';
+import MediaUploader from '@/components/admin/MediaUploader';
 
 export const metadata: Metadata = { title: 'Post' };
 
@@ -88,13 +89,20 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
   const campaign = Array.isArray(post.campaigns) ? post.campaigns[0] : post.campaigns;
   const client = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
 
-  // Histórico de comentários
-  const { data: comments } = await supabase
-    .from('comments_history')
-    .select('id, message, status, created_at, user_profiles(name)')
-    .eq('content_item_id', id)
-    .order('created_at', { ascending: false })
-    .limit(10);
+  // Histórico de comentários + arquivos em paralelo
+  const [{ data: comments }, { data: postFiles }] = await Promise.all([
+    supabase
+      .from('comments_history')
+      .select('id, message, status, created_at, user_profiles(name)')
+      .eq('content_item_id', id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('files')
+      .select('id, file_name, file_url, file_type, file_size_bytes, visible_to_client')
+      .eq('content_item_id', id)
+      .order('created_at', { ascending: true }),
+  ]);
 
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
@@ -164,6 +172,17 @@ export default async function AdminPostPage({ params, searchParams }: Props) {
                 </span>
               </div>
             ))}
+          </div>
+
+          {/* Files / Media */}
+          <div className="card">
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Arquivos do post</div>
+            <MediaUploader
+              contentItemId={post.id}
+              campaignId={campaign?.id ?? ''}
+              clientId={campaign?.client_id ?? ''}
+              initialFiles={postFiles ?? []}
+            />
           </div>
 
           {/* Comments history */}

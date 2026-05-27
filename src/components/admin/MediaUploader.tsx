@@ -1,0 +1,331 @@
+'use client';
+import { useState, useRef, useTransition } from 'react';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { createSignedUploadUrl, saveFileRecord, deleteFile, toggleFileVisibility } from '@/actions/files';
+import { toast } from 'sonner';
+
+type FileRecord = {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size_bytes: number;
+  visible_to_client: boolean;
+};
+
+interface Props {
+  contentItemId: string;
+  campaignId: string;
+  clientId: string;
+  initialFiles: FileRecord[];
+}
+
+function inferFileType(mime: string): 'imagem' | 'video' | 'pdf' | 'roteiro' | 'referencia' {
+  if (mime.startsWith('image/')) return 'imagem';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime.startsWith('text/')) return 'roteiro';
+  return 'referencia';
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function FileIcon({ type }: { type: string }) {
+  if (type === 'imagem') return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+      <polyline points="21 15 16 10 5 21"/>
+    </svg>
+  );
+  if (type === 'video') return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+    </svg>
+  );
+  if (type === 'pdf') return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+  );
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+    </svg>
+  );
+}
+
+export default function MediaUploader({ contentItemId, campaignId, clientId, initialFiles }: Props) {
+  const [files, setFiles] = useState<FileRecord[]>(initialFiles);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFiles(selected: FileList) {
+    if (selected.length === 0) return;
+    setUploading(true);
+
+    const supabase = getSupabaseBrowserClient();
+
+    for (const file of Array.from(selected)) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${contentItemId}/${crypto.randomUUID()}-${safeName}`;
+
+      // ── ETAPA 1a: Obter URL assinada via servidor ────────────
+      console.log('[MediaUploader] requesting signed URL for', storagePath);
+      const urlResult = await createSignedUploadUrl(storagePath);
+      if (!urlResult.success) {
+        console.error('[MediaUploader] signed URL error:', urlResult.error);
+        toast.error(`Erro ao preparar upload de "${file.name}": ${urlResult.error}`);
+        continue;
+      }
+
+      // ── ETAPA 1b: Upload para o Storage via URL assinada ─────
+      console.log('[MediaUploader] uploading via signed URL');
+      const { error: uploadErr } = await supabase.storage
+        .from('campaign-files')
+        .uploadToSignedUrl(storagePath, urlResult.data.token, file, {
+          cacheControl: '31536000',
+        });
+
+      if (uploadErr) {
+        console.error('[MediaUploader] storage upload error:', uploadErr);
+        toast.error(`Erro no upload de "${file.name}": ${uploadErr.message}`);
+        continue;
+      }
+      console.log('[MediaUploader] storage upload ok');
+
+      // ── ETAPA 2: Salvar registro no banco ────────────────────
+      const { data: { publicUrl } } = supabase.storage
+        .from('campaign-files')
+        .getPublicUrl(storagePath);
+
+      console.log('[MediaUploader] saving record, publicUrl:', publicUrl);
+      const result = await saveFileRecord({
+        content_item_id: contentItemId,
+        campaign_id: campaignId,
+        client_id: clientId,
+        file_name: file.name,
+        file_url: publicUrl,
+        storage_path: storagePath,
+        file_type: inferFileType(file.type),
+        file_size_bytes: file.size,
+        visible_to_client: false,
+      });
+
+      if (result.success) {
+        console.log('[MediaUploader] record saved, id:', result.data.id);
+        setFiles((prev) => [
+          ...prev,
+          {
+            id: result.data.id,
+            file_name: file.name,
+            file_url: publicUrl,
+            file_type: inferFileType(file.type),
+            file_size_bytes: file.size,
+            visible_to_client: false,
+          },
+        ]);
+        toast.success(`${file.name} enviado!`);
+      } else {
+        console.error('[MediaUploader] saveFileRecord error:', result.error);
+        toast.error(`Arquivo enviado mas erro ao registrar: ${result.error}`);
+        // Limpar arquivo do Storage se o registro falhou
+        await supabase.storage.from('campaign-files').remove([storagePath]);
+      }
+    }
+
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente
+    if (inputRef.current) inputRef.current.value = '';
+    setUploading(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+  }
+
+  function handleDelete(fileId: string) {
+    if (!window.confirm('Remover este arquivo permanentemente?')) return;
+    startTransition(async () => {
+      const result = await deleteFile(fileId, contentItemId);
+      if (result.success) {
+        setFiles((prev) => prev.filter((f) => f.id !== fileId));
+        toast.success('Arquivo removido');
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleToggleVisibility(fileId: string, currentVisible: boolean) {
+    startTransition(async () => {
+      const result = await toggleFileVisibility(fileId, contentItemId, !currentVisible);
+      if (result.success) {
+        setFiles((prev) =>
+          prev.map((f) => f.id === fileId ? { ...f, visible_to_client: !currentVisible } : f)
+        );
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  const isDisabled = uploading || isPending;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Drop zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onClick={() => !isDisabled && inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && !isDisabled && inputRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragOver ? 'var(--green)' : 'var(--line)'}`,
+          borderRadius: 'var(--r)',
+          padding: '20px 16px',
+          textAlign: 'center',
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
+          opacity: isDisabled ? 0.6 : 1,
+          background: dragOver ? 'var(--green-50)' : 'transparent',
+          transition: 'border-color .15s, background .15s',
+          userSelect: 'none',
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="image/*,video/*,application/pdf,application/zip,text/*"
+          style={{ display: 'none' }}
+          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          disabled={isDisabled}
+        />
+
+        {uploading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            <span className="muted tiny">Enviando arquivos…</span>
+          </div>
+        ) : (
+          <>
+            <div style={{ color: 'var(--muted)', marginBottom: 6 }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}>
+                <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+              </svg>
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+              Arraste arquivos ou clique para selecionar
+            </p>
+            <p className="muted tiny" style={{ marginTop: 3 }}>
+              Qualquer formato — máx. 50 MB por arquivo
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* File list */}
+      {files.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {files.map((f) => (
+            <div
+              key={f.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 12px', borderRadius: 10,
+                background: 'var(--bg)', border: '1px solid var(--line-soft)',
+              }}
+            >
+              {/* Ícone do tipo */}
+              <div style={{ color: 'var(--muted)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <FileIcon type={f.file_type} />
+              </div>
+
+              {/* Nome + tamanho */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <a
+                  href={f.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 13, fontWeight: 600, color: 'var(--ink)',
+                    textDecoration: 'none', display: 'block',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {f.file_name}
+                </a>
+                <div className="muted tiny" style={{ marginTop: 1 }}>{formatBytes(f.file_size_bytes)}</div>
+              </div>
+
+              {/* Toggle visibilidade */}
+              <button
+                type="button"
+                onClick={() => handleToggleVisibility(f.id, f.visible_to_client)}
+                disabled={isDisabled}
+                title={f.visible_to_client ? 'Visível ao cliente — clique para ocultar' : 'Oculto ao cliente — clique para tornar visível'}
+                style={{
+                  height: 26, padding: '0 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  border: f.visible_to_client ? '1px solid var(--green-100)' : '1px solid var(--line)',
+                  background: f.visible_to_client ? 'var(--green-50)' : 'var(--bg-2)',
+                  color: f.visible_to_client ? 'var(--green)' : 'var(--muted)',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  transition: 'all .15s', flexShrink: 0, fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  {f.visible_to_client
+                    ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+                    : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+                  }
+                </svg>
+                {f.visible_to_client ? 'Visível' : 'Oculto'}
+              </button>
+
+              {/* Remover */}
+              <button
+                type="button"
+                onClick={() => handleDelete(f.id)}
+                disabled={isDisabled}
+                title="Remover arquivo"
+                style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  border: 'none', background: 'transparent',
+                  color: 'var(--muted)', fontSize: 18, lineHeight: 1,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'color .15s, background .15s', flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#b91c1c'; (e.currentTarget as HTMLButtonElement).style.background = '#fef2f2'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {files.length === 0 && !uploading && (
+        <p className="muted tiny" style={{ textAlign: 'center', marginTop: 2 }}>
+          Nenhum arquivo enviado ainda.
+        </p>
+      )}
+    </div>
+  );
+}

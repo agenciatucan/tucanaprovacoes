@@ -1,5 +1,5 @@
 "use server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validations/schemas";
 import { redirect } from "next/navigation";
 
@@ -28,6 +28,26 @@ export async function signIn(input: unknown): Promise<Result> {
   }
 
   console.log("✅ Login OK:", data.user?.email, "role:", data.user?.user_metadata?.role);
+  return { success: true, data: undefined };
+}
+
+// Recuperação de senha via service role (sem PKCE — funciona em qualquer browser)
+export async function requestPasswordReset(email: string): Promise<Result> {
+  if (!email?.trim()) return { success: false, error: "E-mail obrigatório" };
+
+  const serviceClient = await getSupabaseServiceClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+  const { error } = await serviceClient.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${appUrl}/auth/callback`,
+  });
+
+  if (error) {
+    console.error("[requestPasswordReset] error:", error.message);
+    // Não expor se o e-mail existe ou não (segurança)
+    return { success: true, data: undefined };
+  }
+
   return { success: true, data: undefined };
 }
 

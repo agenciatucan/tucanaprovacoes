@@ -13,6 +13,7 @@ interface Post {
   theme_status: string;
   caption_status: string;
   artwork_status: string;
+  thumbnail_url?: string;
 }
 
 interface Props {

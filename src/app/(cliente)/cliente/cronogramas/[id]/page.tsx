@@ -38,11 +38,28 @@ export default async function CronogramaPage({ params }: Props) {
     .eq('campaign_id', id)
     .order('order_index');
 
+  // Buscar thumbnail (primeira imagem visível) de cada post
+  const { data: thumbFiles } = await supabase
+    .from('files')
+    .select('content_item_id, file_url')
+    .eq('campaign_id', id)
+    .eq('visible_to_client', true)
+    .in('file_type', ['imagem', 'capa'])
+    .order('created_at', { ascending: true });
+
+  // Mapa: content_item_id → primeira URL de imagem
+  const thumbnailMap: Record<string, string> = {};
+  thumbFiles?.forEach((f) => {
+    if (!thumbnailMap[f.content_item_id]) {
+      thumbnailMap[f.content_item_id] = f.file_url;
+    }
+  });
+
   // Group by week — preserve insertion order
-  const weeks: Record<string, typeof items> = {};
+  const weeks: Record<string, (NonNullable<typeof items>[number] & { thumbnail_url?: string })[]> = {};
   items?.forEach((item) => {
     if (!weeks[item.week_label]) weeks[item.week_label] = [];
-    weeks[item.week_label]!.push(item);
+    weeks[item.week_label]!.push({ ...item, thumbnail_url: thumbnailMap[item.id] });
   });
   const weekKeys = Object.keys(weeks);
 

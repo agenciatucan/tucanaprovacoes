@@ -67,3 +67,45 @@ export async function updateClient(id: string, input: ClientInput): Promise<Resu
   revalidatePath(`/admin/clientes/${id}`);
   return { success: true, data: undefined };
 }
+
+// ── Inativação em cascata (via RPC PostgreSQL) ────────────────
+// Arquiva o cliente + todos os cronogramas ativos em uma transação no banco.
+export async function inactivateClient(clientId: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { error } = await supabase.rpc("inactivate_client", {
+    p_client_id: clientId,
+  });
+
+  if (error) {
+    console.error("[inactivateClient]", error.message);
+    return { success: false, error: error.message ?? "Erro ao inativar cliente" };
+  }
+
+  revalidatePath("/admin/clientes");
+  revalidatePath(`/admin/clientes/${clientId}`);
+  revalidatePath("/admin/cronogramas");
+  return { success: true, data: undefined };
+}
+
+// ── Reativação (somente o cliente — cronogramas ficam arquivados) ─
+export async function reactivateClient(clientId: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { error } = await supabase.rpc("reactivate_client", {
+    p_client_id: clientId,
+  });
+
+  if (error) {
+    console.error("[reactivateClient]", error.message);
+    return { success: false, error: error.message ?? "Erro ao reativar cliente" };
+  }
+
+  revalidatePath("/admin/clientes");
+  revalidatePath(`/admin/clientes/${clientId}`);
+  return { success: true, data: undefined };
+}

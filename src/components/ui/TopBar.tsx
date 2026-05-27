@@ -5,11 +5,16 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Icon } from './Icon';
 import { signOut } from '@/actions/auth';
+import NotificationBell from './NotificationBell';
 
 interface Props {
   variant: 'admin' | 'client';
   initials?: string;
   name?: string;
+  /** Role do usuário logado — usado para esconder links admin-only */
+  role?: string;
+  /** Contagem inicial de notificações não lidas (admin only) */
+  unreadCount?: number;
 }
 
 const CLIENT_LINKS = [
@@ -19,17 +24,22 @@ const CLIENT_LINKS = [
 ];
 
 const ADMIN_LINKS = [
-  { href: '/admin',                 label: 'Visão geral' },
-  { href: '/admin/clientes',        label: 'Clientes' },
-  { href: '/admin/cronogramas',     label: 'Cronogramas' },
-  { href: '/admin/kanban',          label: 'Kanban' },
-  { href: '/admin/calendario',      label: 'Calendário' },
-  { href: '/admin/observacoes',     label: 'Observações' },
+  { href: '/admin',               label: 'Visão geral',   adminOnly: false },
+  { href: '/admin/clientes',      label: 'Clientes',      adminOnly: false },
+  { href: '/admin/cronogramas',   label: 'Cronogramas',   adminOnly: false },
+  { href: '/admin/kanban',        label: 'Kanban',        adminOnly: false },
+  { href: '/admin/calendario',    label: 'Calendário',    adminOnly: false },
+  { href: '/admin/observacoes',   label: 'Observações',   adminOnly: false },
+  { href: '/admin/configuracoes', label: 'Configurações', adminOnly: true  },
 ];
 
-export function TopBar({ variant, initials = 'TU', name }: Props) {
+export function TopBar({ variant, initials = 'TU', name, role, unreadCount = 0 }: Props) {
   const pathname = usePathname();
-  const links = variant === 'admin' ? ADMIN_LINKS : CLIENT_LINKS;
+  const allLinks = variant === 'admin' ? ADMIN_LINKS : CLIENT_LINKS;
+  // Esconder links admin-only de usuários equipe
+  const links = variant === 'admin'
+    ? allLinks.filter((l) => !('adminOnly' in l) || !l.adminOnly || role === 'admin')
+    : allLinks;
 
   return (
     <header className="topbar">
@@ -48,10 +58,14 @@ export function TopBar({ variant, initials = 'TU', name }: Props) {
       </nav>
 
       <div className="topbar-right">
-        <button className="btn-icon" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff' }}
-          aria-label="Notificações">
-          <Icon name="bell" size={16} />
-        </button>
+        {variant === 'admin' ? (
+          <NotificationBell initialCount={unreadCount} />
+        ) : (
+          <button className="btn-icon" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff' }}
+            aria-label="Notificações">
+            <Icon name="bell" size={16} />
+          </button>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {name && (
