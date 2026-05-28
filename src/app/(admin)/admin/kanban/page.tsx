@@ -37,6 +37,16 @@ const COLUMNS = [
     color: 'var(--st-publicado-fg)',
     bg: 'var(--st-publicado-bg)',
   },
+] as const;
+
+type KanbanStatus = (typeof COLUMNS)[number]['key'];
+
+const KANBAN_STATUS_KEYS: KanbanStatus[] = [
+  'pendente',
+  'em_revisao',
+  'aprovado',
+  'em_producao',
+  'finalizado',
 ];
 
 const FMT_LABEL: Record<string, string> = {
@@ -100,6 +110,20 @@ function normalize(value?: string) {
 
 function buildClearHref() {
   return '/admin/kanban' as Route;
+}
+
+function isKanbanStatus(status: string): status is KanbanStatus {
+  return KANBAN_STATUS_KEYS.includes(status as KanbanStatus);
+}
+
+function createEmptyGrouped(): Record<KanbanStatus, KanbanItem[]> {
+  return {
+    pendente: [],
+    em_revisao: [],
+    aprovado: [],
+    em_producao: [],
+    finalizado: [],
+  };
 }
 
 export default async function KanbanPage({
@@ -187,22 +211,21 @@ export default async function KanbanPage({
     ]),
   ];
 
-  const grouped = COLUMNS.reduce<Record<string, KanbanItem[]>>((acc, col) => {
-    acc[col.key] = [];
-    return acc;
-  }, {});
+  const grouped = createEmptyGrouped();
 
   allItems.forEach((item) => {
     const status = item.general_status ?? 'pendente';
 
-    if (grouped[status]) {
+    if (isKanbanStatus(status)) {
       grouped[status].push(item);
-    } else {
-      grouped.pendente.push(item);
+      return;
     }
+
+    grouped.pendente.push(item);
   });
 
   const totalPosts = allItems.length;
+
   const hasFilters =
     Boolean(filterClient) ||
     Boolean(filterCampaign) ||
@@ -342,7 +365,7 @@ export default async function KanbanPage({
         </div>
 
         {COLUMNS.map((col) => {
-          const count = grouped[col.key]?.length ?? 0;
+          const count = grouped[col.key].length;
 
           return (
             <div key={col.key} className="kanban-summary-card">
@@ -511,7 +534,7 @@ export default async function KanbanPage({
           }}
         >
           {COLUMNS.map((col) => {
-            const colItems = grouped[col.key] ?? [];
+            const colItems = grouped[col.key];
             const isReviewColumn = col.key === 'em_revisao';
 
             return (
