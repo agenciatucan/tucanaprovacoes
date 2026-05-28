@@ -20,7 +20,6 @@ const DEFAULT_WEEKS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5
 interface PostFormProps {
   campaignId: string;
   returnHref: string;
-  /** Semanas que já existem no cronograma — passadas pela Server Page */
   existingWeeks?: string[];
   initial?: {
     id: string;
@@ -48,7 +47,6 @@ export default function PostForm({
   const router = useRouter();
 
   const isEdit = !!initial;
-
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -95,22 +93,28 @@ export default function PostForm({
       internal_notes: form.internal_notes,
     };
 
-    const result = isEdit
-      ? await updateContentItem(initial!.id, payload)
-      : await createContentItem(payload);
+    if (isEdit) {
+      const updateResult = await updateContentItem(initial.id, payload);
 
-    if (!result.success) {
-      toast.error(result.error);
+      if (!updateResult.success) {
+        toast.error(updateResult.error);
+        setLoading(false);
+        return;
+      }
+
+      toast.success('Alterações salvas!');
+
+      // Mantém no mesmo card após salvar.
+      // Assim você pode clicar em "Reenviar para aprovação" sem voltar ao cronograma.
+      router.refresh();
       setLoading(false);
       return;
     }
 
-    if (isEdit) {
-      toast.success('Alterações salvas!');
+    const createResult = await createContentItem(payload);
 
-      // Mantém o usuário no mesmo card após salvar.
-      // Isso permite clicar em "Reenviar para aprovação" sem precisar voltar do cronograma.
-      router.refresh();
+    if (!createResult.success) {
+      toast.error(createResult.error);
       setLoading(false);
       return;
     }
@@ -118,7 +122,7 @@ export default function PostForm({
     toast.success('Post criado!');
 
     // Ao criar um post novo, abre o card recém-criado.
-    router.push(`/admin/posts/${result.data.id}` as Route);
+    router.push(`/admin/posts/${createResult.data.id}` as Route);
   }
 
   function handleCancel() {
