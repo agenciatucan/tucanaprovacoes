@@ -1,83 +1,173 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { Suspense, useEffect, useState } from 'react';
+import type { Route } from 'next';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 
-export default function AuthCallbackPage() {
-  const router = useRouter();
-  const [msg, setMsg] = useState('Verificando acesso…');
-
-  useEffect(() => {
-    async function handleCallback() {
-      const supabase = getSupabaseBrowserClient();
-      const searchParams = new URLSearchParams(window.location.search);
-      const next = searchParams.get('next') ?? '/definir-senha';
-      const code = searchParams.get('code');
-
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (!error) {
-          setMsg('Acesso confirmado! Redirecionando…');
-          router.replace(next);
-          return;
-        }
-
-        setMsg('Link inválido ou expirado. Redirecionando…');
-        setTimeout(() => router.replace('/login?erro=link_invalido'), 1500);
-        return;
-      }
-
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (!error) {
-          setMsg('Acesso confirmado! Redirecionando…');
-          router.replace(next);
-          return;
-        }
-      }
-
-      setMsg('Link inválido ou expirado. Redirecionando…');
-      setTimeout(() => router.replace('/login?erro=link_invalido'), 1500);
-    }
-
-    handleCallback();
-  }, [router]);
-
+function CallbackCard({ msg }: { msg: string }) {
   return (
-    <div
+    <main
       style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flexDirection: 'column',
-        gap: 16,
-        background: '#fff',
+        background: '#f6f6f6',
+        padding: 24,
       }}
     >
       <div
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          border: '3px solid #16a34a',
-          borderTopColor: 'transparent',
-          animation: 'spin 0.8s linear infinite',
+          width: '100%',
+          maxWidth: 420,
+          borderRadius: 18,
+          background: '#fff',
+          border: '1px solid #e5e5e5',
+          padding: 28,
+          textAlign: 'center',
+          boxShadow: '0 16px 40px rgba(0,0,0,0.04)',
         }}
-      />
-      <p style={{ color: '#6b7280', fontSize: 14 }}>{msg}</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+      >
+        <div
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: '50%',
+            background: '#25411e',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+            fontWeight: 700,
+          }}
+        >
+          T
+        </div>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 22,
+            lineHeight: 1.2,
+            letterSpacing: '-0.03em',
+            color: '#1f1f1f',
+          }}
+        >
+          Confirmando acesso
+        </h1>
+
+        <p
+          style={{
+            margin: '10px 0 0',
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: '#666',
+          }}
+        >
+          {msg}
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function AuthCallbackContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [msg, setMsg] = useState('Confirmando acesso…');
+
+  useEffect(() => {
+    async function handleCallback() {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setMsg('Erro: variáveis do Supabase não configuradas.');
+        router.replace('/login?erro=configuracao' as Route);
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+      const nextParam = searchParams.get('next');
+
+      const next =
+        nextParam && nextParam.startsWith('/')
+          ? nextParam
+          : '/cliente';
+
+      try {
+        const url = new URL(window.location.href);
+
+        const code = url.searchParams.get('code');
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (!error) {
+            setMsg('Acesso confirmado! Redirecionando…');
+            router.replace(next as Route);
+            return;
+          }
+
+          console.error(
+            '[auth/callback] exchangeCodeForSession:',
+            error.message
+          );
+        }
+
+        const hash = window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hash);
+
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        const errorDescription =
+          hashParams.get('error_description') ||
+          url.searchParams.get('error_description');
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (!error) {
+            setMsg('Acesso confirmado! Redirecionando…');
+            router.replace(next as Route);
+            return;
+          }
+
+          console.error('[auth/callback] setSession:', error.message);
+        }
+
+        if (errorDescription) {
+          console.error('[auth/callback] error_description:', errorDescription);
+        }
+
+        setMsg('Link inválido ou expirado. Solicite um novo acesso.');
+        router.replace('/login?erro=link_invalido' as Route);
+      } catch (error) {
+        console.error('[auth/callback] unexpected error:', error);
+
+        setMsg('Erro ao confirmar acesso. Tente novamente.');
+        router.replace('/login?erro=callback' as Route);
+      }
+    }
+
+    handleCallback();
+  }, [router, searchParams]);
+
+  return <CallbackCard msg={msg} />;
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<CallbackCard msg="Confirmando acesso…" />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
