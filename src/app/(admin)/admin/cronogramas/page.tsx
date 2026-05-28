@@ -86,57 +86,6 @@ export default async function AdminCronogramasPage({
       </div>
 
       {/* Filter bar */}
-<<<<<<< Updated upstream
-      <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <SearchInput
-          basePath="/admin/cronogramas"
-          paramName="search"
-          defaultValue={filterSearch ?? ''}
-          preserveParams={{ status: filterStatus && filterStatus !== 'todos' ? filterStatus : undefined }}
-          placeholder="Buscar cronograma…"
-        />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {filters.map((f) => {
-            const active = (!filterStatus && f.key === 'todos') || filterStatus === f.key;
-            const search = filterSearch ? `&search=${filterSearch}` : '';
-            const href = (f.key === 'todos'
-              ? `/admin/cronogramas${filterSearch ? `?search=${filterSearch}` : ''}`
-              : `/admin/cronogramas?status=${f.key}${search}`) as Route;
-            return (
-              <Link
-                key={f.key}
-                href={href}
-                className="chip"
-                style={{ height: 30, textDecoration: 'none', background: active ? 'var(--green)' : undefined, color: active ? '#fff' : undefined }}>
-                {f.label}
-              </Link>
-            );
-          })}
-        </div>
-        {(filterStatus || filterSearch) && (
-          <Link href="/admin/cronogramas" className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
-            Limpar filtros
-          </Link>
-        )}
-      </div>
-
-      {/* List */}
-      <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-        {/* Head */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1.2fr 0.8fr 1fr 0.9fr 60px', gap: 16, padding: '11px 20px', background: 'var(--bg)', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>
-          <div>Cronograma</div>
-          <div>Cliente</div>
-          <div>Tipo</div>
-          <div>Progresso</div>
-          <div>Status</div>
-          <div />
-        </div>
-
-        {(!campaigns || campaigns.length === 0) && (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
-            Nenhum cronograma encontrado.{' '}
-            <Link href="/admin/cronogramas/novo" style={{ color: 'var(--orange)', fontWeight: 600 }}>Criar o primeiro →</Link>
-=======
       <div className="mb-5 rounded-2xl border border-[var(--line)] bg-white p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="w-full lg:max-w-sm">
@@ -145,20 +94,28 @@ export default async function AdminCronogramasPage({
               paramName="search"
               defaultValue={filterSearch ?? ''}
               preserveParams={{
-                status: filterStatus && filterStatus !== 'todos' ? filterStatus : undefined,
+                status:
+                  filterStatus && filterStatus !== 'todos'
+                    ? filterStatus
+                    : undefined,
               }}
               placeholder="Buscar cronograma…"
             />
->>>>>>> Stashed changes
           </div>
 
           <div className="flex w-full gap-2 overflow-x-auto pb-1 lg:w-auto lg:flex-wrap lg:overflow-visible lg:pb-0">
             {filters.map((f) => {
-              const active = (!filterStatus && f.key === 'todos') || filterStatus === f.key;
+              const active =
+                (!filterStatus && f.key === 'todos') ||
+                filterStatus === f.key;
+
               const search = filterSearch ? `&search=${filterSearch}` : '';
+
               const href = (
                 f.key === 'todos'
-                  ? `/admin/cronogramas${filterSearch ? `?search=${filterSearch}` : ''}`
+                  ? `/admin/cronogramas${
+                      filterSearch ? `?search=${filterSearch}` : ''
+                    }`
                   : `/admin/cronogramas?status=${f.key}${search}`
               ) as Route;
 
@@ -216,25 +173,38 @@ export default async function AdminCronogramasPage({
               <div />
             </div>
 
-            {campaigns.map((c, i) => {
-              const client = Array.isArray(c.clients) ? c.clients[0] : c.clients;
-              const items = Array.isArray(c.content_items) ? c.content_items : [];
+            {campaigns.map((c) => {
+              const client = Array.isArray(c.clients)
+                ? c.clients[0]
+                : c.clients;
+
+              const items = Array.isArray(c.content_items)
+                ? c.content_items
+                : [];
+
               const total = items.length;
-              const approved = items.filter((it: { general_status: string }) =>
-                ['aprovado', 'finalizado'].includes(it.general_status)
+
+              const approved = items.filter(
+                (it: { general_status: string }) =>
+                  ['aprovado', 'finalizado'].includes(it.general_status)
               ).length;
+
               const pct = total ? Math.round((approved / total) * 100) : 0;
               const kind = STATUS_KIND[c.status] ?? 'rascunho';
 
               return (
                 <Link
                   key={c.id}
-                  href={`/admin/cronogramas/${c.id}`}
+                  href={`/admin/cronogramas/${c.id}` as Route}
                   className="grid grid-cols-[2.5fr_1.2fr_0.8fr_1fr_0.9fr_60px] items-center gap-4 border-b border-[var(--line-soft)] px-5 py-4 text-inherit no-underline transition hover:bg-gray-50 last:border-b-0"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{c.name}</div>
-                    <div className="muted tiny mt-1 truncate">{c.period_label}</div>
+                    <div className="truncate text-sm font-semibold">
+                      {c.name}
+                    </div>
+                    <div className="muted tiny mt-1 truncate">
+                      {c.period_label}
+                    </div>
                   </div>
 
                   <div className="truncate text-sm text-[var(--ink-2)]">
@@ -256,6 +226,7 @@ export default async function AdminCronogramasPage({
                             style={{ width: `${pct}%` }}
                           />
                         </div>
+
                         <span className="tiny muted shrink-0">
                           {approved}/{total}
                         </span>
@@ -266,9 +237,7 @@ export default async function AdminCronogramasPage({
                   </div>
 
                   <div>
-                    <StatusBadge
-                      kind={kind as Parameters<typeof StatusBadge>[0]['kind']}
-                    />
+                    <StatusBadge kind={kind as any} />
                   </div>
 
                   <div className="flex justify-end">
@@ -282,19 +251,28 @@ export default async function AdminCronogramasPage({
           {/* Mobile cards */}
           <div className="space-y-3 lg:hidden">
             {campaigns.map((c) => {
-              const client = Array.isArray(c.clients) ? c.clients[0] : c.clients;
-              const items = Array.isArray(c.content_items) ? c.content_items : [];
+              const client = Array.isArray(c.clients)
+                ? c.clients[0]
+                : c.clients;
+
+              const items = Array.isArray(c.content_items)
+                ? c.content_items
+                : [];
+
               const total = items.length;
-              const approved = items.filter((it: { general_status: string }) =>
-                ['aprovado', 'finalizado'].includes(it.general_status)
+
+              const approved = items.filter(
+                (it: { general_status: string }) =>
+                  ['aprovado', 'finalizado'].includes(it.general_status)
               ).length;
+
               const pct = total ? Math.round((approved / total) * 100) : 0;
               const kind = STATUS_KIND[c.status] ?? 'rascunho';
 
               return (
                 <Link
                   key={c.id}
-                  href={`/admin/cronogramas/${c.id}`}
+                  href={`/admin/cronogramas/${c.id}` as Route}
                   className="block rounded-3xl border border-[var(--line)] bg-white p-4 text-inherit no-underline shadow-sm"
                 >
                   <div className="flex items-start gap-3">
@@ -326,14 +304,10 @@ export default async function AdminCronogramasPage({
                           {TYPE_LABEL[c.type] ?? c.type}
                         </span>
 
-                        <StatusBadge
-                          kind={kind as Parameters<typeof StatusBadge>[0]['kind']}
-                        />
+                        <StatusBadge kind={kind as any} />
                       </div>
 
-                      <div className="muted tiny mt-3">
-                        {c.period_label}
-                      </div>
+                      <div className="muted tiny mt-3">{c.period_label}</div>
 
                       <div className="mt-4">
                         {total > 0 ? (
@@ -342,6 +316,7 @@ export default async function AdminCronogramasPage({
                               <span className="tiny font-semibold text-[var(--muted)]">
                                 Progresso
                               </span>
+
                               <span className="tiny font-semibold text-[var(--muted)]">
                                 {approved}/{total} aprovados
                               </span>
@@ -355,7 +330,9 @@ export default async function AdminCronogramasPage({
                             </div>
                           </>
                         ) : (
-                          <span className="muted tiny">Sem posts cadastrados</span>
+                          <span className="muted tiny">
+                            Sem posts cadastrados
+                          </span>
                         )}
                       </div>
                     </div>
