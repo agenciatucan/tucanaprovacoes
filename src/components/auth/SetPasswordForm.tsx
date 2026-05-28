@@ -11,55 +11,49 @@ interface Props {
 
 export default function SetPasswordForm({ userRole }: Props) {
   const router = useRouter();
-
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
     async function createSessionFromUrl() {
       const supabase = getSupabaseBrowserClient();
-
       const hash = window.location.hash;
 
-      if (!hash) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      if (hash) {
+        const params = new URLSearchParams(hash.replace('#', ''));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
 
-        setSessionReady(!!session);
-        return;
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            toast.error(`Erro ao validar o link: ${error.message}`);
+            setSessionReady(false);
+            setCheckingSession(false);
+            return;
+          }
+
+          window.history.replaceState(null, '', window.location.pathname);
+          setSessionReady(true);
+          setCheckingSession(false);
+          return;
+        }
       }
 
-      const params = new URLSearchParams(hash.replace('#', ''));
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-
-      if (!accessToken || !refreshToken) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        setSessionReady(!!session);
-        return;
-      }
-
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (error) {
-        toast.error(`Erro ao validar o link: ${error.message}`);
-        setSessionReady(false);
-        return;
-      }
-
-      window.history.replaceState(null, '', window.location.pathname);
-      setSessionReady(true);
+      setSessionReady(!!session);
+      setCheckingSession(false);
     }
 
     createSessionFromUrl();
@@ -126,14 +120,16 @@ export default function SetPasswordForm({ userRole }: Props) {
           style={{
             padding: 12,
             borderRadius: 12,
-            background: '#fff7ed',
-            border: '1px solid #fed7aa',
-            color: '#9a3412',
+            background: checkingSession ? '#f6f6f6' : '#fff7ed',
+            border: checkingSession ? '1px solid var(--line)' : '1px solid #fed7aa',
+            color: checkingSession ? 'var(--muted)' : '#9a3412',
             fontSize: 13,
             lineHeight: 1.5,
           }}
         >
-          Validando seu link de acesso...
+          {checkingSession
+            ? 'Validando seu link de acesso...'
+            : 'Não encontramos uma sessão válida. Solicite um novo link de acesso.'}
         </div>
       )}
 
@@ -173,31 +169,13 @@ export default function SetPasswordForm({ userRole }: Props) {
             }}
           >
             {showPass ? (
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                 <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                 <line x1="1" y1="1" x2="23" y2="23" />
               </svg>
             ) : (
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
@@ -207,15 +185,7 @@ export default function SetPasswordForm({ userRole }: Props) {
 
         {password.length > 0 && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div
-              style={{
-                flex: 1,
-                height: 4,
-                borderRadius: 4,
-                background: 'var(--line)',
-                overflow: 'hidden',
-              }}
-            >
+            <div style={{ flex: 1, height: 4, borderRadius: 4, background: 'var(--line)', overflow: 'hidden' }}>
               <div
                 style={{
                   height: '100%',
@@ -227,14 +197,7 @@ export default function SetPasswordForm({ userRole }: Props) {
               />
             </div>
 
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: strengthColor[strength],
-                flexShrink: 0,
-              }}
-            >
+            <span style={{ fontSize: 11, fontWeight: 600, color: strengthColor[strength], flexShrink: 0 }}>
               {strengthLabel[strength]}
             </span>
           </div>
@@ -255,21 +218,11 @@ export default function SetPasswordForm({ userRole }: Props) {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           disabled={loading || !sessionReady}
-          style={{
-            borderColor: confirm && confirm !== password ? '#fecaca' : undefined,
-          }}
+          style={{ borderColor: confirm && confirm !== password ? '#fecaca' : undefined }}
         />
 
         {confirm && confirm !== password && (
-          <span
-            style={{
-              fontSize: 12,
-              color: '#b91c1c',
-              fontWeight: 500,
-              marginTop: 4,
-              display: 'block',
-            }}
-          >
+          <span style={{ fontSize: 12, color: '#b91c1c', fontWeight: 500, marginTop: 4, display: 'block' }}>
             As senhas não coincidem
           </span>
         )}

@@ -5,16 +5,12 @@ import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
+import {
+  CAMPAIGN_STATUS_KIND,
+  CLIENT_VISIBLE_CAMPAIGN_STATUSES,
+} from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Meus cronogramas' };
-
-const CAMPAIGN_STATUS_KIND: Record<string, string> = {
-  enviado_para_aprovacao: 'aguardando',
-  em_revisao: 'revisao',
-  aprovado: 'aprovado',
-  em_producao: 'agendado',
-  finalizado: 'publicado',
-};
 
 const FMT_LABEL: Record<string, string> = {
   reels: 'Reels',
@@ -30,14 +26,6 @@ const FMT_CLASS: Record<string, string> = {
   post_estatico: 'fmt fmt-estatico',
   story: 'fmt fmt-stories',
 };
-
-const CLIENT_VISIBLE_CAMPAIGN_STATUSES = [
-  'enviado_para_aprovacao',
-  'em_revisao',
-  'aprovado',
-  'em_producao',
-  'finalizado',
-];
 
 export default async function ClienteDashboard() {
   const supabase = await getSupabaseServerClient();
@@ -69,20 +57,17 @@ export default async function ClienteDashboard() {
     ? primaryClient?.clients[0]
     : primaryClient?.clients;
 
-  // Busca somente cronogramas visíveis para o cliente.
-  // Não mostra rascunho nem arquivado.
   const { data: campaigns } = await supabase
     .from('campaigns')
     .select(
       'id, name, type, status, period_label, start_date, created_at, content_items(id, general_status)'
     )
     .in('client_id', clientIds.length > 0 ? clientIds : ['__none__'])
-    .in('status', CLIENT_VISIBLE_CAMPAIGN_STATUSES)
+    .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
     .order('created_at', { ascending: false });
 
   const campaignIds = campaigns?.map((c) => c.id) ?? [];
 
-  // Pendências apenas dos cronogramas visíveis para o cliente
   const { data: pendingItems } =
     campaignIds.length > 0
       ? await supabase
@@ -97,23 +82,13 @@ export default async function ClienteDashboard() {
   const pendingTotal =
     campaigns?.reduce((acc, c) => {
       const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return (
-        acc +
-        items.filter(
-          (i: { general_status: string }) => i.general_status === 'pendente'
-        ).length
-      );
+      return acc + items.filter((i: { general_status: string }) => i.general_status === 'pendente').length;
     }, 0) ?? 0;
 
   const approvedTotal =
     campaigns?.reduce((acc, c) => {
       const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return (
-        acc +
-        items.filter((i: { general_status: string }) =>
-          ['aprovado', 'finalizado'].includes(i.general_status)
-        ).length
-      );
+      return acc + items.filter((i: { general_status: string }) => ['aprovado', 'finalizado'].includes(i.general_status)).length;
     }, 0) ?? 0;
 
   const totalItems =
@@ -124,17 +99,11 @@ export default async function ClienteDashboard() {
   const inReviewTotal =
     campaigns?.reduce((acc, c) => {
       const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return (
-        acc +
-        items.filter(
-          (i: { general_status: string }) => i.general_status === 'em_revisao'
-        ).length
-      );
+      return acc + items.filter((i: { general_status: string }) => i.general_status === 'em_revisao').length;
     }, 0) ?? 0;
 
   return (
     <div className="page">
-      {/* Greeting */}
       <div
         style={{
           display: 'flex',
@@ -175,7 +144,6 @@ export default async function ClienteDashboard() {
         )}
       </div>
 
-      {/* Stat cards */}
       <div
         style={{
           display: 'grid',
@@ -185,30 +153,10 @@ export default async function ClienteDashboard() {
         }}
       >
         {[
-          {
-            label: 'Aguardando aprovação',
-            value: pendingTotal,
-            accent: 'var(--orange)',
-            sub: 'Posts pendentes',
-          },
-          {
-            label: 'Em revisão',
-            value: inReviewTotal,
-            accent: '#92400e',
-            sub: 'Aguardando equipe Tucan',
-          },
-          {
-            label: 'Aprovados',
-            value: approvedTotal,
-            accent: 'var(--green)',
-            sub: `De ${totalItems} publicações`,
-          },
-          {
-            label: 'Cronogramas',
-            value: campaigns?.length ?? 0,
-            accent: 'var(--ink)',
-            sub: 'Disponíveis para você',
-          },
+          { label: 'Aguardando aprovação', value: pendingTotal, accent: 'var(--orange)', sub: 'Posts pendentes' },
+          { label: 'Em revisão', value: inReviewTotal, accent: '#92400e', sub: 'Aguardando equipe Tucan' },
+          { label: 'Aprovados', value: approvedTotal, accent: 'var(--green)', sub: `De ${totalItems} publicações` },
+          { label: 'Cronogramas', value: campaigns?.length ?? 0, accent: 'var(--ink)', sub: 'Disponíveis para você' },
         ].map((s) => (
           <div key={s.label} className="card-flat" style={{ padding: 18 }}>
             <div className="eyebrow" style={{ fontSize: 10 }}>
@@ -235,7 +183,6 @@ export default async function ClienteDashboard() {
         ))}
       </div>
 
-      {/* Two-column layout: cronogramas + pendências */}
       <div
         style={{
           display: 'grid',
@@ -244,7 +191,6 @@ export default async function ClienteDashboard() {
           alignItems: 'flex-start',
         }}
       >
-        {/* Left — Cronogramas disponíveis */}
         <div>
           <div
             style={{
@@ -277,21 +223,12 @@ export default async function ClienteDashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {campaigns.map((c, i) => {
-                const items = Array.isArray(c.content_items)
-                  ? c.content_items
-                  : [];
-
+                const items = Array.isArray(c.content_items) ? c.content_items : [];
                 const total = items.length;
-
-                const approved = items.filter(
-                  (it: { general_status: string }) =>
-                    ['aprovado', 'finalizado'].includes(it.general_status)
-                ).length;
-
+                const approved = items.filter((it: { general_status: string }) => ['aprovado', 'finalizado'].includes(it.general_status)).length;
                 const pct = total ? Math.round((approved / total) * 100) : 0;
                 const isCurrent = i === 0 && c.status !== 'finalizado';
-                const statusKind =
-                  CAMPAIGN_STATUS_KIND[c.status] ?? 'aguardando';
+                const statusKind = CAMPAIGN_STATUS_KIND[c.status] ?? 'aguardando';
 
                 return (
                   <Link
@@ -306,9 +243,7 @@ export default async function ClienteDashboard() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 20,
-                        border: isCurrent
-                          ? '1px solid var(--green-100)'
-                          : '1px solid var(--line)',
+                        border: isCurrent ? '1px solid var(--green-100)' : '1px solid var(--line)',
                         transition: 'box-shadow .15s',
                       }}
                     >
@@ -317,9 +252,7 @@ export default async function ClienteDashboard() {
                           width: 52,
                           height: 52,
                           borderRadius: 14,
-                          background: isCurrent
-                            ? 'var(--green)'
-                            : 'var(--bg-2)',
+                          background: isCurrent ? 'var(--green)' : 'var(--bg-2)',
                           color: isCurrent ? '#fff' : 'var(--muted)',
                           display: 'flex',
                           alignItems: 'center',
@@ -342,13 +275,7 @@ export default async function ClienteDashboard() {
                           <div className="h3">{c.name}</div>
 
                           {isCurrent && (
-                            <span
-                              className="chip"
-                              style={{
-                                background: 'var(--green-50)',
-                                color: 'var(--green)',
-                              }}
-                            >
+                            <span className="chip" style={{ background: 'var(--green-50)', color: 'var(--green)' }}>
                               Atual
                             </span>
                           )}
@@ -368,23 +295,11 @@ export default async function ClienteDashboard() {
                               flexWrap: 'wrap',
                             }}
                           >
-                            <div
-                              className="progress"
-                              style={{ flex: 1, maxWidth: 240, minWidth: 120 }}
-                            >
-                              <div
-                                className="progress-fill"
-                                style={{ width: `${pct}%` }}
-                              />
+                            <div className="progress" style={{ flex: 1, maxWidth: 240, minWidth: 120 }}>
+                              <div className="progress-fill" style={{ width: `${pct}%` }} />
                             </div>
 
-                            <span
-                              className="tiny"
-                              style={{
-                                color: 'var(--muted)',
-                                fontWeight: 600,
-                              }}
-                            >
+                            <span className="tiny" style={{ color: 'var(--muted)', fontWeight: 600 }}>
                               {approved}/{total} aprovados
                             </span>
                           </div>
@@ -401,7 +316,6 @@ export default async function ClienteDashboard() {
           )}
         </div>
 
-        {/* Right — Pendências */}
         <div>
           <div style={{ marginBottom: 16 }}>
             <h2 className="h2" style={{ fontSize: 18 }}>
@@ -423,25 +337,11 @@ export default async function ClienteDashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {pendingItems.map((item) => {
-                const campaign = Array.isArray(item.campaigns)
-                  ? item.campaigns[0]
-                  : item.campaigns;
+                const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
 
                 return (
-                  <Link
-                    key={item.id}
-                    href={`/cliente/posts/${item.id}` as Route}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
-                  >
-                    <div
-                      className="card"
-                      style={{
-                        padding: 14,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                      }}
-                    >
+                  <Link key={item.id} href={`/cliente/posts/${item.id}` as Route} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div className="card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div
                         className={FMT_CLASS[item.format] ?? 'fmt'}
                         style={{
@@ -459,8 +359,7 @@ export default async function ClienteDashboard() {
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="muted tiny">
-                          {item.week_label} · {FMT_LABEL[item.format] ?? item.format} ·{' '}
-                          {campaign?.name}
+                          {item.week_label} · {FMT_LABEL[item.format] ?? item.format} · {campaign?.name}
                         </div>
 
                         <div
