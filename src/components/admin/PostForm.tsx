@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { createContentItem, updateContentItem } from '@/actions/content-items';
@@ -15,7 +15,13 @@ const FORMAT_OPTS = [
   { value: 'outro', label: 'Outro' },
 ];
 
-const DEFAULT_WEEKS = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+const DEFAULT_WEEKS = [
+  'Semana 1',
+  'Semana 2',
+  'Semana 3',
+  'Semana 4',
+  'Semana 5',
+];
 
 interface PostFormProps {
   campaignId: string;
@@ -46,7 +52,8 @@ export default function PostForm({
 }: PostFormProps) {
   const router = useRouter();
 
-  const isEdit = !!initial;
+  const isEdit = Boolean(initial);
+
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -64,12 +71,12 @@ export default function PostForm({
     internal_notes: initial?.internal_notes ?? '',
   });
 
-  function set(key: string, value: string | number) {
+  function set(key: keyof typeof form, value: string | number) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
     setLoading(true);
 
@@ -93,7 +100,7 @@ export default function PostForm({
       internal_notes: form.internal_notes,
     };
 
-    if (isEdit) {
+    if (isEdit && initial) {
       const updateResult = await updateContentItem(initial.id, payload);
 
       if (!updateResult.success) {
@@ -104,10 +111,9 @@ export default function PostForm({
 
       toast.success('Alterações salvas!');
 
-      // Mantém no mesmo card após salvar.
-      // Assim você pode clicar em "Reenviar para aprovação" sem voltar ao cronograma.
       router.refresh();
       setLoading(false);
+
       return;
     }
 
@@ -121,7 +127,6 @@ export default function PostForm({
 
     toast.success('Post criado!');
 
-    // Ao criar um post novo, abre o card recém-criado.
     router.push(`/admin/posts/${createResult.data.id}` as Route);
   }
 
@@ -131,236 +136,320 @@ export default function PostForm({
 
   const isReels = form.format === 'reels';
 
-  const weekOptions = [...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEKS])];
+  const weekOptions = [
+    ...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEKS]),
+  ];
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
-    >
-      {/* Semana + Formato + Ordem */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 16,
-        }}
-      >
+    <form onSubmit={handleSubmit} className="admin-post-form">
+      <style>
+        {`
+          .admin-post-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+
+          .admin-post-form-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+          }
+
+          .admin-post-form-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+          }
+
+          .admin-post-form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .admin-post-form-section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--line-soft);
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 800;
+          }
+
+          .admin-post-form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            align-items: center;
+            padding-top: 4px;
+            flex-wrap: wrap;
+          }
+
+          @media (max-width: 820px) {
+            .admin-post-form-grid-3 {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          @media (max-width: 640px) {
+            .admin-post-form-grid-3,
+            .admin-post-form-grid-2 {
+              grid-template-columns: 1fr;
+            }
+
+            .admin-post-form-actions {
+              display: grid;
+              grid-template-columns: 1fr;
+            }
+
+            .admin-post-form-actions .btn {
+              width: 100%;
+              min-height: 46px;
+            }
+          }
+        `}
+      </style>
+
+      <div className="admin-post-form-section">
+        <div className="admin-post-form-section-title">
+          <Icon name="settings" size={14} />
+          Informações básicas
+        </div>
+
+        <div className="admin-post-form-grid-3">
+          <div className="field">
+            <label className="field-label" htmlFor="week_label">
+              Semana <span style={{ color: 'var(--orange)' }}>*</span>
+            </label>
+
+            <select
+              id="week_label"
+              required
+              className="input"
+              value={form.week_label}
+              onChange={(event) => set('week_label', event.target.value)}
+              disabled={loading}
+              style={{
+                appearance: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {weekOptions.map((week) => (
+                <option key={week} value={week}>
+                  {week}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="format">
+              Formato <span style={{ color: 'var(--orange)' }}>*</span>
+            </label>
+
+            <select
+              id="format"
+              required
+              className="input"
+              value={form.format}
+              onChange={(event) => set('format', event.target.value)}
+              disabled={loading}
+              style={{
+                appearance: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {FORMAT_OPTS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="order_index">
+              Ordem
+            </label>
+
+            <input
+              id="order_index"
+              type="number"
+              min={0}
+              className="input"
+              value={form.order_index}
+              onChange={(event) =>
+                set('order_index', parseInt(event.target.value) || 0)
+              }
+              disabled={loading}
+            />
+          </div>
+        </div>
+
         <div className="field">
-          <label className="field-label" htmlFor="week_label">
-            Semana <span style={{ color: 'var(--orange)' }}>*</span>
+          <label className="field-label" htmlFor="title">
+            Título do post <span style={{ color: 'var(--orange)' }}>*</span>
           </label>
 
-          <select
-            id="week_label"
+          <input
+            id="title"
             required
             className="input"
-            value={form.week_label}
-            onChange={(e) => set('week_label', e.target.value)}
-            style={{ appearance: 'none', cursor: 'pointer' }}
-          >
-            {weekOptions.map((week) => (
-              <option key={week} value={week}>
-                {week}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="format">
-            Formato <span style={{ color: 'var(--orange)' }}>*</span>
-          </label>
-
-          <select
-            id="format"
-            required
-            className="input"
-            value={form.format}
-            onChange={(e) => set('format', e.target.value)}
-            style={{ appearance: 'none', cursor: 'pointer' }}
-          >
-            {FORMAT_OPTS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="order_index">
-            Ordem
-          </label>
-
-          <input
-            id="order_index"
-            type="number"
-            min={0}
-            className="input"
-            value={form.order_index}
-            onChange={(e) => set('order_index', parseInt(e.target.value) || 0)}
+            placeholder="Ex.: Por que fazer check-up anual?"
+            value={form.title}
+            onChange={(event) => set('title', event.target.value)}
+            disabled={loading}
           />
         </div>
       </div>
 
-      {/* Título */}
-      <div className="field">
-        <label className="field-label" htmlFor="title">
-          Título do post <span style={{ color: 'var(--orange)' }}>*</span>
-        </label>
+      <div className="admin-post-form-section">
+        <div className="admin-post-form-section-title">
+          <Icon name="target" size={14} />
+          Estratégia e conceito
+        </div>
 
-        <input
-          id="title"
-          required
-          className="input"
-          placeholder="Ex.: Por que fazer check-up anual?"
-          value={form.title}
-          onChange={(e) => set('title', e.target.value)}
-        />
-      </div>
+        <div className="admin-post-form-grid-2">
+          <div className="field">
+            <label className="field-label" htmlFor="theme">
+              Tema
+            </label>
 
-      {/* Tema + Objetivo */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 16,
-        }}
-      >
-        <div className="field">
-          <label className="field-label" htmlFor="theme">
-            Tema
-          </label>
+            <input
+              id="theme"
+              className="input"
+              placeholder="Tema principal do post"
+              value={form.theme}
+              onChange={(event) => set('theme', event.target.value)}
+              disabled={loading}
+            />
+          </div>
 
-          <input
-            id="theme"
-            className="input"
-            placeholder="Tema principal do post"
-            value={form.theme}
-            onChange={(e) => set('theme', e.target.value)}
-          />
+          <div className="field">
+            <label className="field-label" htmlFor="objective">
+              Objetivo
+            </label>
+
+            <input
+              id="objective"
+              className="input"
+              placeholder="Objetivo de comunicação"
+              value={form.objective}
+              onChange={(event) => set('objective', event.target.value)}
+              disabled={loading}
+            />
+          </div>
         </div>
 
         <div className="field">
-          <label className="field-label" htmlFor="objective">
-            Objetivo
-          </label>
-
-          <input
-            id="objective"
-            className="input"
-            placeholder="Objetivo de comunicação"
-            value={form.objective}
-            onChange={(e) => set('objective', e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Conceito criativo */}
-      <div className="field">
-        <label className="field-label" htmlFor="creative_concept">
-          Conceito criativo
-        </label>
-
-        <textarea
-          id="creative_concept"
-          rows={3}
-          className="input"
-          placeholder="Descreva o conceito criativo e abordagem visual…"
-          value={form.creative_concept}
-          onChange={(e) => set('creative_concept', e.target.value)}
-        />
-      </div>
-
-      {/* Legenda sugerida */}
-      <div className="field">
-        <label className="field-label" htmlFor="caption">
-          Legenda sugerida
-        </label>
-
-        <textarea
-          id="caption"
-          rows={5}
-          className="input"
-          placeholder="Texto completo da legenda para o cliente aprovar…"
-          value={form.caption}
-          onChange={(e) => set('caption', e.target.value)}
-        />
-      </div>
-
-      {/* Roteiro */}
-      {isReels && (
-        <div className="field">
-          <label className="field-label" htmlFor="script">
-            Roteiro <span style={{ color: 'var(--orange)' }}>*</span>
+          <label className="field-label" htmlFor="creative_concept">
+            Conceito criativo
           </label>
 
           <textarea
-            id="script"
-            required
-            rows={5}
+            id="creative_concept"
+            rows={4}
             className="input"
-            placeholder="Roteiro completo para o Reels (cenas, falas, referências visuais)…"
-            value={form.script}
-            onChange={(e) => set('script', e.target.value)}
-          />
-        </div>
-      )}
-
-      {/* Referência + Notas internas */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 16,
-        }}
-      >
-        <div className="field">
-          <label className="field-label" htmlFor="reference_url">
-            URL de referência{' '}
-            <span className="muted" style={{ fontWeight: 400 }}>
-              (opcional)
-            </span>
-          </label>
-
-          <input
-            id="reference_url"
-            type="url"
-            className="input"
-            placeholder="https://…"
-            value={form.reference_url}
-            onChange={(e) => set('reference_url', e.target.value)}
-          />
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="internal_notes">
-            Notas internas{' '}
-            <span className="muted" style={{ fontWeight: 400 }}>
-              (não visível ao cliente)
-            </span>
-          </label>
-
-          <input
-            id="internal_notes"
-            className="input"
-            placeholder="Observações para a equipe…"
-            value={form.internal_notes}
-            onChange={(e) => set('internal_notes', e.target.value)}
+            placeholder="Descreva o conceito criativo e abordagem visual…"
+            value={form.creative_concept}
+            onChange={(event) => set('creative_concept', event.target.value)}
+            disabled={loading}
           />
         </div>
       </div>
 
-      {/* Actions */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 10,
-          justifyContent: 'flex-end',
-          paddingTop: 4,
-        }}
-      >
+      <div className="admin-post-form-section">
+        <div className="admin-post-form-section-title">
+          <Icon name="file" size={14} />
+          Conteúdo
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor="caption">
+            Legenda sugerida
+          </label>
+
+          <textarea
+            id="caption"
+            rows={6}
+            className="input"
+            placeholder="Texto completo da legenda para o cliente aprovar…"
+            value={form.caption}
+            onChange={(event) => set('caption', event.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        {isReels && (
+          <div className="field">
+            <label className="field-label" htmlFor="script">
+              Roteiro <span style={{ color: 'var(--orange)' }}>*</span>
+            </label>
+
+            <textarea
+              id="script"
+              required
+              rows={6}
+              className="input"
+              placeholder="Roteiro completo para o Reels, com cenas, falas e referências visuais…"
+              value={form.script}
+              onChange={(event) => set('script', event.target.value)}
+              disabled={loading}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="admin-post-form-section">
+        <div className="admin-post-form-section-title">
+          <Icon name="info" size={14} />
+          Referências e notas internas
+        </div>
+
+        <div className="admin-post-form-grid-2">
+          <div className="field">
+            <label className="field-label" htmlFor="reference_url">
+              URL de referência{' '}
+              <span className="muted" style={{ fontWeight: 400 }}>
+                (opcional)
+              </span>
+            </label>
+
+            <input
+              id="reference_url"
+              type="url"
+              className="input"
+              placeholder="https://…"
+              value={form.reference_url}
+              onChange={(event) => set('reference_url', event.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="internal_notes">
+              Notas internas{' '}
+              <span className="muted" style={{ fontWeight: 400 }}>
+                (não visível ao cliente)
+              </span>
+            </label>
+
+            <input
+              id="internal_notes"
+              className="input"
+              placeholder="Observações para a equipe…"
+              value={form.internal_notes}
+              onChange={(event) => set('internal_notes', event.target.value)}
+              disabled={loading}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-post-form-actions">
         <button
           type="button"
           className="btn btn-ghost"
