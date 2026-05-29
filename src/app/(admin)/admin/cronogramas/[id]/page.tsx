@@ -26,7 +26,7 @@ const FMT_CLASS: Record<string, string> = {
   outro: 'fmt',
 };
 
-const STATUS_KIND: Record<string, string> = {
+const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
   rascunho: 'rascunho',
   enviado_para_aprovacao: 'aguardando',
   em_revisao: 'revisao',
@@ -36,7 +36,10 @@ const STATUS_KIND: Record<string, string> = {
   arquivado: 'rascunho',
 };
 
-const POST_STATUS_KIND: Record<string, string> = {
+const POST_STATUS_KIND: Record<
+  string,
+  Parameters<typeof StatusBadge>[0]['kind']
+> = {
   pendente: 'aguardando',
   em_revisao: 'revisao',
   aprovado: 'aprovado',
@@ -96,8 +99,6 @@ interface Props {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     status?: string;
-    semana?: string;
-    formato?: string;
   }>;
 }
 
@@ -122,18 +123,11 @@ function FieldStatusPill({
 
   return (
     <span
+      className="campaign-post-field-pill"
       title={`${label}: ${cfg.label}`}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        borderRadius: 999,
-        padding: '4px 8px',
         background: cfg.bg,
         color: cfg.color,
-        fontSize: 11,
-        fontWeight: 700,
-        whiteSpace: 'nowrap',
       }}
     >
       <span
@@ -146,7 +140,9 @@ function FieldStatusPill({
         }}
       />
 
-      {label}: {cfg.label}
+      <span>
+        {label}: {cfg.label}
+      </span>
     </span>
   );
 }
@@ -184,19 +180,12 @@ function getVisibilityMessage(status: string) {
   };
 }
 
-function buildFilterHref(
-  campaignId: string,
-  filters: {
-    status?: string;
-    semana?: string;
-    formato?: string;
-  }
-) {
+function buildFilterHref(campaignId: string, status?: string) {
   const params = new URLSearchParams();
 
-  if (filters.status) params.set('status', filters.status);
-  if (filters.semana) params.set('semana', filters.semana);
-  if (filters.formato) params.set('formato', filters.formato);
+  if (status) {
+    params.set('status', status);
+  }
 
   const query = params.toString();
 
@@ -208,11 +197,7 @@ export default async function GerenciarCronogramaPage({
   searchParams,
 }: Props) {
   const { id } = await params;
-  const {
-    status: filterStatus,
-    semana: filterWeek,
-    formato: filterFormat,
-  } = await searchParams;
+  const { status: filterStatus } = await searchParams;
 
   const supabase = await getSupabaseServerClient();
 
@@ -242,16 +227,16 @@ export default async function GerenciarCronogramaPage({
 
   const total = items.length;
 
-  const approved = items.filter((i) =>
-    ['aprovado', 'finalizado'].includes(i.general_status ?? '')
+  const approved = items.filter((item) =>
+    ['aprovado', 'finalizado'].includes(item.general_status ?? '')
   ).length;
 
   const inReview = items.filter(
-    (i) => i.general_status === 'em_revisao'
+    (item) => item.general_status === 'em_revisao'
   ).length;
 
   const pending = items.filter(
-    (i) => i.general_status === 'pendente'
+    (item) => item.general_status === 'pendente'
   ).length;
 
   const pct = total ? Math.round((approved / total) * 100) : 0;
@@ -268,30 +253,12 @@ export default async function GerenciarCronogramaPage({
   const isLocked = Boolean(campaign.is_locked);
   const canManagePosts = !isArchived && !isLocked;
 
-  const weekOptions = [
-    ...new Set(
-      items
-        .map((item) => item.week_label ?? 'Sem semana')
-        .filter(Boolean)
-    ),
-  ].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
-
-  const formatOptions = [
-    ...new Set(
-      items
-        .map((item) => item.format ?? 'outro')
-        .filter(Boolean)
-    ),
-  ];
-
   const filteredItems = items.filter((item) => {
     const itemStatus = item.general_status ?? 'pendente';
-    const itemWeek = item.week_label ?? 'Sem semana';
-    const itemFormat = item.format ?? 'outro';
 
-    if (filterStatus && itemStatus !== filterStatus) return false;
-    if (filterWeek && itemWeek !== filterWeek) return false;
-    if (filterFormat && itemFormat !== filterFormat) return false;
+    if (filterStatus && itemStatus !== filterStatus) {
+      return false;
+    }
 
     return true;
   });
@@ -314,74 +281,381 @@ export default async function GerenciarCronogramaPage({
     a.localeCompare(b, 'pt-BR', { numeric: true })
   );
 
-  const hasFilters = Boolean(filterStatus || filterWeek || filterFormat);
+  const hasFilters = Boolean(filterStatus);
 
   return (
-    <div className="page" style={{ maxWidth: 1320 }}>
-      {/* Breadcrumb */}
+    <div className="page campaign-detail-page" style={{ maxWidth: 1320 }}>
+      <style>
+        {`
+          .campaign-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+          }
+
+          .campaign-detail-title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+          }
+
+          .campaign-detail-actions {
+            display: flex;
+            justify-content: flex-end;
+          }
+
+          .campaign-visibility-card {
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+          }
+
+          .campaign-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
+          }
+
+          .campaign-progress-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+
+          .campaign-overview-card {
+            margin-bottom: 24px;
+            background: var(--green-50);
+            border: 1px solid var(--green-100);
+          }
+
+          .campaign-posts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            gap: 12px;
+            flex-wrap: wrap;
+          }
+
+          .campaign-filter-bar {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 18px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+          }
+
+          .campaign-filter-chips {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+
+          .campaign-week-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+
+          .campaign-post-list {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: var(--r);
+            overflow: hidden;
+          }
+
+          .campaign-post-row {
+            display: grid;
+            grid-template-columns: minmax(210px, 1.2fr) 130px minmax(260px, 1.3fr) 160px 180px;
+            gap: 14px;
+            padding: 14px 18px;
+            align-items: center;
+            border-bottom: 1px solid var(--line-soft);
+          }
+
+          .campaign-post-row:last-child {
+            border-bottom: none;
+          }
+
+          .campaign-post-title {
+            font-weight: 800;
+            font-size: 13px;
+            color: var(--ink);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .campaign-post-theme {
+            margin-top: 3px;
+            font-size: 12px;
+            color: var(--muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .campaign-post-field-list {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+            min-width: 0;
+          }
+
+          .campaign-post-field-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+            max-width: 100%;
+          }
+
+          .campaign-post-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+
+          .campaign-mobile-post-meta {
+            display: none;
+          }
+
+          @media (max-width: 980px) {
+            .campaign-detail-header {
+              align-items: stretch;
+              flex-direction: column;
+            }
+
+            .campaign-detail-actions {
+              justify-content: flex-start;
+            }
+
+            .campaign-stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .campaign-post-row {
+              grid-template-columns: minmax(0, 1fr);
+              gap: 12px;
+              padding: 16px;
+              border-bottom: 10px solid var(--bg);
+            }
+
+            .campaign-post-row:last-child {
+              border-bottom: none;
+            }
+
+            .campaign-post-title {
+              font-size: 15px;
+              white-space: normal;
+              line-height: 1.35;
+            }
+
+            .campaign-post-theme {
+              white-space: normal;
+              line-height: 1.45;
+            }
+
+            .campaign-post-row > .campaign-post-format-desktop,
+            .campaign-post-row > .campaign-post-status-desktop {
+              display: none;
+            }
+
+            .campaign-mobile-post-meta {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+
+            .campaign-post-field-list {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 7px;
+            }
+
+            .campaign-post-field-pill {
+              width: 100%;
+              justify-content: flex-start;
+              padding: 8px 10px;
+              border-radius: 12px;
+              overflow: hidden;
+            }
+
+            .campaign-post-field-pill span:last-child {
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .campaign-post-actions {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              width: 100%;
+            }
+
+            .campaign-post-actions .btn {
+              width: 100%;
+              justify-content: center;
+            }
+          }
+
+          @media (max-width: 640px) {
+            .campaign-detail-title-row {
+              align-items: flex-start;
+              flex-direction: column;
+              gap: 8px;
+            }
+
+            .campaign-stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 10px;
+            }
+
+            .campaign-stats-grid .card-flat {
+              padding: 14px;
+              border-radius: 18px;
+            }
+
+            .campaign-stats-grid .stat-number {
+              font-size: 28px !important;
+            }
+
+            .campaign-progress-row {
+              align-items: flex-start;
+              flex-direction: column;
+              gap: 8px;
+            }
+
+            .campaign-progress-row .progress {
+              width: 100%;
+            }
+
+            .campaign-posts-header {
+              align-items: stretch;
+              flex-direction: column;
+            }
+
+            .campaign-posts-header .btn {
+              width: 100%;
+            }
+
+            .campaign-filter-bar {
+              align-items: stretch;
+              flex-direction: column;
+              border-radius: 18px;
+            }
+
+            .campaign-filter-chips {
+              overflow-x: auto;
+              flex-wrap: nowrap;
+              padding-bottom: 2px;
+              margin-right: -4px;
+            }
+
+            .campaign-filter-chips .chip,
+            .campaign-filter-chips .btn {
+              flex-shrink: 0;
+            }
+
+            .campaign-week-title {
+              align-items: flex-start;
+            }
+
+            .campaign-week-title > div {
+              display: none;
+            }
+
+            .campaign-post-list {
+              background: transparent;
+              border: none;
+              border-radius: 0;
+              overflow: visible;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+            }
+
+            .campaign-post-row {
+              background: #fff;
+              border: 1px solid var(--line);
+              border-radius: 20px;
+              box-shadow: 0 1px 2px rgba(0,0,0,.03);
+            }
+
+            .campaign-post-actions {
+              grid-template-columns: 1fr;
+            }
+          }
+
+          @media (max-width: 420px) {
+            .campaign-stats-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}
+      </style>
+
       <div className="crumb">
         <Link href="/admin/cronogramas">Cronogramas</Link>
         <span>/</span>
         {campaign.name}
       </div>
 
-      {/* Campaign header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 24,
-          marginBottom: 18,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="campaign-detail-header">
         <div style={{ minWidth: 260 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              marginBottom: 8,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="campaign-detail-title-row">
             <h1 className="h1" style={{ fontSize: 26 }}>
               {campaign.name}
             </h1>
 
-            <StatusBadge
-              kind={statusKind as Parameters<typeof StatusBadge>[0]['kind']}
-              size="lg"
-            />
+            <StatusBadge kind={statusKind} size="lg" />
           </div>
 
           <div className="muted" style={{ fontSize: 14 }}>
             {client?.company_name ?? client?.name} · {campaign.period_label} ·{' '}
-            {FMT_LABEL[campaign.type] ?? campaign.type}
+            {campaign.type}
           </div>
         </div>
 
-        <CampaignActions
-          campaignId={id}
-          status={campaign.status}
-          approvalLink={approvalLink}
-          isLocked={campaign.is_locked}
-          editHref={`/admin/cronogramas/${id}/editar`}
-        />
+        <div className="campaign-detail-actions">
+          <CampaignActions
+            campaignId={id}
+            status={campaign.status}
+            approvalLink={approvalLink}
+            isLocked={campaign.is_locked}
+            editHref={`/admin/cronogramas/${id}/editar`}
+          />
+        </div>
       </div>
 
-      {/* Visibility notice */}
       <div
+        className="campaign-visibility-card"
         style={{
-          borderRadius: 14,
           border: `1px solid ${visibility.border}`,
           background: visibility.bg,
-          padding: '12px 14px',
-          marginBottom: 24,
-          display: 'flex',
-          gap: 10,
-          alignItems: 'flex-start',
         }}
       >
         <Icon name="info" size={16} color={visibility.color} />
@@ -410,75 +684,52 @@ export default async function GerenciarCronogramaPage({
         </div>
       </div>
 
-      {/* Stats row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 14,
-          marginBottom: 24,
-        }}
-      >
+      <div className="campaign-stats-grid">
         {[
           { label: 'Total de posts', value: total, color: 'var(--ink)' },
           { label: 'Aprovados', value: approved, color: 'var(--green)' },
           { label: 'Em revisão', value: inReview, color: 'var(--orange)' },
           { label: 'Pendentes', value: pending, color: 'var(--muted)' },
-        ].map((s) => (
-          <div key={s.label} className="card-flat" style={{ padding: 16 }}>
+        ].map((item) => (
+          <div key={item.label} className="card-flat">
             <div className="eyebrow" style={{ fontSize: 10 }}>
-              {s.label}
+              {item.label}
             </div>
 
             <div
+              className="stat-number"
               style={{
                 fontSize: 32,
-                fontWeight: 700,
-                letterSpacing: '-0.03em',
-                color: s.color,
+                fontWeight: 800,
+                letterSpacing: '-0.04em',
+                color: item.color,
                 marginTop: 4,
                 lineHeight: 1,
               }}
             >
-              {s.value}
+              {item.value}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Progress bar */}
       {total > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="campaign-progress-row">
           <div className="progress" style={{ flex: 1 }}>
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
 
           <span
             className="muted tiny"
-            style={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+            style={{ fontWeight: 800, whiteSpace: 'nowrap' }}
           >
             {pct}% aprovado
           </span>
         </div>
       )}
 
-      {/* Overview */}
       {campaign.overview && (
-        <div
-          className="card"
-          style={{
-            marginBottom: 24,
-            background: 'var(--green-50)',
-            border: '1px solid var(--green-100)',
-          }}
-        >
+        <div className="card campaign-overview-card">
           <div
             className="eyebrow"
             style={{ color: 'var(--green)', marginBottom: 6 }}
@@ -499,17 +750,7 @@ export default async function GerenciarCronogramaPage({
         </div>
       )}
 
-      {/* Posts header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 14,
-          gap: 12,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="campaign-posts-header">
         <div>
           <h2 className="h2" style={{ fontSize: 18 }}>
             Posts do cronograma
@@ -537,24 +778,11 @@ export default async function GerenciarCronogramaPage({
         )}
       </div>
 
-      {/* Filters */}
       {total > 0 && (
-        <div
-          style={{
-            background: '#fff',
-            border: '1px solid var(--line)',
-            borderRadius: 14,
-            padding: 12,
-            marginBottom: 18,
-            display: 'flex',
-            gap: 10,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="campaign-filter-bar">
           <Icon name="filter" size={14} color="var(--muted)" />
 
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="campaign-filter-chips">
             {[
               { key: '', label: 'Todos' },
               { key: 'pendente', label: 'Pendentes' },
@@ -562,91 +790,39 @@ export default async function GerenciarCronogramaPage({
               { key: 'aprovado', label: 'Aprovados' },
               { key: 'em_producao', label: 'Em produção' },
               { key: 'finalizado', label: 'Finalizados' },
-            ].map((status) => {
-              const active = (filterStatus ?? '') === status.key;
+            ].map((filter) => {
+              const active = (filterStatus ?? '') === filter.key;
 
               return (
                 <Link
-                  key={status.label}
-                  href={buildFilterHref(id, {
-                    status: status.key || undefined,
-                    semana: filterWeek,
-                    formato: filterFormat,
-                  })}
+                  key={filter.label}
+                  href={buildFilterHref(id, filter.key || undefined)}
                   className="chip"
                   style={{
                     textDecoration: 'none',
-                    height: 30,
+                    height: 32,
                     background: active ? 'var(--green)' : undefined,
                     color: active ? '#fff' : undefined,
                   }}
                 >
-                  {status.label}
+                  {filter.label}
                 </Link>
               );
             })}
+
+            {hasFilters && (
+              <Link
+                href={`/admin/cronogramas/${id}` as Route}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: 12 }}
+              >
+                Limpar filtros
+              </Link>
+            )}
           </div>
-
-          <div style={{ flex: 1 }} />
-
-          {weekOptions.length > 0 && (
-            <select
-              defaultValue={filterWeek ?? ''}
-              onChange={undefined}
-              style={{
-                height: 34,
-                borderRadius: 10,
-                border: '1px solid var(--line)',
-                padding: '0 10px',
-                fontSize: 12,
-                color: 'var(--ink-2)',
-                background: '#fff',
-              }}
-            >
-              <option value="">Todas as semanas</option>
-              {weekOptions.map((week) => (
-                <option key={week} value={week}>
-                  {week}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {formatOptions.length > 0 && (
-            <select
-              defaultValue={filterFormat ?? ''}
-              style={{
-                height: 34,
-                borderRadius: 10,
-                border: '1px solid var(--line)',
-                padding: '0 10px',
-                fontSize: 12,
-                color: 'var(--ink-2)',
-                background: '#fff',
-              }}
-            >
-              <option value="">Todos os formatos</option>
-              {formatOptions.map((format) => (
-                <option key={format} value={format}>
-                  {FMT_LABEL[format] ?? format}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {hasFilters && (
-            <Link
-              href={`/admin/cronogramas/${id}` as Route}
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: 12 }}
-            >
-              Limpar filtros
-            </Link>
-          )}
         </div>
       )}
 
-      {/* Posts */}
       {total === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: 'center' }}>
           <p className="muted" style={{ marginBottom: 12 }}>
@@ -684,66 +860,43 @@ export default async function GerenciarCronogramaPage({
             count={weeks[week]?.length ?? 0}
             defaultOpen={weekIdx === 0}
           >
-            <div
-              style={{
-                background: '#fff',
-                border: '1px solid var(--line)',
-                borderRadius: 'var(--r)',
-                overflow: 'hidden',
-              }}
-            >
-              {weeks[week]?.map((post, i) => {
+            <div className="campaign-post-list">
+              {weeks[week]?.map((post) => {
                 const postKind =
                   POST_STATUS_KIND[post.general_status ?? 'pendente'] ??
                   'aguardando';
 
+                const postLabel =
+                  POST_STATUS_LABEL[post.general_status ?? 'pendente'];
+
                 const format = post.format ?? 'outro';
 
                 return (
-                  <div
-                    key={post.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'minmax(220px, 1.5fr) 0.65fr 1.7fr 0.75fr 150px',
-                      gap: 14,
-                      padding: '14px 18px',
-                      alignItems: 'center',
-                      borderBottom:
-                        i === (weeks[week]!.length - 1)
-                          ? 'none'
-                          : '1px solid var(--line-soft)',
-                    }}
-                  >
+                  <div key={post.id} className="campaign-post-row">
                     <div style={{ minWidth: 0 }}>
+                      <div className="campaign-mobile-post-meta">
+                        <span className={FMT_CLASS[format] ?? 'fmt'}>
+                          {FMT_LABEL[format] ?? format}
+                        </span>
+
+                        <StatusBadge kind={postKind} label={postLabel} />
+                      </div>
+
                       <div
+                        className="campaign-post-title"
                         style={{
-                          fontWeight: 700,
-                          fontSize: 13,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          marginTop: 6,
                         }}
                       >
                         {post.title ?? 'Post sem título'}
                       </div>
 
                       {post.theme && (
-                        <div
-                          className="muted tiny"
-                          style={{
-                            marginTop: 2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {post.theme}
-                        </div>
+                        <div className="campaign-post-theme">{post.theme}</div>
                       )}
                     </div>
 
-                    <div>
+                    <div className="campaign-post-format-desktop">
                       <span
                         className={FMT_CLASS[format] ?? 'fmt'}
                         style={{ fontSize: 11 }}
@@ -752,14 +905,7 @@ export default async function GerenciarCronogramaPage({
                       </span>
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                      }}
-                    >
+                    <div className="campaign-post-field-list">
                       <FieldStatusPill
                         label="Tema"
                         value={post.theme_status}
@@ -776,39 +922,28 @@ export default async function GerenciarCronogramaPage({
                       />
                     </div>
 
-                    <div>
-                      <StatusBadge
-                        kind={
-                          postKind as Parameters<typeof StatusBadge>[0]['kind']
-                        }
-                        label={
-                          POST_STATUS_LABEL[
-                            post.general_status ?? 'pendente'
-                          ] ?? undefined
-                        }
-                      />
+                    <div className="campaign-post-status-desktop">
+                      <StatusBadge kind={postKind} label={postLabel} />
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                      }}
-                    >
+                    <div className="campaign-post-actions">
                       <Link
                         href={`/admin/posts/${post.id}` as Route}
                         className="btn btn-ghost btn-sm"
-                        style={{
-                          height: 30,
-                          padding: '0 10px',
-                          fontSize: 12,
-                        }}
                       >
                         <Icon name="arrow" size={12} />
                         Ver card
                       </Link>
+
+                      {canManagePosts && (
+                        <Link
+                          href={`/admin/posts/${post.id}` as Route}
+                          className="btn btn-primary btn-sm"
+                        >
+                          <Icon name="edit" size={12} />
+                          Editar
+                        </Link>
+                      )}
                     </div>
                   </div>
                 );
