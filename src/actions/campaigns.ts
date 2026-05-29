@@ -1,195 +1,375 @@
-// ============================================================
-// SERVER ACTIONS — Cronogramas
-// ============================================================
 "use server";
+// ============================================================
+// SERVER ACTIONS — Cronogramas / Campaigns
+// ============================================================
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { campaignSchema, type CampaignInput } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
-import { randomBytes } from "crypto";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  campaignSchema,
+  type CampaignInput,
+} from "@/lib/validations/schemas";
 
-type ActionResult<T = void> =
+type Result<T = void> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-// Gera token criptograficamente seguro para aprovação
-function generateApprovalToken(): string {
-  return randomBytes(32).toString("hex");
-}
-
-// Token expira em 90 dias
-function getTokenExpiry(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 90);
-  return date.toISOString();
-}
-
-export async function createCampaign(
-  input: CampaignInput
-): Promise<ActionResult<{ id: string }>> {
-  const parsed = campaignSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
-  }
-
+async function requireStaff() {
   const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Não autorizado" };
 
-  // Apenas admin/equipe pode criar cronogramas
-  const { data: profile } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data } = await supabase
     .from("user_profiles")
     .select("id, role")
     .eq("auth_user_id", user.id)
     .single();
 
-  if (!profile || !["admin", "equipe"].includes(profile.role)) {
-    return { success: false, error: "Sem permissão para criar cronogramas" };
+  if (!data || !["admin", "equipe"].includes(data.role)) return null;
+
+  return data;
+}
+
+async function requireAdmin() {
+  const supabase = await getSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("id, role")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (!data || data.role !== "admin") return null;
+
+  return data;
+}
+
+function createApprovalToken() {
+  return crypto.randomUUID();
+}
+
+function createTokenExpirationDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString();
+}
+
+function revalidateCampaignPaths(campaignId: string) {
+  revalidatePath("/admin");
+  revalidatePath("/admin/cronogramas");
+  revalidatePath(`/admin/cronogramas/${campaignId}`);
+  revalidatePath(`/admin/cronogramas/${campaignId}/editar`);
+  revalidatePath("/admin/kanban");
+  revalidatePath("/admin/calendario");
+  revalidatePath("/cliente");
+  revalidatePath(`/cliente/cronogramas/${campaignId}`);
+}
+
+// ── Criar cronograma ─────────────────────────────────────────
+export async function createCampaign(
+  input: CampaignInput
+): Promise<Result<{ id: string }>> {
+  const parsed = campaignSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+    };
   }
+
+  const profile = await requireStaff();
+
+  if (!profile) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const approvalToken = createApprovalToken();
 
   const { data, error } = await supabase
     .from("campaigns")
     .insert({
       ...parsed.data,
-      end_date: parsed.data.end_date || null,
-      overview: parsed.data.overview || null,
       status: "rascunho",
-      approval_token: generateApprovalToken(),
-      token_expires_at: getTokenExpiry(),
       is_locked: false,
-      created_by: profile.id,   // user_profiles.id, não auth_user_id
+      approval_token: approvalToken,
+      token_expires_at: createTokenExpirationDate(),
+      created_by: profile.id,
     })
     .select("id")
     .single();
 
   if (error || !data) {
     console.error("[createCampaign] Supabase error:", error);
-    return { success: false, error: error?.message ?? "Erro ao criar cronograma" };
+
+    return {
+      success: false,
+      error: error?.message ?? "Erro ao criar cronograma",
+    };
   }
 
-  revalidatePath("/admin/cronogramas");
+  revalidateCampaignPaths(data.id);
+
   return { success: true, data: { id: data.id } };
 }
 
+// ── Atualizar cronograma ─────────────────────────────────────
 export async function updateCampaign(
   id: string,
   input: CampaignInput
-): Promise<ActionResult> {
+): Promise<Result> {
   const parsed = campaignSchema.safeParse(input);
+
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos",
+    };
   }
 
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Não autorizado" };
+  const profile = await requireStaff();
 
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("auth_user_id", user.id).single();
-  if (!profile || !["admin", "equipe"].includes(profile.role)) {
+  if (!profile) {
     return { success: false, error: "Sem permissão" };
   }
 
-  const { error } = await supabase
+  const supabase = await getSupabaseServerClient();
+
+  const { data: campaign } = await supabase
     .from("campaigns")
-    .update({ ...parsed.data, end_date: parsed.data.end_date || null, overview: parsed.data.overview || null })
-    .eq("id", id);
-
-  if (error) return { success: false, error: "Erro ao atualizar cronograma" };
-
-  revalidatePath("/admin/cronogramas");
-  revalidatePath(`/admin/cronogramas/${id}`);
-  return { success: true, data: undefined };
-}
-
-export async function sendCampaignForApproval(
-  campaignId: string
-): Promise<ActionResult> {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Não autorizado" };
-
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("auth_user_id", user.id).single();
-  if (!profile || !["admin", "equipe"].includes(profile.role)) {
-    return { success: false, error: "Sem permissão" };
-  }
-
-  // Verifica se há ao menos um post visível
-  const { count } = await supabase
-    .from("content_items")
-    .select("*", { count: "exact", head: true })
-    .eq("campaign_id", campaignId);
-
-  if (!count || count === 0) {
-    return { success: false, error: "Adicione ao menos um post antes de enviar para aprovação" };
-  }
-
-  const { error } = await supabase
-    .from("campaigns")
-    .update({ status: "enviado_para_aprovacao" })
-    .eq("id", campaignId)
-    .in("status", ["rascunho", "em_revisao"]); // só avança se estiver nesses status
-
-  if (error) return { success: false, error: "Erro ao enviar para aprovação" };
-
-  revalidatePath("/admin/cronogramas");
-  revalidatePath(`/admin/cronogramas/${campaignId}`);
-  return { success: true, data: undefined };
-}
-
-export async function updateCampaignStatus(
-  campaignId: string,
-  status: string
-): Promise<ActionResult> {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Não autorizado" };
-
-  const { data: profile } = await supabase
-    .from("user_profiles").select("role").eq("auth_user_id", user.id).single();
-  if (!profile || profile.role !== "admin") {
-    return { success: false, error: "Apenas admins podem alterar status manualmente" };
-  }
-
-  const { error } = await supabase
-    .from("campaigns").update({ status }).eq("id", campaignId);
-
-  if (error) return { success: false, error: "Erro ao atualizar status" };
-
-  revalidatePath("/admin/cronogramas");
-  revalidatePath(`/admin/cronogramas/${campaignId}`);
-  return { success: true, data: undefined };
-}
-
-// Regenera token de aprovação (invalida o antigo)
-export async function regenerateApprovalToken(
-  campaignId: string
-): Promise<ActionResult<{ token: string }>> {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Não autorizado" };
-
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("auth_user_id", user.id)
+    .select("id, status, is_locked")
+    .eq("id", id)
     .single();
 
-  if (profile?.role !== "admin") {
-    return { success: false, error: "Apenas admins podem regenerar tokens" };
+  if (!campaign) {
+    return { success: false, error: "Cronograma não encontrado" };
   }
 
-  const newToken = generateApprovalToken();
+  if (campaign.status === "arquivado") {
+    return {
+      success: false,
+      error: "Este cronograma está arquivado e não pode ser editado",
+    };
+  }
+
+  if (campaign.is_locked) {
+    return {
+      success: false,
+      error: "Este cronograma está bloqueado",
+    };
+  }
+
   const { error } = await supabase
     .from("campaigns")
     .update({
-      approval_token: newToken,
-      token_expires_at: getTokenExpiry(),
+      ...parsed.data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[updateCampaign]", error.message);
+
+    return {
+      success: false,
+      error: "Erro ao atualizar cronograma",
+    };
+  }
+
+  revalidateCampaignPaths(id);
+
+  return { success: true, data: undefined };
+}
+
+// ── Enviar cronograma para aprovação ─────────────────────────
+export async function sendCampaignForApproval(
+  campaignId: string
+): Promise<Result> {
+  const profile = await requireStaff();
+
+  if (!profile) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: items } = await supabase
+    .from("content_items")
+    .select("id")
+    .eq("campaign_id", campaignId);
+
+  if (!items || items.length === 0) {
+    return {
+      success: false,
+      error: "Adicione pelo menos um post antes de enviar para aprovação",
+    };
+  }
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({
+      status: "enviado_para_aprovacao",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId)
+    .in("status", ["rascunho", "em_revisao"]);
+
+  if (error) {
+    console.error("[sendCampaignForApproval]", error.message);
+
+    return {
+      success: false,
+      error: "Erro ao enviar cronograma para aprovação",
+    };
+  }
+
+  revalidateCampaignPaths(campaignId);
+
+  return { success: true, data: undefined };
+}
+
+// ── Atualizar status manualmente ─────────────────────────────
+export async function updateCampaignStatus(
+  campaignId: string,
+  status: string
+): Promise<Result> {
+  const profile = await requireAdmin();
+
+  if (!profile) {
+    return {
+      success: false,
+      error: "Apenas admins podem alterar status manualmente",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId);
 
-  if (error) return { success: false, error: "Erro ao regenerar token" };
+  if (error) {
+    console.error("[updateCampaignStatus]", error.message);
 
-  return { success: true, data: { token: newToken } };
+    return {
+      success: false,
+      error: "Erro ao atualizar status",
+    };
+  }
+
+  revalidateCampaignPaths(campaignId);
+
+  return { success: true, data: undefined };
+}
+
+// ── Gerar novo link de aprovação ─────────────────────────────
+export async function regenerateApprovalToken(
+  campaignId: string
+): Promise<Result<{ approval_token: string }>> {
+  const profile = await requireStaff();
+
+  if (!profile) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const approvalToken = createApprovalToken();
+
+  const { data, error } = await supabase
+    .from("campaigns")
+    .update({
+      approval_token: approvalToken,
+      token_expires_at: createTokenExpirationDate(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId)
+    .select("approval_token")
+    .single();
+
+  if (error || !data) {
+    console.error("[regenerateApprovalToken]", error?.message);
+
+    return {
+      success: false,
+      error: "Erro ao gerar novo link",
+    };
+  }
+
+  revalidateCampaignPaths(campaignId);
+
+  return {
+    success: true,
+    data: {
+      approval_token: data.approval_token,
+    },
+  };
+}
+
+// ── Arquivar cronograma ──────────────────────────────────────
+export async function archiveCampaign(campaignId: string): Promise<Result> {
+  const profile = await requireAdmin();
+
+  if (!profile) {
+    return {
+      success: false,
+      error: "Apenas admins podem arquivar cronogramas",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("id, status")
+    .eq("id", campaignId)
+    .single();
+
+  if (!campaign) {
+    return { success: false, error: "Cronograma não encontrado" };
+  }
+
+  if (campaign.status === "arquivado") {
+    return {
+      success: false,
+      error: "Este cronograma já está arquivado",
+    };
+  }
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({
+      status: "arquivado",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId);
+
+  if (error) {
+    console.error("[archiveCampaign]", error.message);
+
+    return {
+      success: false,
+      error: "Erro ao arquivar cronograma",
+    };
+  }
+
+  revalidateCampaignPaths(campaignId);
+
+  return { success: true, data: undefined };
 }

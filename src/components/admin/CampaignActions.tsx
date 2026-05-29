@@ -1,8 +1,13 @@
 'use client';
-import { useState } from 'react';
+
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { sendCampaignForApproval, regenerateApprovalToken } from '@/actions/campaigns';
+import { useRouter } from 'next/navigation';
+import {
+  sendCampaignForApproval,
+  regenerateApprovalToken,
+} from '@/actions/campaigns';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
@@ -10,83 +15,141 @@ interface Props {
   campaignId: string;
   status: string;
   approvalLink: string;
-  isLocked: boolean;
+  isLocked?: boolean | null;
   editHref: string;
 }
 
-export default function CampaignActions({ campaignId, status, approvalLink, isLocked, editHref }: Props) {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [link, setLink] = useState(approvalLink);
+export default function CampaignActions({
+  campaignId,
+  status,
+  approvalLink,
+  isLocked,
+  editHref,
+}: Props) {
+  const router = useRouter();
 
-  async function handleSendForApproval() {
-    setLoading('send');
-    const result = await sendCampaignForApproval(campaignId);
-    if (!result.success) {
-      toast.error(result.error);
-    } else {
-      toast.success('Cronograma enviado para aprovação!');
-    }
-    setLoading(null);
-  }
+  const [link, setLink] = useState(approvalLink);
+  const [isPending, startTransition] = useTransition();
+
+  const isArchived = status === 'arquivado';
+  const canSend = ['rascunho', 'em_revisao'].includes(status) && !isArchived;
+  const canEdit = !isLocked && status !== 'aprovado' && !isArchived;
 
   async function handleCopyLink() {
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    toast.success('Link copiado!');
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleRegenerateToken() {
-    if (!confirm('Isso vai invalidar o link atual. Continuar?')) return;
-    setLoading('regen');
-    const result = await regenerateApprovalToken(campaignId);
-    if (!result.success) {
-      toast.error(result.error);
-    } else {
-      const newLink = link.replace(/\/acesso\/[a-f0-9]+$/, `/acesso/${(result as { success: true; data: { token: string } }).data.token}`);
-      setLink(newLink);
-      toast.success('Link regenerado!');
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link copiado!');
+    } catch {
+      toast.error('Não foi possível copiar o link.');
     }
-    setLoading(null);
   }
 
-  const canSend = ['rascunho', 'em_revisao'].includes(status);
-  const canEdit = !isLocked && status !== 'aprovado';
+  function handleSendForApproval() {
+    startTransition(async () => {
+      const result = await sendCampaignForApproval(campaignId);
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success('Cronograma enviado para aprovação!');
+      router.refresh();
+    });
+  }
+
+  function handleRegenerateLink() {
+    startTransition(async () => {
+      const result = await regenerateApprovalToken(campaignId);
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      const newToken = result.data.approval_token;
+
+      let newLink = link;
+
+      try {
+        const url = new URL(link);
+        url.pathname = `/acesso/${newToken}`;
+        newLink = url.toString();
+      } catch {
+        newLink = link.replace(/\/acesso\/[^/?#]+/, `/acesso/${newToken}`);
+      }
+
+      setLink(newLink);
+      toast.success('Novo link gerado!');
+      router.refresh();
+    });
+  }
 
   return (
-    <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      {isArchived && (
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#92400e',
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: 10,
+            padding: '8px 10px',
+          }}
+        >
+          Cronograma arquivado
+        </span>
+      )}
+
       {canEdit && (
-        <Link href={editHref as Route} className="btn btn-ghost btn-sm flex-1 sm:flex-none">
-          <Icon name="edit" size={14} /> Editar
+        <Link href={editHref as Route} className="btn btn-ghost btn-sm">
+          <Icon name="edit" size={14} />
+          Editar
         </Link>
       )}
 
-      {/* Copy link */}
-      <button className="btn btn-ghost btn-sm flex-1 sm:flex-none" onClick={handleCopyLink} style={{ maxWidth: 220, overflow: 'hidden' }}>
-        <Icon name="link" size={14} />
-        {copied ? 'Copiado!' : 'Copiar link'}
-      </button>
-
-      {/* Regenerate token */}
-      <button
-        className="btn btn-ghost btn-sm flex-1 sm:flex-none"
-        onClick={handleRegenerateToken}
-        disabled={loading === 'regen'}
-        title="Gerar novo link (invalida o antigo)">
-        <Icon name="upload" size={14} />
-        {loading === 'regen' ? 'Gerando…' : 'Novo link'}
-      </button>
-
-      {/* Send for approval */}
       {canSend && (
         <button
-          className="btn btn-primary btn-sm flex-1 sm:flex-none"
+          type="button"
+          className="btn btn-primary btn-sm"
           onClick={handleSendForApproval}
-          disabled={loading === 'send'}>
-          <Icon name="arrow" size={14} />
-          {loading === 'send' ? 'Enviando…' : 'Enviar para aprovação'}
+          disabled={isPending}
+        >
+          <Icon name="send" size={14} />
+          {isPending ? 'Enviando…' : 'Enviar para aprovação'}
         </button>
+      )}
+
+      {!isArchived && (
+        <>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleCopyLink}
+            disabled={isPending}
+          >
+            <Icon name="copy" size={14} />
+            Copiar link do cliente
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleRegenerateLink}
+            disabled={isPending}
+          >
+            Gerar novo link
+          </button>
+        </>
       )}
     </div>
   );
