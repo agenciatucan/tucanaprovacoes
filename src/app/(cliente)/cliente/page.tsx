@@ -25,7 +25,22 @@ const FMT_CLASS: Record<string, string> = {
   carrossel: 'fmt fmt-carrossel',
   post_estatico: 'fmt fmt-estatico',
   story: 'fmt fmt-stories',
+  outro: 'fmt',
 };
+
+function getFirstName(name?: string | null) {
+  const cleanName = name?.trim();
+
+  if (!cleanName) return 'Cliente';
+
+  return cleanName.split(' ')[0];
+}
+
+function getProgress(total: number, approved: number) {
+  if (!total) return 0;
+
+  return Math.round((approved / total) * 100);
+}
 
 export default async function ClienteDashboard() {
   const supabase = await getSupabaseServerClient();
@@ -50,7 +65,7 @@ export default async function ClienteDashboard() {
     .eq('user_id', profile.id);
 
   const clientIds = clientUsers?.map((cu) => cu.client_id) ?? [];
-  const firstName = profile.name.split(' ')[0];
+  const firstName = getFirstName(profile.name);
 
   const primaryClient = clientUsers?.[0];
   const clientData = Array.isArray(primaryClient?.clients)
@@ -66,7 +81,7 @@ export default async function ClienteDashboard() {
     .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
     .order('created_at', { ascending: false });
 
-  const campaignIds = campaigns?.map((c) => c.id) ?? [];
+  const campaignIds = campaigns?.map((campaign) => campaign.id) ?? [];
 
   const { data: pendingItems } =
     campaignIds.length > 0
@@ -80,128 +95,457 @@ export default async function ClienteDashboard() {
       : { data: [] };
 
   const pendingTotal =
-    campaigns?.reduce((acc, c) => {
-      const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return acc + items.filter((i: { general_status: string }) => i.general_status === 'pendente').length;
+    campaigns?.reduce((acc, campaign) => {
+      const items = Array.isArray(campaign.content_items)
+        ? campaign.content_items
+        : [];
+
+      return (
+        acc +
+        items.filter(
+          (item: { general_status: string }) =>
+            item.general_status === 'pendente'
+        ).length
+      );
     }, 0) ?? 0;
 
   const approvedTotal =
-    campaigns?.reduce((acc, c) => {
-      const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return acc + items.filter((i: { general_status: string }) => ['aprovado', 'finalizado'].includes(i.general_status)).length;
+    campaigns?.reduce((acc, campaign) => {
+      const items = Array.isArray(campaign.content_items)
+        ? campaign.content_items
+        : [];
+
+      return (
+        acc +
+        items.filter((item: { general_status: string }) =>
+          ['aprovado', 'finalizado'].includes(item.general_status)
+        ).length
+      );
     }, 0) ?? 0;
 
   const totalItems =
-    campaigns?.reduce((acc, c) => {
-      return acc + (Array.isArray(c.content_items) ? c.content_items.length : 0);
+    campaigns?.reduce((acc, campaign) => {
+      const items = Array.isArray(campaign.content_items)
+        ? campaign.content_items
+        : [];
+
+      return acc + items.length;
     }, 0) ?? 0;
 
   const inReviewTotal =
-    campaigns?.reduce((acc, c) => {
-      const items = Array.isArray(c.content_items) ? c.content_items : [];
-      return acc + items.filter((i: { general_status: string }) => i.general_status === 'em_revisao').length;
+    campaigns?.reduce((acc, campaign) => {
+      const items = Array.isArray(campaign.content_items)
+        ? campaign.content_items
+        : [];
+
+      return (
+        acc +
+        items.filter(
+          (item: { general_status: string }) =>
+            item.general_status === 'em_revisao'
+        ).length
+      );
     }, 0) ?? 0;
+
+  const latestCampaign = campaigns?.[0];
 
   return (
     <div className="page">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          marginBottom: 28,
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div className="eyebrow">
-            {clientData?.company_name ?? clientData?.name}
-          </div>
+      <style>
+        {`
+          .cliente-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 18px;
+            align-items: end;
+            margin-bottom: 24px;
+          }
 
-          <h1 className="h1" style={{ marginTop: 6 }}>
-            Olá, {firstName} 👋
-          </h1>
+          .cliente-hero-card {
+            background: var(--green);
+            border-radius: 28px;
+            padding: 28px;
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+          }
 
-          {pendingTotal > 0 && (
-            <p className="muted" style={{ marginTop: 6, fontSize: 15 }}>
-              Você tem{' '}
-              <strong style={{ color: 'var(--orange)' }}>
-                {pendingTotal} {pendingTotal === 1 ? 'post' : 'posts'}
-              </strong>{' '}
-              aguardando aprovação.
+          .cliente-hero-card::before {
+            content: '';
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 999px;
+            background: rgba(235, 96, 19, .18);
+            right: -70px;
+            top: -90px;
+          }
+
+          .cliente-hero-card::after {
+            content: '';
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .06);
+            left: -70px;
+            bottom: -90px;
+          }
+
+          .cliente-hero-content {
+            position: relative;
+            z-index: 1;
+          }
+
+          .cliente-hero-eyebrow {
+            color: rgba(255,255,255,.58);
+          }
+
+          .cliente-hero-title {
+            margin: 8px 0 0;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+          }
+
+          .cliente-hero-text {
+            margin: 10px 0 0;
+            max-width: 520px;
+            color: rgba(255,255,255,.72);
+            font-size: 15px;
+            line-height: 1.55;
+          }
+
+          .cliente-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 26px;
+          }
+
+          .cliente-summary-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .cliente-summary-card strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 32px;
+            line-height: 1;
+            letter-spacing: -0.04em;
+          }
+
+          .cliente-dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+            gap: 22px;
+            align-items: start;
+          }
+
+          .cliente-section-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 12px;
+            margin-bottom: 14px;
+          }
+
+          .cliente-campaign-list,
+          .cliente-pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .cliente-campaign-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 18px;
+            text-decoration: none;
+            color: inherit;
+            transition:
+              transform .15s ease,
+              box-shadow .15s ease,
+              border-color .15s ease;
+          }
+
+          .cliente-campaign-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 36px rgba(0,0,0,.07);
+            border-color: rgba(37,65,30,.22);
+          }
+
+          .cliente-campaign-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+          }
+
+          .cliente-campaign-title-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+          }
+
+          .cliente-campaign-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--ink);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .cliente-campaign-progress {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: minmax(110px, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            max-width: 360px;
+          }
+
+          .cliente-pending-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 14px;
+            text-decoration: none;
+            color: inherit;
+            transition:
+              transform .15s ease,
+              box-shadow .15s ease,
+              border-color .15s ease;
+          }
+
+          .cliente-pending-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(0,0,0,.06);
+            border-color: rgba(235,96,19,.2);
+          }
+
+          .cliente-format-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            background: var(--bg-2);
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 900;
+            color: var(--ink);
+            flex-shrink: 0;
+          }
+
+          .cliente-empty-card {
+            background: #fff;
+            border: 1px dashed var(--line);
+            border-radius: 22px;
+            padding: 36px 22px;
+            text-align: center;
+          }
+
+          @media (max-width: 980px) {
+            .cliente-hero {
+              grid-template-columns: 1fr;
+              align-items: stretch;
+            }
+
+            .cliente-summary-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .cliente-dashboard-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+
+          @media (max-width: 640px) {
+            .cliente-hero-card {
+              padding: 22px;
+              border-radius: 24px;
+            }
+
+            .cliente-hero-title {
+              font-size: 29px;
+            }
+
+            .cliente-hero-text {
+              font-size: 14px;
+            }
+
+            .cliente-summary-grid {
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+
+            .cliente-summary-card {
+              padding: 14px;
+              border-radius: 16px;
+            }
+
+            .cliente-summary-card strong {
+              font-size: 27px;
+            }
+
+            .cliente-campaign-card {
+              grid-template-columns: minmax(0, 1fr);
+              padding: 16px;
+              gap: 12px;
+            }
+
+            .cliente-campaign-icon {
+              display: none;
+            }
+
+            .cliente-campaign-progress {
+              max-width: none;
+            }
+
+            .cliente-campaign-card > div:last-child {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 10px;
+            }
+
+            .cliente-section-head {
+              align-items: flex-start;
+              flex-direction: column;
+            }
+          }
+
+          @media (max-width: 420px) {
+            .cliente-summary-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .cliente-pending-card {
+              grid-template-columns: auto minmax(0, 1fr);
+            }
+
+            .cliente-pending-card > svg {
+              display: none;
+            }
+          }
+        `}
+      </style>
+
+      {/* Hero */}
+      <div className="cliente-hero">
+        <div className="cliente-hero-card">
+          <div className="cliente-hero-content">
+            <div className="eyebrow cliente-hero-eyebrow">
+              {clientData?.company_name ?? clientData?.name ?? 'Portal do cliente'}
+            </div>
+
+            <h1 className="cliente-hero-title">Olá, {firstName} 👋</h1>
+
+            <p className="cliente-hero-text">
+              Acompanhe seus cronogramas, aprove posts e solicite ajustes de
+              forma simples pelo portal.
             </p>
-          )}
+
+            {pendingTotal > 0 && (
+              <div
+                style={{
+                  marginTop: 18,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderRadius: 999,
+                  padding: '8px 12px',
+                  background: 'rgba(235,96,19,.2)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 800,
+                }}
+              >
+                <Icon name="bell" size={14} />
+                {pendingTotal}{' '}
+                {pendingTotal === 1
+                  ? 'post aguardando aprovação'
+                  : 'posts aguardando aprovação'}
+              </div>
+            )}
+          </div>
         </div>
 
-        {campaigns && campaigns.length > 0 && (
+        {latestCampaign && (
           <Link
-            href={`/cliente/cronogramas/${campaigns[0]!.id}` as Route}
-            className="btn btn-dark btn-sm"
+            href={`/cliente/cronogramas/${latestCampaign.id}` as Route}
+            className="btn btn-dark"
           >
-            Ver cronograma atual <Icon name="arrow" size={14} />
+            Ver cronograma atual
+            <Icon name="arrow" size={15} />
           </Link>
         )}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
+      {/* Summary */}
+      <div className="cliente-summary-grid">
         {[
-          { label: 'Aguardando aprovação', value: pendingTotal, accent: 'var(--orange)', sub: 'Posts pendentes' },
-          { label: 'Em revisão', value: inReviewTotal, accent: '#92400e', sub: 'Aguardando equipe Tucan' },
-          { label: 'Aprovados', value: approvedTotal, accent: 'var(--green)', sub: `De ${totalItems} publicações` },
-          { label: 'Cronogramas', value: campaigns?.length ?? 0, accent: 'var(--ink)', sub: 'Disponíveis para você' },
-        ].map((s) => (
-          <div key={s.label} className="card-flat" style={{ padding: 18 }}>
+          {
+            label: 'Aguardando aprovação',
+            value: pendingTotal,
+            accent: 'var(--orange)',
+            sub: 'Posts pendentes',
+          },
+          {
+            label: 'Em revisão',
+            value: inReviewTotal,
+            accent: '#92400e',
+            sub: 'Aguardando equipe Tucan',
+          },
+          {
+            label: 'Aprovados',
+            value: approvedTotal,
+            accent: 'var(--green)',
+            sub: `De ${totalItems} publicações`,
+          },
+          {
+            label: 'Cronogramas',
+            value: campaigns?.length ?? 0,
+            accent: 'var(--ink)',
+            sub: 'Disponíveis para você',
+          },
+        ].map((item) => (
+          <div key={item.label} className="cliente-summary-card">
             <div className="eyebrow" style={{ fontSize: 10 }}>
-              {s.label}
+              {item.label}
             </div>
 
-            <div
-              style={{
-                fontSize: 36,
-                fontWeight: 700,
-                letterSpacing: '-0.03em',
-                color: s.accent,
-                marginTop: 6,
-                lineHeight: 1,
-              }}
-            >
-              {s.value}
-            </div>
+            <strong style={{ color: item.accent }}>{item.value}</strong>
 
             <div className="muted tiny" style={{ marginTop: 6 }}>
-              {s.sub}
+              {item.sub}
             </div>
           </div>
         ))}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 24,
-          alignItems: 'flex-start',
-        }}
-      >
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-              marginBottom: 16,
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
+      <div className="cliente-dashboard-grid">
+        {/* Cronogramas */}
+        <section>
+          <div className="cliente-section-head">
             <div>
               <h2 className="h2" style={{ fontSize: 18 }}>
                 Cronogramas disponíveis
@@ -214,176 +558,195 @@ export default async function ClienteDashboard() {
           </div>
 
           {!campaigns || campaigns.length === 0 ? (
-            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-              <p className="muted">Nenhum cronograma disponível no momento.</p>
-              <p className="muted tiny">
+            <div className="cliente-empty-card">
+              <p className="muted" style={{ margin: 0 }}>
+                Nenhum cronograma disponível no momento.
+              </p>
+
+              <p className="muted tiny" style={{ margin: '6px 0 0' }}>
                 Entre em contato com a Tucan Marketing Digital.
               </p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {campaigns.map((c, i) => {
-                const items = Array.isArray(c.content_items) ? c.content_items : [];
+            <div className="cliente-campaign-list">
+              {campaigns.map((campaign, index) => {
+                const items = Array.isArray(campaign.content_items)
+                  ? campaign.content_items
+                  : [];
+
                 const total = items.length;
-                const approved = items.filter((it: { general_status: string }) => ['aprovado', 'finalizado'].includes(it.general_status)).length;
-                const pct = total ? Math.round((approved / total) * 100) : 0;
-                const isCurrent = i === 0 && c.status !== 'finalizado';
-                const statusKind = CAMPAIGN_STATUS_KIND[c.status] ?? 'aguardando';
+
+                const approved = items.filter(
+                  (item: { general_status: string }) =>
+                    ['aprovado', 'finalizado'].includes(item.general_status)
+                ).length;
+
+                const pct = getProgress(total, approved);
+                const isCurrent = index === 0 && campaign.status !== 'finalizado';
+                const statusKind =
+                  CAMPAIGN_STATUS_KIND[campaign.status] ?? 'aguardando';
 
                 return (
                   <Link
-                    key={c.id}
-                    href={`/cliente/cronogramas/${c.id}` as Route}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
+                    key={campaign.id}
+                    href={`/cliente/cronogramas/${campaign.id}` as Route}
+                    className="cliente-campaign-card"
                   >
                     <div
-                      className="card"
+                      className="cliente-campaign-icon"
                       style={{
-                        padding: 20,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 20,
-                        border: isCurrent ? '1px solid var(--green-100)' : '1px solid var(--line)',
-                        transition: 'box-shadow .15s',
+                        background: isCurrent
+                          ? 'var(--green)'
+                          : 'var(--bg-2)',
+                        color: isCurrent ? '#fff' : 'var(--muted)',
                       }}
                     >
-                      <div
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 14,
-                          background: isCurrent ? 'var(--green)' : 'var(--bg-2)',
-                          color: isCurrent ? '#fff' : 'var(--muted)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Icon name="calendar" size={22} stroke={1.8} />
-                      </div>
+                      <Icon name="calendar" size={22} stroke={1.8} />
+                    </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <div className="h3">{c.name}</div>
-
-                          {isCurrent && (
-                            <span className="chip" style={{ background: 'var(--green-50)', color: 'var(--green)' }}>
-                              Atual
-                            </span>
-                          )}
+                    <div style={{ minWidth: 0 }}>
+                      <div className="cliente-campaign-title-row">
+                        <div className="cliente-campaign-title">
+                          {campaign.name}
                         </div>
 
-                        <div className="muted tiny" style={{ marginTop: 4 }}>
-                          {c.period_label}
-                        </div>
-
-                        {total > 0 && (
-                          <div
+                        {isCurrent && (
+                          <span
+                            className="chip"
                             style={{
-                              marginTop: 10,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 12,
-                              flexWrap: 'wrap',
+                              background: 'var(--green-50)',
+                              color: 'var(--green)',
                             }}
                           >
-                            <div className="progress" style={{ flex: 1, maxWidth: 240, minWidth: 120 }}>
-                              <div className="progress-fill" style={{ width: `${pct}%` }} />
-                            </div>
-
-                            <span className="tiny" style={{ color: 'var(--muted)', fontWeight: 600 }}>
-                              {approved}/{total} aprovados
-                            </span>
-                          </div>
+                            Atual
+                          </span>
                         )}
                       </div>
 
+                      <div className="muted tiny" style={{ marginTop: 4 }}>
+                        {campaign.period_label} ·{' '}
+                        {FMT_LABEL[campaign.type] ?? campaign.type}
+                      </div>
+
+                      {total > 0 && (
+                        <div className="cliente-campaign-progress">
+                          <div className="progress">
+                            <div
+                              className="progress-fill"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+
+                          <span
+                            className="tiny"
+                            style={{
+                              color: 'var(--muted)',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {approved}/{total} aprovados
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: 10,
+                      }}
+                    >
                       <StatusBadge kind={statusKind as any} />
-                      <Icon name="chevron" size={16} color="var(--muted-2)" />
+
+                      <Icon
+                        name="chevron"
+                        size={16}
+                        color="var(--muted-2)"
+                      />
                     </div>
                   </Link>
                 );
               })}
             </div>
           )}
-        </div>
+        </section>
 
-        <div>
-          <div style={{ marginBottom: 16 }}>
-            <h2 className="h2" style={{ fontSize: 18 }}>
-              Pendências
-            </h2>
+        {/* Pendências */}
+        <section>
+          <div className="cliente-section-head">
+            <div>
+              <h2 className="h2" style={{ fontSize: 18 }}>
+                Pendências
+              </h2>
 
-            <p className="muted tiny" style={{ marginTop: 4 }}>
-              Posts esperando sua aprovação.
-            </p>
+              <p className="muted tiny" style={{ marginTop: 4 }}>
+                Posts esperando sua aprovação.
+              </p>
+            </div>
           </div>
 
           {!pendingItems || pendingItems.length === 0 ? (
-            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-              <p className="muted">Nenhuma pendência no momento.</p>
-              <p className="muted tiny">
+            <div className="cliente-empty-card">
+              <p className="muted" style={{ margin: 0 }}>
+                Nenhuma pendência no momento.
+              </p>
+
+              <p className="muted tiny" style={{ margin: '6px 0 0' }}>
                 Quando houver posts aguardando aprovação, eles aparecerão aqui.
               </p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="cliente-pending-list">
               {pendingItems.map((item) => {
-                const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
+                const campaign = Array.isArray(item.campaigns)
+                  ? item.campaigns[0]
+                  : item.campaigns;
+
+                const format = item.format ?? 'outro';
 
                 return (
-                  <Link key={item.id} href={`/cliente/posts/${item.id}` as Route} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div className="card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Link
+                    key={item.id}
+                    href={`/cliente/posts/${item.id}` as Route}
+                    className="cliente-pending-card"
+                  >
+                    <div className="cliente-format-box">
+                      {FMT_LABEL[format]?.charAt(0) ?? 'P'}
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                      <div className="muted tiny">
+                        {item.week_label} · {FMT_LABEL[format] ?? format}
+                      </div>
+
                       <div
-                        className={FMT_CLASS[item.format] ?? 'fmt'}
                         style={{
-                          width: 40,
-                          height: 40,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 10,
-                          flexShrink: 0,
+                          fontWeight: 800,
+                          fontSize: 14,
+                          marginTop: 2,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        {FMT_LABEL[item.format]?.charAt(0) ?? 'P'}
+                        {item.title}
                       </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="muted tiny">
-                          {item.week_label} · {FMT_LABEL[item.format] ?? item.format} · {campaign?.name}
-                        </div>
-
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: 14,
-                            marginTop: 2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {item.title}
-                        </div>
+                      <div className="muted tiny" style={{ marginTop: 4 }}>
+                        {campaign?.name ?? 'Cronograma'}
                       </div>
-
-                      <Icon name="arrow" size={14} color="var(--muted-2)" />
                     </div>
+
+                    <Icon name="arrow" size={14} color="var(--muted-2)" />
                   </Link>
                 );
               })}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
