@@ -124,7 +124,7 @@ export default function CampaignActions({
           onClick={handleSendForApproval}
           disabled={isPending}
         >
-          <Icon name="send" size={14} />
+          <Icon name="upload" size={14} />
           {isPending ? 'Enviando…' : 'Enviar para aprovação'}
         </button>
       )}
@@ -137,7 +137,7 @@ export default function CampaignActions({
             onClick={handleCopyLink}
             disabled={isPending}
           >
-            <Icon name="copy" size={14} />
+            <Icon name="link" size={14} />
             Copiar link do cliente
           </button>
 
@@ -147,6 +147,7 @@ export default function CampaignActions({
             onClick={handleRegenerateLink}
             disabled={isPending}
           >
+            <Icon name="refresh" size={14} />
             Gerar novo link
           </button>
         </>
