@@ -7,22 +7,104 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 
 export const metadata: Metadata = { title: 'Calendário' };
 
-const STATUS_KIND: Record<string, string> = {
-  rascunho: 'rascunho', enviado_para_aprovacao: 'aguardando', em_revisao: 'revisao',
-  aprovado: 'aprovado', em_producao: 'agendado', finalizado: 'publicado', arquivado: 'rascunho',
+type StatusKind = Parameters<typeof StatusBadge>[0]['kind'];
+
+const STATUS_KIND: Record<string, StatusKind> = {
+  rascunho: 'rascunho',
+  enviado_para_aprovacao: 'aguardando',
+  em_revisao: 'revisao',
+  aprovado: 'aprovado',
+  em_producao: 'agendado',
+  finalizado: 'publicado',
+  arquivado: 'rascunho',
 };
 
-// Left border color per status kind
+const STATUS_LABEL: Record<string, string> = {
+  rascunho: 'Rascunho',
+  enviado_para_aprovacao: 'Aguardando aprovação',
+  em_revisao: 'Em revisão',
+  aprovado: 'Aprovado',
+  em_producao: 'Em produção',
+  finalizado: 'Finalizado',
+  arquivado: 'Arquivado',
+};
+
 const STATUS_BORDER: Record<string, string> = {
-  rascunho:   'var(--st-rascunho-fg)',
+  rascunho: 'var(--st-rascunho-fg)',
   aguardando: 'var(--st-aguardando-fg)',
-  revisao:    'var(--st-revisao-fg)',
-  aprovado:   'var(--st-aprovado-fg)',
-  agendado:   'var(--st-agendado-fg)',
-  publicado:  'var(--st-publicado-fg)',
+  revisao: 'var(--st-revisao-fg)',
+  aprovado: 'var(--st-aprovado-fg)',
+  agendado: 'var(--st-agendado-fg)',
+  publicado: 'var(--st-publicado-fg)',
 };
 
 const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+
+type CalendarCampaign = {
+  id: string;
+  name: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  clients:
+    | {
+        name: string | null;
+        company_name: string | null;
+      }
+    | {
+        name: string | null;
+        company_name: string | null;
+      }[]
+    | null;
+  content_items:
+    | {
+        id: string;
+        general_status: string;
+      }[]
+    | null;
+};
+
+function getClientName(client: CalendarCampaign['clients']) {
+  const clientData = Array.isArray(client) ? client[0] : client;
+
+  return clientData?.company_name ?? clientData?.name ?? 'Cliente';
+}
+
+function formatDateLabel(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+  });
+}
+
+function formatFullDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  });
+}
+
+function formatMonthHref(date: Date) {
+  return `/admin/calendario?year=${date.getFullYear()}&month=${
+    date.getMonth() + 1
+  }` as Route;
+}
+
+function getProgress(items: CalendarCampaign['content_items']) {
+  const list = Array.isArray(items) ? items : [];
+  const total = list.length;
+  const pending = list.filter((item) => item.general_status === 'pendente').length;
+  const approved = list.filter((item) =>
+    ['aprovado', 'finalizado'].includes(item.general_status)
+  ).length;
+
+  return {
+    total,
+    pending,
+    approved,
+  };
+}
 
 export default async function CalendarioPage({
   searchParams,
@@ -30,134 +112,517 @@ export default async function CalendarioPage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { year: yearStr, month: monthStr } = await searchParams;
+
   const today = new Date();
 
-  const year  = yearStr  ? parseInt(yearStr)      : today.getFullYear();
-  const month = monthStr ? parseInt(monthStr) - 1 : today.getMonth(); // 0-indexed
+  const year = yearStr ? parseInt(yearStr) : today.getFullYear();
+  const month = monthStr ? parseInt(monthStr) - 1 : today.getMonth();
 
   const firstOfMonth = new Date(year, month, 1);
-  const lastOfMonth  = new Date(year, month + 1, 0);
+  const lastOfMonth = new Date(year, month + 1, 0);
 
   const firstStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-  const lastStr  = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastOfMonth.getDate()).padStart(2, '0')}`;
+  const lastStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(
+    lastOfMonth.getDate()
+  ).padStart(2, '0')}`;
 
-  // Prev / next month href
   const prevDate = new Date(year, month - 1, 1);
   const nextDate = new Date(year, month + 1, 1);
-  const prevHref = `/admin/calendario?year=${prevDate.getFullYear()}&month=${prevDate.getMonth() + 1}`;
-  const nextHref = `/admin/calendario?year=${nextDate.getFullYear()}&month=${nextDate.getMonth() + 1}`;
+
+  const prevHref = formatMonthHref(prevDate);
+  const nextHref = formatMonthHref(nextDate);
 
   const supabase = await getSupabaseServerClient();
 
-  // Campaigns starting in this month
   const { data: campaigns } = await supabase
     .from('campaigns')
-    .select('id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)')
+    .select(
+      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
+    )
     .gte('start_date', firstStr)
     .lte('start_date', lastStr)
+    .neq('status', 'arquivado')
     .order('start_date', { ascending: true });
 
-  // Active campaigns that started before this month but have no end_date yet (span into it)
   const { data: ongoingCampaigns } = await supabase
     .from('campaigns')
-    .select('id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)')
+    .select(
+      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
+    )
     .lt('start_date', firstStr)
     .is('end_date', null)
-    .not('status', 'in', '("arquivado","finalizado")')
+    .neq('status', 'arquivado')
+    .neq('status', 'finalizado')
     .order('start_date', { ascending: true });
 
-  const allCampaigns = [...(campaigns ?? []), ...(ongoingCampaigns ?? [])];
+  const allCampaigns = [
+    ...((campaigns ?? []) as CalendarCampaign[]),
+    ...((ongoingCampaigns ?? []) as CalendarCampaign[]),
+  ];
 
-  // Group by start day (for spanning → show on day 1)
-  const byDay: Record<number, typeof allCampaigns> = {};
-  allCampaigns.forEach((c) => {
-    const d = new Date(c.start_date + 'T00:00:00');
-    const day = (d.getMonth() === month && d.getFullYear() === year) ? d.getDate() : 1;
-    if (!byDay[day]) byDay[day] = [];
-    byDay[day]!.push(c);
+  const byDay: Record<number, CalendarCampaign[]> = {};
+
+  allCampaigns.forEach((campaign) => {
+    const startDate = new Date(`${campaign.start_date}T00:00:00`);
+
+    const day =
+      startDate.getMonth() === month && startDate.getFullYear() === year
+        ? startDate.getDate()
+        : 1;
+
+    if (!byDay[day]) {
+      byDay[day] = [];
+    }
+
+    byDay[day].push(campaign);
   });
 
-  // Build the grid cells (always 5 weeks = 35 cells)
   const cells: { day: number; muted: boolean; isoDate: string }[] = [];
 
-  // Pre-fill days from previous month
-  const firstDayOfWeek = firstOfMonth.getDay(); // 0=Sun
+  const firstDayOfWeek = firstOfMonth.getDay();
   const prevMonthLastDay = new Date(year, month, 0).getDate();
+
   for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-    const d = prevMonthLastDay - i;
-    const pm = month === 0 ? 12 : month;
-    const py = month === 0 ? year - 1 : year;
-    cells.push({ day: d, muted: true, isoDate: `${py}-${String(pm).padStart(2,'0')}-${String(d).padStart(2,'0')}` });
+    const day = prevMonthLastDay - i;
+    const prevMonthNumber = month === 0 ? 12 : month;
+    const prevYear = month === 0 ? year - 1 : year;
+
+    cells.push({
+      day,
+      muted: true,
+      isoDate: `${prevYear}-${String(prevMonthNumber).padStart(
+        2,
+        '0'
+      )}-${String(day).padStart(2, '0')}`,
+    });
   }
 
-  // Current month days
-  for (let d = 1; d <= lastOfMonth.getDate(); d++) {
-    cells.push({ day: d, muted: false, isoDate: `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}` });
+  for (let day = 1; day <= lastOfMonth.getDate(); day++) {
+    cells.push({
+      day,
+      muted: false,
+      isoDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(
+        day
+      ).padStart(2, '0')}`,
+    });
   }
 
-  // Next month days to fill 35 cells
-  let nxt = 1;
-  const nm = month + 2 > 12 ? 1 : month + 2;
-  const ny = month + 2 > 12 ? year + 1 : year;
-  while (cells.length < 35) {
-    cells.push({ day: nxt, muted: true, isoDate: `${ny}-${String(nm).padStart(2,'0')}-${String(nxt).padStart(2,'0')}` });
-    nxt++;
+  let nextMonthDay = 1;
+  const nextMonthNumber = month + 2 > 12 ? 1 : month + 2;
+  const nextMonthYear = month + 2 > 12 ? year + 1 : year;
+
+  while (cells.length % 7 !== 0) {
+    cells.push({
+      day: nextMonthDay,
+      muted: true,
+      isoDate: `${nextMonthYear}-${String(nextMonthNumber).padStart(
+        2,
+        '0'
+      )}-${String(nextMonthDay).padStart(2, '0')}`,
+    });
+
+    nextMonthDay++;
   }
 
-  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const todayIso = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+
   const monthTitle = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-  const pendingCount = allCampaigns.filter((c) =>
-    c.status === 'enviado_para_aprovacao' || c.status === 'em_revisao'
+  const pendingCount = allCampaigns.filter(
+    (campaign) =>
+      campaign.status === 'enviado_para_aprovacao' ||
+      campaign.status === 'em_revisao'
   ).length;
 
+  const activeCount = allCampaigns.filter(
+    (campaign) =>
+      campaign.status !== 'finalizado' && campaign.status !== 'arquivado'
+  ).length;
+
+  const finishedCount = allCampaigns.filter(
+    (campaign) => campaign.status === 'finalizado'
+  ).length;
+
+  const agendaItems = allCampaigns
+    .map((campaign) => {
+      const startDate = new Date(`${campaign.start_date}T00:00:00`);
+
+      return {
+        campaign,
+        day:
+          startDate.getMonth() === month && startDate.getFullYear() === year
+            ? startDate.getDate()
+            : 1,
+        date:
+          startDate.getMonth() === month && startDate.getFullYear() === year
+            ? campaign.start_date
+            : firstStr,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   return (
-    <div className="page" style={{ maxWidth: 1360 }}>
+    <div className="page calendar-page" style={{ maxWidth: 1360 }}>
+      <style>
+        {`
+          .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 18px;
+            margin-bottom: 22px;
+          }
+
+          .calendar-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+
+          .calendar-summary-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 16px;
+          }
+
+          .calendar-summary-card strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 30px;
+            line-height: 1;
+            letter-spacing: -0.04em;
+          }
+
+          .calendar-toolbar {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+          }
+
+          .calendar-month-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .calendar-nav-button {
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ink);
+            text-decoration: none;
+            background: #fff;
+          }
+
+          .calendar-month-title {
+            min-width: 210px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 15px;
+            letter-spacing: -0.01em;
+          }
+
+          .calendar-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-left: auto;
+          }
+
+          .calendar-desktop {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+          }
+
+          .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background: var(--bg);
+            border-bottom: 1px solid var(--line);
+          }
+
+          .calendar-weekday {
+            padding: 10px 12px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+          }
+
+          .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-auto-rows: 140px;
+          }
+
+          .calendar-cell {
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+          }
+
+          .calendar-day-number {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 800;
+          }
+
+          .calendar-pill {
+            border-radius: 8px;
+            padding: 6px 7px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.25;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            display: block;
+          }
+
+          .calendar-pill-client {
+            font-size: 9px;
+            font-weight: 800;
+            opacity: 0.72;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .calendar-mobile-agenda {
+            display: none;
+          }
+
+          .calendar-agenda-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .calendar-agenda-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 15px;
+            color: inherit;
+            text-decoration: none;
+          }
+
+          .calendar-agenda-date {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: var(--green-50);
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            flex-shrink: 0;
+          }
+
+          .calendar-agenda-date strong {
+            font-size: 18px;
+            line-height: 1;
+          }
+
+          .calendar-agenda-date span {
+            margin-top: 2px;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+
+          .calendar-empty {
+            margin-top: 24px;
+            padding: clamp(34px, 8vw, 56px);
+            text-align: center;
+          }
+
+          @media (max-width: 1100px) {
+            .calendar-summary-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .calendar-toolbar {
+              align-items: stretch;
+              flex-direction: column;
+            }
+
+            .calendar-month-nav {
+              justify-content: space-between;
+            }
+
+            .calendar-month-title {
+              min-width: 0;
+              flex: 1;
+            }
+
+            .calendar-legend {
+              margin-left: 0;
+              overflow-x: auto;
+              flex-wrap: nowrap;
+              padding-bottom: 2px;
+            }
+
+            .calendar-legend > span {
+              flex-shrink: 0;
+            }
+          }
+
+          @media (max-width: 760px) {
+            .calendar-header {
+              align-items: stretch;
+              flex-direction: column;
+            }
+
+            .calendar-desktop {
+              display: none;
+            }
+
+            .calendar-mobile-agenda {
+              display: block;
+            }
+          }
+
+          @media (max-width: 520px) {
+            .calendar-summary-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .calendar-agenda-card {
+              grid-template-columns: auto minmax(0, 1fr);
+            }
+
+            .calendar-agenda-card > svg {
+              display: none;
+            }
+          }
+        `}
+      </style>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 22 }}>
+      <div className="calendar-header">
         <div>
           <div className="eyebrow">Tucan · Interno</div>
-          <h1 className="h1" style={{ marginTop: 6 }}>Calendário editorial</h1>
+
+          <h1 className="h1" style={{ marginTop: 6 }}>
+            Calendário editorial
+          </h1>
+
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-            {allCampaigns.length} cronograma{allCampaigns.length !== 1 ? 's' : ''} em {monthTitle.split(' ')[0]}
+            {allCampaigns.length} cronograma
+            {allCampaigns.length !== 1 ? 's' : ''} em{' '}
+            {monthTitle.split(' ')[0]}
             {pendingCount > 0 && (
-              <> · <strong style={{ color: 'var(--orange)' }}>{pendingCount} aguardando aprovação</strong></>
+              <>
+                {' '}
+                ·{' '}
+                <strong style={{ color: 'var(--orange)' }}>
+                  {pendingCount} aguardando aprovação
+                </strong>
+              </>
             )}
           </p>
         </div>
+
         <Link href="/admin/cronogramas/novo" className="btn btn-primary">
-          <Icon name="plus" size={16} /> Novo cronograma
+          <Icon name="plus" size={16} />
+          Novo cronograma
         </Link>
       </div>
 
+      {/* Summary */}
+      <div className="calendar-summary-grid">
+        <div className="calendar-summary-card">
+          <span className="muted tiny">Neste mês</span>
+          <strong>{allCampaigns.length}</strong>
+        </div>
+
+        <div className="calendar-summary-card">
+          <span
+            className="tiny"
+            style={{ color: 'var(--green)', fontWeight: 800 }}
+          >
+            Ativos
+          </span>
+          <strong style={{ color: 'var(--green)' }}>{activeCount}</strong>
+        </div>
+
+        <div className="calendar-summary-card">
+          <span
+            className="tiny"
+            style={{ color: 'var(--orange)', fontWeight: 800 }}
+          >
+            Aguardando
+          </span>
+          <strong style={{ color: 'var(--orange)' }}>{pendingCount}</strong>
+        </div>
+
+        <div className="calendar-summary-card">
+          <span
+            className="tiny"
+            style={{ color: 'var(--muted)', fontWeight: 800 }}
+          >
+            Finalizados
+          </span>
+          <strong style={{ color: 'var(--muted)' }}>{finishedCount}</strong>
+        </div>
+      </div>
+
       {/* Toolbar */}
-      <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        {/* Month navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link
-            href={prevHref as Route}
-            style={{ width: 34, height: 34, border: '1px solid var(--line)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)', textDecoration: 'none' }}>
+      <div className="calendar-toolbar">
+        <div className="calendar-month-nav">
+          <Link href={prevHref} className="calendar-nav-button">
             <Icon name="arrow-left" size={14} />
           </Link>
-          <div style={{ minWidth: 190, textAlign: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>{monthTitle}</div>
-          </div>
-          <Link
-            href={nextHref as Route}
-            style={{ width: 34, height: 34, border: '1px solid var(--line)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)', textDecoration: 'none' }}>
+
+          <div className="calendar-month-title">{monthTitle}</div>
+
+          <Link href={nextHref} className="calendar-nav-button">
             <Icon name="arrow" size={14} />
           </Link>
         </div>
 
-        <div style={{ width: 1, height: 24, background: 'var(--line)' }} />
+        <Link href="/admin/calendario" className="btn btn-ghost btn-sm">
+          Hoje
+        </Link>
 
-        <Link href="/admin/calendario" className="btn btn-ghost btn-sm">Hoje</Link>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Legend */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+        <div className="calendar-legend">
           <StatusBadge kind="rascunho" />
           <StatusBadge kind="aguardando" />
           <StatusBadge kind="revisao" />
@@ -166,90 +631,122 @@ export default async function CalendarioPage({
         </div>
       </div>
 
-      {/* Calendar grid */}
-      <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-        {/* Weekday header row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg)', borderBottom: '1px solid var(--line)' }}>
-          {WEEKDAYS.map((d) => (
-            <div key={d} style={{ padding: '10px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted)' }}>
-              {d}
+      {/* Desktop calendar */}
+      <div className="calendar-desktop">
+        <div className="calendar-weekdays">
+          {WEEKDAYS.map((day) => (
+            <div key={day} className="calendar-weekday">
+              {day}
             </div>
           ))}
         </div>
 
-        {/* Day cells */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '140px' }}>
-          {cells.map((cell, i) => {
+        <div className="calendar-grid">
+          {cells.map((cell, index) => {
             const isToday = !cell.muted && cell.isoDate === todayIso;
-            const dayItems = !cell.muted ? (byDay[cell.day] ?? []) : [];
-            const isLastRow = i >= 28;
-            const isLastCol = (i + 1) % 7 === 0;
+            const dayItems = !cell.muted ? byDay[cell.day] ?? [] : [];
+            const isLastRow = index >= cells.length - 7;
+            const isLastCol = (index + 1) % 7 === 0;
 
             return (
               <div
-                key={i}
+                key={cell.isoDate}
+                className="calendar-cell"
                 style={{
-                  borderRight:  isLastCol ? 'none' : '1px solid var(--line-soft)',
-                  borderBottom: isLastRow ? 'none' : '1px solid var(--line-soft)',
-                  padding: 8,
+                  borderRight: isLastCol
+                    ? 'none'
+                    : '1px solid var(--line-soft)',
+                  borderBottom: isLastRow
+                    ? 'none'
+                    : '1px solid var(--line-soft)',
                   background: cell.muted ? '#fafafa' : '#fff',
-                  display: 'flex', flexDirection: 'column', gap: 4,
-                  overflow: 'hidden',
-                }}>
-                {/* Day number */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                  <div style={{
-                    width: 26, height: 26, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 13, fontWeight: 700,
-                    background: isToday ? 'var(--orange)' : 'transparent',
-                    color: isToday ? '#fff' : (cell.muted ? 'var(--muted-2)' : 'var(--ink)'),
-                  }}>
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 2,
+                  }}
+                >
+                  <div
+                    className="calendar-day-number"
+                    style={{
+                      background: isToday ? 'var(--orange)' : 'transparent',
+                      color: isToday
+                        ? '#fff'
+                        : cell.muted
+                          ? 'var(--muted-2)'
+                          : 'var(--ink)',
+                    }}
+                  >
                     {cell.day}
                   </div>
+
                   {dayItems.length > 2 && (
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: 'var(--muted)',
+                      }}
+                    >
                       {dayItems.length} camp.
                     </span>
                   )}
                 </div>
 
-                {/* Campaign pills (max 2 visible) */}
-                {dayItems.slice(0, 2).map((c, j) => {
-                  const kind = STATUS_KIND[c.status] ?? 'rascunho';
-                  const borderColor = STATUS_BORDER[kind] ?? 'var(--muted-2)';
-                  const clientInfo = Array.isArray(c.clients) ? c.clients[0] : c.clients;
-                  const items = Array.isArray(c.content_items) ? c.content_items : [];
-                  const pending = items.filter((it: { general_status: string }) => it.general_status === 'pendente').length;
-                  const total = items.length;
-                  const clientLabel = (clientInfo?.company_name ?? clientInfo?.name ?? '').split(' ')[0];
+                {dayItems.slice(0, 2).map((campaign) => {
+                  const kind = STATUS_KIND[campaign.status] ?? 'rascunho';
+                  const borderColor =
+                    STATUS_BORDER[kind] ?? 'var(--muted-2)';
+
+                  const { total, pending } = getProgress(
+                    campaign.content_items
+                  );
+
+                  const clientLabel = getClientName(campaign.clients).split(
+                    ' '
+                  )[0];
 
                   return (
                     <Link
-                      key={j}
-                      href={`/admin/cronogramas/${c.id}` as Route}
+                      key={campaign.id}
+                      href={`/admin/cronogramas/${campaign.id}` as Route}
+                      className="calendar-pill"
                       style={{
                         background: `var(--st-${kind}-bg)`,
                         color: `var(--st-${kind}-fg)`,
                         borderLeft: `3px solid ${borderColor}`,
-                        borderRadius: 6,
-                        padding: '5px 7px',
-                        fontSize: 11, fontWeight: 600, lineHeight: 1.25,
-                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                        textDecoration: 'none', display: 'block',
-                        transition: 'opacity .1s',
-                      }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        {clientLabel}{total > 0 ? ` · ${pending}/${total}` : ''}
+                      }}
+                    >
+                      <div className="calendar-pill-client">
+                        {clientLabel}
+                        {total > 0 ? ` · ${pending}/${total}` : ''}
                       </div>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+
+                      <div
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {campaign.name}
+                      </div>
                     </Link>
                   );
                 })}
 
-                {/* Overflow indicator */}
                 {dayItems.length > 2 && (
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', paddingLeft: 4 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--muted)',
+                      paddingLeft: 4,
+                    }}
+                  >
                     +{dayItems.length - 2} mais
                   </div>
                 )}
@@ -259,17 +756,110 @@ export default async function CalendarioPage({
         </div>
       </div>
 
-      {/* Empty state */}
+      {/* Mobile agenda */}
+      <div className="calendar-mobile-agenda">
+        <div className="calendar-agenda-list">
+          {agendaItems.length === 0 ? (
+            <div className="card calendar-empty">
+              <Icon name="calendar" size={28} color="var(--muted-2)" />
+
+              <p className="muted" style={{ margin: '12px 0 0' }}>
+                Nenhum cronograma iniciando em {monthTitle.split(' ')[0]}.
+              </p>
+            </div>
+          ) : (
+            agendaItems.map(({ campaign, date }) => {
+              const kind = STATUS_KIND[campaign.status] ?? 'rascunho';
+              const label = STATUS_LABEL[campaign.status];
+
+              const { total, approved } = getProgress(campaign.content_items);
+
+              const day = new Date(`${date}T00:00:00`).toLocaleDateString(
+                'pt-BR',
+                { day: '2-digit' }
+              );
+
+              const monthShort = new Date(
+                `${date}T00:00:00`
+              ).toLocaleDateString('pt-BR', { month: 'short' });
+
+              return (
+                <Link
+                  key={campaign.id}
+                  href={`/admin/cronogramas/${campaign.id}` as Route}
+                  className="calendar-agenda-card"
+                >
+                  <div className="calendar-agenda-date">
+                    <strong>{day}</strong>
+                    <span>{monthShort.replace('.', '')}</span>
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div className="muted tiny" style={{ marginBottom: 4 }}>
+                      {formatFullDate(date)}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: 'var(--ink)',
+                        lineHeight: 1.25,
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical' as const,
+                      }}
+                    >
+                      {campaign.name}
+                    </div>
+
+                    <div className="muted tiny" style={{ marginTop: 5 }}>
+                      {getClientName(campaign.clients)}
+                      {total > 0
+                        ? ` · ${approved}/${total} aprovados`
+                        : ' · Sem posts'}
+                    </div>
+
+                    <div style={{ marginTop: 10 }}>
+                      <StatusBadge kind={kind} label={label} />
+                    </div>
+                  </div>
+
+                  <Icon name="chevron" size={15} color="var(--muted-2)" />
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Empty desktop state */}
       {allCampaigns.length === 0 && (
-        <div className="card" style={{ marginTop: 24, padding: 56, textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--green-50)', color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <div className="card calendar-empty">
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 20,
+              background: 'var(--green-50)',
+              color: 'var(--green)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
             <Icon name="calendar" size={28} stroke={1.5} />
           </div>
+
           <p className="muted" style={{ marginBottom: 16 }}>
             Nenhum cronograma iniciando em {monthTitle.split(' ')[0]}.
           </p>
+
           <Link href="/admin/cronogramas/novo" className="btn btn-primary">
-            <Icon name="plus" size={16} /> Criar cronograma
+            <Icon name="plus" size={16} />
+            Criar cronograma
           </Link>
         </div>
       )}
