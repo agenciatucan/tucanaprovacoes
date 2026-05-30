@@ -157,6 +157,8 @@ export default async function AdminDashboard() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const monthStart = new Date(year, month, 1).toISOString();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long' });
 
@@ -321,7 +323,7 @@ export default async function AdminDashboard() {
         <div className="dash-hero-bubble" />
         <div style={{ position: 'relative' }}>
           <div className="eyebrow" style={{ color: 'rgba(255,255,255,.6)' }}>Tucan · Interno</div>
-          <h1 className="dash-hero-title">Bom dia, Admin 👋</h1>
+          <h1 className="dash-hero-title">{greeting}, Admin 👋</h1>
           <p className="dash-hero-sub">
             Você tem{' '}
             <b style={{ color: '#fff' }}>{pendingApprovalCount ?? 0} cronograma{pendingApprovalCount !== 1 ? 's' : ''}</b>{' '}
