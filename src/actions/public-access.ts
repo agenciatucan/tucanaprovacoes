@@ -62,6 +62,12 @@ function getVisitorNameCookieName(campaignId: string) {
   return `tucan_public_name_${campaignId}`;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
 export async function getPublicCampaignByAccess(access: string) {
   const supabase = await getSupabaseServerClient();
 
@@ -75,7 +81,8 @@ export async function getPublicCampaignByAccess(access: string) {
     };
   }
 
-  const { data: campaign, error } = await supabase
+  // 1. Tenta encontrar pelo approval_token
+  let campaignQuery = supabase
     .from('campaigns')
     .select(
       `
@@ -89,10 +96,57 @@ export async function getPublicCampaignByAccess(access: string) {
       clients(name, company_name)
     `
     )
-    .or(
-      `approval_token.eq.${cleanAccess},access_code.eq.${normalizedCode}`
-    )
+    .eq('approval_token', cleanAccess)
     .maybeSingle();
+
+  let { data: campaign, error } = await campaignQuery;
+
+  // 2. Se não achou, tenta encontrar pelo access_code
+  if (!campaign && !error) {
+    const result = await supabase
+      .from('campaigns')
+      .select(
+        `
+        id,
+        name,
+        status,
+        approval_token,
+        access_code,
+        token_expires_at,
+        is_locked,
+        clients(name, company_name)
+      `
+      )
+      .eq('access_code', normalizedCode)
+      .maybeSingle();
+
+    campaign = result.data;
+    error = result.error;
+  }
+
+  // 3. Se ainda não achou e parecer UUID, tenta encontrar pelo ID do cronograma.
+  // Isso ajuda no teste interno do admin.
+  if (!campaign && !error && isUuid(cleanAccess)) {
+    const result = await supabase
+      .from('campaigns')
+      .select(
+        `
+        id,
+        name,
+        status,
+        approval_token,
+        access_code,
+        token_expires_at,
+        is_locked,
+        clients(name, company_name)
+      `
+      )
+      .eq('id', cleanAccess)
+      .maybeSingle();
+
+    campaign = result.data;
+    error = result.error;
+  }
 
   if (error || !campaign) {
     return {
@@ -108,6 +162,14 @@ export async function getPublicCampaignByAccess(access: string) {
         campaign.status === 'rascunho'
           ? 'Este cronograma ainda não foi liberado para o cliente.'
           : 'Este cronograma não está disponível para acesso público.',
+    };
+  }
+
+  if (!campaign.approval_token) {
+    return {
+      success: false as const,
+      error:
+        'Este cronograma ainda não possui um token de aprovação. Gere um novo link no admin.',
     };
   }
 
@@ -170,10 +232,10 @@ export async function identifyPublicVisitor({
   const forwardedFor = headersList.get('x-forwarded-for');
   const realIp = headersList.get('x-real-ip');
 
-  const ipAddress =
-    forwardedFor?.split(',')[0]?.trim() || realIp || null;
+  const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || null;
 
-  const isCodeAccess = normalizeCode(campaign.access_code ?? '') === normalizedCode;
+  const isCodeAccess =
+    normalizeCode(campaign.access_code ?? '') === normalizedCode;
 
   const { data: existingSession } = await supabase
     .from('public_access_sessions')
@@ -271,7 +333,9 @@ export async function identifyPublicVisitor({
 export async function getPublicSession(campaignId: string) {
   const cookieStore = await cookies();
 
-  const sessionId = cookieStore.get(getPublicSessionCookieName(campaignId))?.value;
+  const sessionId = cookieStore.get(
+    getPublicSessionCookieName(campaignId)
+  )?.value;
 
   if (!sessionId) return null;
 

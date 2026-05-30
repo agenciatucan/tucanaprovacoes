@@ -26,15 +26,16 @@ const FMT_CLASS: Record<string, string> = {
   outro: 'fmt',
 };
 
-const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
-  rascunho: 'rascunho',
-  enviado_para_aprovacao: 'aguardando',
-  em_revisao: 'revisao',
-  aprovado: 'aprovado',
-  em_producao: 'agendado',
-  finalizado: 'publicado',
-  arquivado: 'rascunho',
-};
+const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> =
+  {
+    rascunho: 'rascunho',
+    enviado_para_aprovacao: 'aguardando',
+    em_revisao: 'revisao',
+    aprovado: 'aprovado',
+    em_producao: 'agendado',
+    finalizado: 'publicado',
+    arquivado: 'rascunho',
+  };
 
 const POST_STATUS_KIND: Record<
   string,
@@ -365,13 +366,6 @@ export default async function GerenciarCronogramaPage({
             flex-wrap: wrap;
           }
 
-          .campaign-week-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-          }
-
           .campaign-post-list {
             background: #fff;
             border: 1px solid var(--line);
@@ -580,14 +574,6 @@ export default async function GerenciarCronogramaPage({
               flex-shrink: 0;
             }
 
-            .campaign-week-title {
-              align-items: flex-start;
-            }
-
-            .campaign-week-title > div {
-              display: none;
-            }
-
             .campaign-post-list {
               background: transparent;
               border: none;
@@ -645,6 +631,7 @@ export default async function GerenciarCronogramaPage({
             campaignId={id}
             status={campaign.status}
             approvalLink={approvalLink}
+            accessCode={campaign.access_code}
             isLocked={campaign.is_locked}
             editHref={`/admin/cronogramas/${id}/editar`}
           />
