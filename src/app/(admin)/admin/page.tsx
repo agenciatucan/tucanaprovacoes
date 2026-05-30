@@ -319,9 +319,12 @@ export default async function AdminDashboard() {
           .dash-agenda-stats { flex-wrap: wrap; }
           .dash-stat-tile { min-width: calc(50% - 6px); }
         }
+        @media (max-width: 760px) {
+          .dash-crono-badge { display: none; }
+          .dash-crono-dot  { display: inline-block !important; }
+        }
         @media (max-width: 440px) {
           .dash-kpi-grid { grid-template-columns: 1fr; }
-          .dash-crono-badge { display: none; }
           .dash-stat-tile { min-width: 0; flex: 1; }
         }
       `}</style>
@@ -505,6 +508,10 @@ export default async function AdminDashboard() {
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: isAdjust ? '#e6a52e' : '#df6a2d' }} />
                       {isAdjust ? 'Com ajuste' : 'Aguardando'}
                     </span>
+                    <span className="dash-crono-dot" style={{
+                      display: 'none', width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: isAdjust ? '#e6a52e' : '#df6a2d',
+                    }} />
                     <Icon name="chevron" size={15} color="var(--muted-2)" />
                   </Link>
                 );
