@@ -320,8 +320,12 @@ export default async function AdminDashboard() {
           .dash-stat-tile { min-width: calc(50% - 6px); }
         }
         @media (max-width: 760px) {
-          .dash-crono-badge { display: none; }
-          .dash-crono-dot  { display: inline-block !important; }
+          .dash-crono-badge   { display: none; }
+          .dash-crono-dot     { display: inline-block !important; }
+          .dash-crono-namerow { flex-direction: column; gap: 1px; }
+          .dash-crono-client  { font-size: 11.5px; }
+          .dash-crono-avatar  { width: 34px !important; height: 34px !important; font-size: 12px !important; border-radius: 9px !important; }
+          .dash-crono-row     { gap: 10px; padding: 11px 0; }
         }
         @media (max-width: 440px) {
           .dash-kpi-grid { grid-template-columns: 1fr; }
@@ -475,16 +479,16 @@ export default async function AdminDashboard() {
                 return (
                   <Link key={c.id} href={`/admin/cronogramas/${c.id}` as Route} className="dash-crono-row">
                     {/* Avatar */}
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: color, display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                    <div className="dash-crono-avatar" style={{ width: 40, height: 40, borderRadius: 11, background: color, display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                       {initials}
                     </div>
                     {/* Info + progress */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'nowrap' }}>
+                      <div className="dash-crono-namerow" style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'nowrap' }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                           {c.name}
                         </span>
-                        <span style={{ fontSize: 12.5, color: 'var(--muted)', flexShrink: 0 }}>· {clientName}</span>
+                        <span className="dash-crono-client" style={{ fontSize: 12.5, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {clientName}</span>
                       </div>
                       {progress.total > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 7 }}>
