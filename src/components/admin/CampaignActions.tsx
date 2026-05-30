@@ -48,6 +48,7 @@ export default function CampaignActions({
   const router = useRouter();
 
   const [link, setLink] = useState(approvalLink);
+  const [showAccess, setShowAccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isArchived = status === 'arquivado';
@@ -123,6 +124,7 @@ export default function CampaignActions({
       }
 
       setLink(newLink);
+      setShowAccess(true);
       toast.success('Novo link gerado!');
       router.refresh();
     });
@@ -138,6 +140,7 @@ export default function CampaignActions({
             gap: 10px;
             align-items: flex-end;
             width: 100%;
+            position: relative;
           }
 
           .campaign-actions-row {
@@ -149,13 +152,20 @@ export default function CampaignActions({
             width: 100%;
           }
 
-          .campaign-access-box {
-            width: 100%;
-            max-width: 620px;
+          .campaign-access-popover {
+            width: min(460px, calc(100vw - 40px));
             background: #fff;
             border: 1px solid var(--line);
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 14px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, .13);
+          }
+
+          .campaign-access-popover-wrap {
+            position: absolute;
+            z-index: 30;
+            right: 0;
+            top: calc(100% + 10px);
           }
 
           .campaign-access-box-header {
@@ -289,6 +299,13 @@ export default function CampaignActions({
             padding: 8px 10px;
           }
 
+          .campaign-access-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            background: transparent;
+          }
+
           @media (max-width: 900px) {
             .campaign-actions {
               align-items: stretch;
@@ -298,8 +315,14 @@ export default function CampaignActions({
               justify-content: flex-start;
             }
 
-            .campaign-access-box {
-              max-width: none;
+            .campaign-access-popover-wrap {
+              position: static;
+              margin-top: 2px;
+            }
+
+            .campaign-access-popover {
+              width: 100%;
+              box-shadow: none;
             }
           }
 
@@ -333,6 +356,18 @@ export default function CampaignActions({
           <span className="campaign-archived-badge">Cronograma arquivado</span>
         )}
 
+        {!isArchived && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowAccess((current) => !current)}
+            aria-expanded={showAccess}
+          >
+            <Icon name="link" size={14} />
+            Acesso do cliente
+          </button>
+        )}
+
         {canEdit && (
           <Link href={editHref as Route} className="btn btn-ghost btn-sm">
             <Icon name="edit" size={14} />
@@ -353,94 +388,117 @@ export default function CampaignActions({
         )}
       </div>
 
-      {!isArchived && (
-        <div className="campaign-access-box">
-          <div className="campaign-access-box-header">
-            <div>
-              <div className="campaign-access-title">
-                <Icon name="link" size={14} />
-                Acesso do cliente
+      {showAccess && !isArchived && (
+        <>
+          <button
+            type="button"
+            className="campaign-access-backdrop"
+            aria-label="Fechar acesso do cliente"
+            onClick={() => setShowAccess(false)}
+          />
+
+          <div className="campaign-access-popover-wrap">
+            <div className="campaign-access-popover">
+              <div className="campaign-access-box-header">
+                <div>
+                  <div className="campaign-access-title">
+                    <Icon name="link" size={14} />
+                    Acesso do cliente
+                  </div>
+
+                  <div className="campaign-access-helper">
+                    Envie o código curto ou o link para o cliente acessar sem
+                    cadastro.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowAccess(false)}
+                  aria-label="Fechar"
+                >
+                  ×
+                </button>
               </div>
 
-              <div className="campaign-access-helper">
-                Envie o link ou o código curto para o cliente acessar sem
-                cadastro.
+              <div className="campaign-access-primary">
+                <div className="campaign-access-label">Código de acesso</div>
+
+                <div className="campaign-access-code-row">
+                  <input
+                    className="campaign-access-code"
+                    value={accessCode || 'Sem código'}
+                    readOnly
+                    onFocus={(event) => event.currentTarget.select()}
+                    title={accessCode ?? ''}
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleCopyCode}
+                    disabled={isPending || !accessCode}
+                  >
+                    <Icon name="copy" size={14} />
+                    Copiar código
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="campaign-access-primary">
-            <div className="campaign-access-label">Código de acesso</div>
-
-            <div className="campaign-access-code-row">
-              <input
-                className="campaign-access-code"
-                value={accessCode || 'Sem código'}
-                readOnly
-                onFocus={(event) => event.currentTarget.select()}
-                title={accessCode ?? ''}
-              />
-
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleCopyCode}
-                disabled={isPending || !accessCode}
+              <div
+                className="campaign-actions-row"
+                style={{ justifyContent: 'flex-start' }}
               >
-                <Icon name="copy" size={14} />
-                Copiar código
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleCopyLink}
+                  disabled={isPending}
+                >
+                  <Icon name="link" size={14} />
+                  Copiar link
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleRegenerateLink}
+                  disabled={isPending}
+                >
+                  <Icon name="refresh" size={14} />
+                  Gerar novo link
+                </button>
+              </div>
+
+              <details className="campaign-access-token-box">
+                <summary className="campaign-access-token-summary">
+                  Ver token técnico
+                </summary>
+
+                <div className="campaign-access-token-fields">
+                  <input
+                    className="campaign-token-field"
+                    value={token || 'Token não encontrado'}
+                    readOnly
+                    onFocus={(event) => event.currentTarget.select()}
+                    title={token}
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleCopyToken}
+                    disabled={isPending || !token}
+                  >
+                    <Icon name="copy" size={14} />
+                    Copiar token
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
-
-          <div className="campaign-actions-row" style={{ justifyContent: 'flex-start' }}>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={handleCopyLink}
-              disabled={isPending}
-            >
-              <Icon name="link" size={14} />
-              Copiar link do cliente
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={handleRegenerateLink}
-              disabled={isPending}
-            >
-              <Icon name="refresh" size={14} />
-              Gerar novo link
-            </button>
-          </div>
-
-          <details className="campaign-access-token-box">
-            <summary className="campaign-access-token-summary">
-              Ver token técnico
-            </summary>
-
-            <div className="campaign-access-token-fields">
-              <input
-                className="campaign-token-field"
-                value={token || 'Token não encontrado'}
-                readOnly
-                onFocus={(event) => event.currentTarget.select()}
-                title={token}
-              />
-
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={handleCopyToken}
-                disabled={isPending || !token}
-              >
-                <Icon name="copy" size={14} />
-                Copiar token
-              </button>
-            </div>
-          </details>
-        </div>
+        </>
       )}
     </div>
   );

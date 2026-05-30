@@ -1,317 +1,222 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { FormEvent, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { identifyPublicVisitor } from '@/actions/public-access';
-import { Icon } from '@/components/ui/Icon';
-import Link from 'next/link';
 import type { Route } from 'next';
+import { identifyPublicVisitor } from '@/actions/public-access';
 
-interface Props {
-  defaultAccess?: string;
-  campaignName?: string;
-  mode?: 'full' | 'identify-only';
+type TokenAccessFormProps = {
+  access?: unknown;
+  defaultAccess?: unknown;
+  token?: string;
+  campaignName?: string | null;
+  mode?: 'full' | 'compact' | 'identify-only';
+};
+
+function getTokenFromAccess(access: unknown): string | null {
+  if (typeof access === 'string') {
+    return access.trim() || null;
+  }
+
+  const accessData = access as
+    | {
+        token?: string | null;
+        approval_token?: string | null;
+        public_token?: string | null;
+        campaign?: {
+          token?: string | null;
+          approval_token?: string | null;
+          public_token?: string | null;
+        } | null;
+      }
+    | null
+    | undefined;
+
+  return (
+    accessData?.token ||
+    accessData?.approval_token ||
+    accessData?.public_token ||
+    accessData?.campaign?.token ||
+    accessData?.campaign?.approval_token ||
+    accessData?.campaign?.public_token ||
+    null
+  );
+}
+
+function getFallbackPath(params: {
+  access?: unknown;
+  defaultAccess?: unknown;
+  token?: string;
+}) {
+  const accessData = params.access as
+    | {
+        path?: string | null;
+        href?: string | null;
+        url?: string | null;
+        redirectTo?: string | null;
+      }
+    | null
+    | undefined;
+
+  const directPath =
+    accessData?.path ||
+    accessData?.href ||
+    accessData?.url ||
+    accessData?.redirectTo ||
+    null;
+
+  if (typeof directPath === 'string' && directPath.startsWith('/')) {
+    return directPath;
+  }
+
+  const finalToken =
+    params.token ||
+    getTokenFromAccess(params.access) ||
+    getTokenFromAccess(params.defaultAccess);
+
+  if (finalToken) {
+    return `/acesso/${finalToken}`;
+  }
+
+  return '/';
 }
 
 export default function TokenAccessForm({
-  defaultAccess = '',
+  access,
+  defaultAccess,
+  token,
   campaignName,
   mode = 'full',
-}: Props) {
+}: TokenAccessFormProps) {
   const router = useRouter();
 
-  const [isPending, startTransition] = useTransition();
-
-  const [access, setAccess] = useState(defaultAccess);
   const [visitorName, setVisitorName] = useState('');
   const [visitorEmail, setVisitorEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const isIdentifyOnly = mode === 'identify-only';
+  const [isPending, startTransition] = useTransition();
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError(null);
 
+    if (!visitorName.trim()) {
+      setError('Informe seu nome para continuar.');
+      return;
+    }
+
     startTransition(async () => {
       const result = await identifyPublicVisitor({
-        access,
-        visitorName,
-        visitorEmail,
+        access: access ?? defaultAccess ?? token,
+        defaultAccess,
+        token,
+        visitorName: visitorName.trim(),
+        visitorEmail: visitorEmail.trim() || undefined,
       });
 
       if (!result.success) {
-        setError(result.error);
+        setError(result.error || 'Não foi possível registrar o acesso.');
         return;
       }
 
-      router.push(result.data.redirectTo as Route);
+      const safePath =
+        result.data.path ||
+        result.data.redirectTo ||
+        result.data.href ||
+        result.data.url ||
+        getFallbackPath({ access, defaultAccess, token });
+
+      router.replace((typeof safePath === 'string' && safePath ? safePath : '/') as Route);
       router.refresh();
     });
   }
 
+  const compact = mode === 'compact';
+
   return (
-    <div className="public-access-wrapper">
-      <style>
-        {`
-          .public-access-wrapper {
-            min-height: 100vh;
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 18px;
-          }
+    <main
+      className={
+        mode === 'identify-only'
+          ? 'flex min-h-screen items-center justify-center bg-[#f6f6f6] px-4 py-8'
+          : undefined
+      }
+    >
+      <div
+        className={
+          compact
+            ? 'w-full rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm'
+            : 'mx-auto w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm'
+        }
+      >
+        <div className="mb-6">
+          <p className="mb-2 text-sm font-semibold text-[#eb6013]">
+            Aprovação pública
+          </p>
 
-          .public-access-card {
-            width: 100%;
-            max-width: 680px;
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: 28px;
-            padding: 42px;
-            box-shadow: 0 18px 55px rgba(0, 0, 0, .06);
-          }
+          <h1 className="text-2xl font-bold text-zinc-900">
+            Acesso ao cronograma
+          </h1>
 
-          .public-access-icon {
-            width: 72px;
-            height: 72px;
-            border-radius: 24px;
-            background: var(--green);
-            color: #fff;
-            display: grid;
-            place-items: center;
-            margin: 0 auto 24px;
-            font-size: 34px;
-            font-weight: 900;
-          }
+          <p className="mt-2 text-sm leading-6 text-zinc-600">
+            {campaignName
+              ? `Para visualizar o cronograma ${campaignName}, informe seu nome.`
+              : 'Para visualizar o cronograma, informe seu nome.'}
+          </p>
+        </div>
 
-          .public-access-title {
-            margin: 0;
-            text-align: center;
-            font-size: 32px;
-            line-height: 1.1;
-            letter-spacing: -0.04em;
-            font-weight: 800;
-            color: var(--ink);
-          }
-
-          .public-access-text {
-            max-width: 500px;
-            margin: 14px auto 30px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 18px;
-            line-height: 1.55;
-          }
-
-          .public-access-campaign {
-            margin: 0 auto 24px;
-            max-width: 480px;
-            border-radius: 16px;
-            background: var(--green-50);
-            color: var(--green);
-            padding: 12px 14px;
-            text-align: center;
-            font-size: 13px;
-            line-height: 1.45;
-            font-weight: 700;
-          }
-
-          .public-access-form {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-          }
-
-          .public-access-error {
-            border-radius: 14px;
-            border: 1px solid #fecaca;
-            background: #fef2f2;
-            color: #b91c1c;
-            padding: 12px 14px;
-            font-size: 13px;
-            line-height: 1.45;
-            font-weight: 700;
-          }
-
-          .public-access-submit {
-            min-height: 56px;
-            border-radius: 16px;
-            font-size: 18px;
-            font-weight: 800;
-            margin-top: 4px;
-          }
-
-          .public-access-login {
-            margin-top: 28px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 16px;
-          }
-
-          .public-access-login a {
-            color: var(--green);
-            text-decoration: none;
-            font-weight: 800;
-          }
-
-          .public-access-hint {
-            margin-top: -6px;
-            color: var(--muted);
-            font-size: 12px;
-            line-height: 1.45;
-          }
-
-          @media (max-width: 640px) {
-            .public-access-wrapper {
-              align-items: flex-start;
-              padding: 22px 14px;
-            }
-
-            .public-access-card {
-              padding: 26px 20px;
-              border-radius: 24px;
-            }
-
-            .public-access-icon {
-              width: 62px;
-              height: 62px;
-              border-radius: 20px;
-              font-size: 28px;
-              margin-bottom: 20px;
-            }
-
-            .public-access-title {
-              font-size: 27px;
-            }
-
-            .public-access-text {
-              font-size: 15px;
-              margin-bottom: 24px;
-            }
-
-            .public-access-submit {
-              font-size: 16px;
-              min-height: 52px;
-            }
-          }
-        `}
-      </style>
-
-      <div className="public-access-card">
-        <div className="public-access-icon">T</div>
-
-        <h1 className="public-access-title">
-          {isIdentifyOnly ? 'Identifique seu acesso' : 'Link de convite'}
-        </h1>
-
-        <p className="public-access-text">
-          {isIdentifyOnly
-            ? 'Antes de abrir o cronograma, informe seu nome para registrarmos quem visualizou, aprovou ou solicitou ajustes.'
-            : 'Cole abaixo o link ou código que você recebeu da Tucan para acessar o cronograma.'}
-        </p>
-
-        {campaignName && (
-          <div className="public-access-campaign">
-            Cronograma encontrado:
-            <br />
-            {campaignName}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="public-access-form">
-          {!isIdentifyOnly && (
-            <div className="field">
-              <label className="field-label" htmlFor="access">
-                Link ou código de acesso
-              </label>
-
-              <input
-                id="access"
-                className="input"
-                value={access}
-                onChange={(event) => setAccess(event.target.value)}
-                placeholder="https://portal.agenciatucan.com.br/acesso/... ou TUCAN-ABC123"
-                required
-                disabled={isPending}
-                autoComplete="off"
-              />
-            </div>
-          )}
-
-          {isIdentifyOnly && (
-            <input type="hidden" name="access" value={access} />
-          )}
-
-          <div className="field">
-            <label className="field-label" htmlFor="visitorName">
-              Seu nome <span style={{ color: 'var(--orange)' }}>*</span>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="visitorName"
+              className="mb-1 block text-sm font-medium text-zinc-700"
+            >
+              Nome
             </label>
 
             <input
               id="visitorName"
-              className="input"
+              type="text"
               value={visitorName}
               onChange={(event) => setVisitorName(event.target.value)}
-              placeholder="Ex.: Maria Fernanda"
-              required
-              minLength={3}
-              disabled={isPending}
-              autoComplete="name"
+              placeholder="Digite seu nome"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-[#25411e] focus:ring-2 focus:ring-[#25411e]/10"
             />
-
-            <div className="public-access-hint">
-              Esse nome aparecerá no histórico de aprovações e ajustes.
-            </div>
           </div>
 
-          <div className="field">
-            <label className="field-label" htmlFor="visitorEmail">
-              E-mail{' '}
-              <span className="muted" style={{ fontWeight: 400 }}>
-                (opcional)
-              </span>
+          <div>
+            <label
+              htmlFor="visitorEmail"
+              className="mb-1 block text-sm font-medium text-zinc-700"
+            >
+              E-mail opcional
             </label>
 
             <input
               id="visitorEmail"
-              className="input"
               type="email"
               value={visitorEmail}
               onChange={(event) => setVisitorEmail(event.target.value)}
-              placeholder="email@exemplo.com"
-              disabled={isPending}
-              autoComplete="email"
+              placeholder="Digite seu e-mail"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-[#25411e] focus:ring-2 focus:ring-[#25411e]/10"
             />
           </div>
 
-          {error && <div className="public-access-error">{error}</div>}
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
 
           <button
             type="submit"
-            className="btn btn-primary public-access-submit"
             disabled={isPending}
+            className="w-full rounded-xl bg-[#25411e] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? (
-              'Validando…'
-            ) : (
-              <>
-                Acessar cronograma
-                <Icon name="arrow" size={20} />
-              </>
-            )}
+            {isPending ? 'Entrando...' : 'Acessar cronograma'}
           </button>
         </form>
-
-        <div className="public-access-login">
-          Tem conta?{' '}
-          <Link href="/login">
-            Entrar pelo login
-          </Link>
-        </div>
       </div>
-    </div>
+    </main>
   );
 }

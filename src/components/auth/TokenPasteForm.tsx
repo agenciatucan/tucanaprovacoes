@@ -1,10 +1,37 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { Icon } from '@/components/ui/Icon';
 
-const TOKEN_RE = /[a-f0-9]{64}/i;
+function extractToken(value: string) {
+  const cleanValue = value.trim();
+
+  if (!cleanValue) return null;
+
+  try {
+    const url = new URL(cleanValue);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const accessIndex = parts.indexOf('acesso');
+
+    if (accessIndex >= 0 && parts[accessIndex + 1]) {
+      return parts[accessIndex + 1];
+    }
+  } catch {
+    // Não era uma URL completa; continua tratando como código/token.
+  }
+
+  const withoutSlashes = cleanValue.replace(/^\/+|\/+$/g, '');
+  const parts = withoutSlashes.split('/').filter(Boolean);
+  const accessIndex = parts.indexOf('acesso');
+
+  if (accessIndex >= 0 && parts[accessIndex + 1]) {
+    return parts[accessIndex + 1];
+  }
+
+  return withoutSlashes || null;
+}
 
 export default function TokenPasteForm() {
   const router = useRouter();
@@ -13,12 +40,15 @@ export default function TokenPasteForm() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const match = value.trim().match(TOKEN_RE);
-    if (!match) {
+
+    const token = extractToken(value);
+
+    if (!token) {
       setError('Link ou código inválido. Verifique e tente novamente.');
       return;
     }
-    router.push(`/acesso/${match[0].toLowerCase()}` as Route);
+
+    router.push(`/acesso/${token}` as Route);
   }
 
   return (
@@ -29,7 +59,7 @@ export default function TokenPasteForm() {
           id="token-input"
           type="text"
           className="input"
-          placeholder="https://portaltucan.com.br/acesso/abc123..."
+          placeholder="Ex.: TUCAN-4D023E ou link completo"
           value={value}
           onChange={(e) => { setValue(e.target.value); setError(''); }}
           autoComplete="off"

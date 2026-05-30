@@ -1,9 +1,55 @@
 'use server';
 
-import { cookies, headers } from 'next/headers';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import {
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+} from '@/lib/supabase/server';
 
-const PUBLIC_VISIBLE_CAMPAIGN_STATUSES = [
+type ActionResult<T = unknown> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+type PublicClientData = {
+  id: string;
+  name?: string | null;
+  company_name?: string | null;
+  email?: string | null;
+};
+
+type PublicCampaignData = {
+  id: string;
+  client_id: string;
+  name: string;
+  title?: string | null;
+  status?: string | null;
+  approval_token: string;
+  access_code?: string | null;
+  public_token?: string | null;
+  token?: string | null;
+  token_expires_at?: string | null;
+  period_label?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  clients?: PublicClientData | PublicClientData[] | null;
+};
+
+type PublicSession = {
+  campaign_id: string;
+  visitor_name: string;
+  visitor_email: string | null;
+  identified_at: string;
+};
+
+type IdentifyPublicVisitorParams = {
+  access?: unknown;
+  defaultAccess?: unknown;
+  token?: string;
+  visitorName: string;
+  visitorEmail?: string;
+};
+
+const VISIBLE_CAMPAIGN_STATUSES = [
   'enviado_para_aprovacao',
   'em_revisao',
   'aprovado',
@@ -11,342 +57,384 @@ const PUBLIC_VISIBLE_CAMPAIGN_STATUSES = [
   'finalizado',
 ];
 
-type PublicAccessResult =
-  | {
-      success: true;
-      data: {
-        campaignId: string;
-        campaignName: string;
-        token: string;
-        accessCode: string | null;
-        redirectTo: string;
-        sessionId: string;
-        visitorName: string;
-      };
-    }
-  | {
-      success: false;
-      error: string;
-    };
+function getSessionCookieName(campaignId: string) {
+  return `tucan_public_access_${campaignId}`;
+}
 
-function cleanAccessInput(value: string) {
-  const cleanValue = value.trim();
-
-  if (!cleanValue) return '';
-
+async function getPublicSupabaseClient() {
   try {
-    const url = new URL(cleanValue);
-
-    const parts = url.pathname.split('/').filter(Boolean);
-    const acessoIndex = parts.findIndex((part) => part === 'acesso');
-
-    if (acessoIndex >= 0 && parts[acessoIndex + 1]) {
-      return decodeURIComponent(parts[acessoIndex + 1] ?? '').trim();
-    }
-
-    return cleanValue;
+    return await getSupabaseServiceClient();
   } catch {
-    return cleanValue;
+    return await getSupabaseServerClient();
   }
 }
 
-function normalizeCode(value: string) {
-  return value.trim().toUpperCase().replace(/\s+/g, '');
-}
+function getTokenFromAccess(access: unknown): string | null {
+  if (typeof access === 'string') {
+    return access.trim() || null;
+  }
 
-function getPublicSessionCookieName(campaignId: string) {
-  return `tucan_public_session_${campaignId}`;
-}
+  const accessData = access as
+    | {
+        token?: string | null;
+        approval_token?: string | null;
+        public_token?: string | null;
+        campaign?: {
+          token?: string | null;
+          approval_token?: string | null;
+          public_token?: string | null;
+        } | null;
+      }
+    | null
+    | undefined;
 
-function getVisitorNameCookieName(campaignId: string) {
-  return `tucan_public_name_${campaignId}`;
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
+  return (
+    accessData?.token ||
+    accessData?.approval_token ||
+    accessData?.public_token ||
+    accessData?.campaign?.token ||
+    accessData?.campaign?.approval_token ||
+    accessData?.campaign?.public_token ||
+    null
   );
 }
 
-export async function getPublicCampaignByAccess(access: string) {
-  const supabase = await getSupabaseServerClient();
+function getCampaignIdFromAccess(access: unknown): string | null {
+  const accessData = access as
+    | {
+        id?: string | null;
+        campaign_id?: string | null;
+        campaign?: {
+          id?: string | null;
+          campaign_id?: string | null;
+        } | null;
+      }
+    | null
+    | undefined;
 
-  const cleanAccess = cleanAccessInput(access);
-  const normalizedCode = normalizeCode(cleanAccess);
+  return (
+    accessData?.campaign_id ||
+    accessData?.id ||
+    accessData?.campaign?.campaign_id ||
+    accessData?.campaign?.id ||
+    null
+  );
+}
 
-  if (!cleanAccess) {
-    return {
-      success: false as const,
-      error: 'Informe um link ou código de acesso.',
-    };
+function getSafePath(access: unknown, fallbackToken?: string | null): string {
+  const accessData = access as
+    | {
+        path?: string | null;
+        href?: string | null;
+        url?: string | null;
+        redirectTo?: string | null;
+      }
+    | null
+    | undefined;
+
+  const directPath =
+    accessData?.path ||
+    accessData?.href ||
+    accessData?.url ||
+    accessData?.redirectTo ||
+    null;
+
+  if (typeof directPath === 'string' && directPath.startsWith('/')) {
+    return directPath;
   }
 
-  // 1. Tenta encontrar pelo approval_token
-  let campaignQuery = supabase
-    .from('campaigns')
-    .select(
-      `
+  const token = fallbackToken || getTokenFromAccess(access);
+
+  if (token) {
+    return `/acesso/${token}`;
+  }
+
+  return '/';
+}
+
+async function findCampaignByToken(token: string): Promise<{
+  data: PublicCampaignData | null;
+  error: string | null;
+}> {
+  const supabase = await getPublicSupabaseClient();
+
+  const cleanToken = token.trim();
+
+  const selectFields = `
+    id,
+    client_id,
+    name,
+    status,
+    approval_token,
+    access_code,
+    token_expires_at,
+    period_label,
+    start_date,
+    end_date,
+    clients (
       id,
       name,
-      status,
-      approval_token,
-      access_code,
-      token_expires_at,
-      is_locked,
-      clients(name, company_name)
-    `
+      company_name,
+      email
     )
-    .eq('approval_token', cleanAccess)
-    .maybeSingle();
+  `;
 
-  let { data: campaign, error } = await campaignQuery;
+  const attempts: Array<{ column: string; value: string; mode: 'eq' | 'ilike' }> = [
+    { column: 'approval_token', value: cleanToken, mode: 'eq' },
+    { column: 'access_code', value: cleanToken, mode: 'ilike' },
+  ];
 
-  // 2. Se não achou, tenta encontrar pelo access_code
-  if (!campaign && !error) {
-    const result = await supabase
-      .from('campaigns')
-      .select(
-        `
-        id,
-        name,
-        status,
-        approval_token,
-        access_code,
-        token_expires_at,
-        is_locked,
-        clients(name, company_name)
-      `
-      )
-      .eq('access_code', normalizedCode)
-      .maybeSingle();
+  for (const attempt of attempts) {
+    const query = supabase.from('campaigns').select(selectFields);
 
-    campaign = result.data;
-    error = result.error;
-  }
+    const { data, error } =
+      attempt.mode === 'ilike'
+        ? await query.ilike(attempt.column, attempt.value).maybeSingle()
+        : await query.eq(attempt.column, attempt.value).maybeSingle();
 
-  // 3. Se ainda não achou e parecer UUID, tenta encontrar pelo ID do cronograma.
-  // Isso ajuda no teste interno do admin.
-  if (!campaign && !error && isUuid(cleanAccess)) {
-    const result = await supabase
-      .from('campaigns')
-      .select(
-        `
-        id,
-        name,
-        status,
-        approval_token,
-        access_code,
-        token_expires_at,
-        is_locked,
-        clients(name, company_name)
-      `
-      )
-      .eq('id', cleanAccess)
-      .maybeSingle();
-
-    campaign = result.data;
-    error = result.error;
-  }
-
-  if (error || !campaign) {
-    return {
-      success: false as const,
-      error: 'Link ou código de acesso inválido.',
-    };
-  }
-
-  if (!PUBLIC_VISIBLE_CAMPAIGN_STATUSES.includes(campaign.status)) {
-    return {
-      success: false as const,
-      error:
-        campaign.status === 'rascunho'
-          ? 'Este cronograma ainda não foi liberado para o cliente.'
-          : 'Este cronograma não está disponível para acesso público.',
-    };
-  }
-
-  if (!campaign.approval_token) {
-    return {
-      success: false as const,
-      error:
-        'Este cronograma ainda não possui um token de aprovação. Gere um novo link no admin.',
-    };
-  }
-
-  if (campaign.token_expires_at) {
-    const expiresAt = new Date(campaign.token_expires_at).getTime();
-    const now = Date.now();
-
-    if (expiresAt < now) {
+    if (data) {
       return {
-        success: false as const,
-        error: 'Este link de acesso expirou. Solicite um novo link.',
+        data: data as PublicCampaignData,
+        error: null,
+      };
+    }
+
+    if (error) {
+      return {
+        data: null,
+        error: error.message,
       };
     }
   }
 
   return {
-    success: true as const,
-    data: {
-      campaign,
-      usedAccess: cleanAccess,
-      normalizedCode,
-    },
+    data: null,
+    error: null,
   };
 }
 
-export async function identifyPublicVisitor({
-  access,
-  visitorName,
-  visitorEmail,
-}: {
-  access: string;
+async function savePublicAccessSession(params: {
+  campaignId: string;
   visitorName: string;
-  visitorEmail?: string;
-}): Promise<PublicAccessResult> {
-  const cleanName = visitorName.trim().replace(/\s+/g, ' ');
-  const cleanEmail = visitorEmail?.trim() || null;
-
-  if (cleanName.length < 3) {
-    return {
-      success: false,
-      error: 'Informe seu nome para continuar.',
-    };
-  }
-
-  const campaignResult = await getPublicCampaignByAccess(access);
-
-  if (!campaignResult.success) {
-    return {
-      success: false,
-      error: campaignResult.error,
-    };
-  }
-
-  const { campaign, usedAccess, normalizedCode } = campaignResult.data;
-
-  const supabase = await getSupabaseServerClient();
-  const headersList = await headers();
-
-  const userAgent = headersList.get('user-agent');
-  const forwardedFor = headersList.get('x-forwarded-for');
-  const realIp = headersList.get('x-real-ip');
-
-  const ipAddress = forwardedFor?.split(',')[0]?.trim() || realIp || null;
-
-  const isCodeAccess =
-    normalizeCode(campaign.access_code ?? '') === normalizedCode;
-
-  const { data: existingSession } = await supabase
-    .from('public_access_sessions')
-    .select('id, access_count')
-    .eq('campaign_id', campaign.id)
-    .eq('visitor_name', cleanName)
-    .maybeSingle();
-
-  let sessionId = existingSession?.id;
-
-  if (existingSession?.id) {
-    const { error: updateError } = await supabase
-      .from('public_access_sessions')
-      .update({
-        visitor_email: cleanEmail,
-        approval_token: campaign.approval_token,
-        access_code: campaign.access_code,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        last_access_at: new Date().toISOString(),
-        access_count: (existingSession.access_count ?? 0) + 1,
-      })
-      .eq('id', existingSession.id);
-
-    if (updateError) {
-      return {
-        success: false,
-        error: 'Não foi possível registrar o acesso. Tente novamente.',
-      };
-    }
-  } else {
-    const { data: createdSession, error: insertError } = await supabase
-      .from('public_access_sessions')
-      .insert({
-        campaign_id: campaign.id,
-        visitor_name: cleanName,
-        visitor_email: cleanEmail,
-        approval_token: isCodeAccess ? null : usedAccess,
-        access_code: campaign.access_code,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-      })
-      .select('id')
-      .single();
-
-    if (insertError || !createdSession) {
-      return {
-        success: false,
-        error: 'Não foi possível registrar o acesso. Tente novamente.',
-      };
-    }
-
-    sessionId = createdSession.id;
-  }
-
-  if (!sessionId) {
-    return {
-      success: false,
-      error: 'Não foi possível iniciar sua sessão de acesso.',
-    };
-  }
-
+  visitorEmail: string | null;
+}) {
   const cookieStore = await cookies();
+  const session: PublicSession = {
+    campaign_id: params.campaignId,
+    visitor_name: params.visitorName,
+    visitor_email: params.visitorEmail,
+    identified_at: new Date().toISOString(),
+  };
 
-  cookieStore.set(getPublicSessionCookieName(campaign.id), sessionId, {
+  cookieStore.set(getSessionCookieName(params.campaignId), JSON.stringify(session), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
     path: '/',
+    maxAge: 60 * 60 * 24 * 30,
   });
 
-  cookieStore.set(getVisitorNameCookieName(campaign.id), cleanName, {
-    httpOnly: false,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  });
+  try {
+    const supabase = await getPublicSupabaseClient();
+
+    await supabase.from('public_access_sessions').insert({
+      campaign_id: params.campaignId,
+      visitor_name: params.visitorName,
+      visitor_email: params.visitorEmail,
+    });
+  } catch {
+    // A tabela public_access_sessions é opcional. O cookie já mantém a sessão funcionando.
+  }
+
+  return session;
+}
+
+export async function getPublicAccessByToken(
+  token: string,
+): Promise<ActionResult<PublicCampaignData>> {
+  try {
+    if (!token || !token.trim()) {
+      return {
+        success: false,
+        error: 'Token inválido.',
+      };
+    }
+
+    const result = await findCampaignByToken(token.trim());
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
+    if (!result.data) {
+      return {
+        success: false,
+        error: 'Link de acesso inválido ou expirado.',
+      };
+    }
+
+    if (!VISIBLE_CAMPAIGN_STATUSES.includes(result.data.status || '')) {
+      return {
+        success: false,
+        error: 'Este cronograma ainda não está disponível para aprovação pública.',
+      };
+    }
+
+    if (
+      result.data.token_expires_at &&
+      new Date(result.data.token_expires_at).getTime() < Date.now()
+    ) {
+      return {
+        success: false,
+        error: 'Este link de aprovação expirou.',
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível validar o acesso público.',
+    };
+  }
+}
+
+export async function validatePublicAccess(
+  token: string,
+): Promise<ActionResult<PublicCampaignData>> {
+  return getPublicAccessByToken(token);
+}
+
+export async function getPublicAccess(
+  token: string,
+): Promise<ActionResult<PublicCampaignData>> {
+  return getPublicAccessByToken(token);
+}
+
+export async function getPublicCampaignByAccess(
+  token: string,
+): Promise<ActionResult<{ campaign: PublicCampaignData }>> {
+  const result = await getPublicAccessByToken(token);
+
+  if (!result.success) {
+    return result;
+  }
 
   return {
     success: true,
     data: {
-      campaignId: campaign.id,
-      campaignName: campaign.name,
-      token: campaign.approval_token,
-      accessCode: campaign.access_code,
-      redirectTo: `/acesso/${campaign.approval_token}`,
-      sessionId,
-      visitorName: cleanName,
+      campaign: result.data,
     },
   };
 }
 
-export async function getPublicSession(campaignId: string) {
-  const cookieStore = await cookies();
+export async function getPublicSession(
+  campaignId: string,
+): Promise<PublicSession | null> {
+  try {
+    if (!campaignId) return null;
 
-  const sessionId = cookieStore.get(
-    getPublicSessionCookieName(campaignId)
-  )?.value;
+    const cookieStore = await cookies();
+    const rawSession = cookieStore.get(getSessionCookieName(campaignId))?.value;
 
-  if (!sessionId) return null;
+    if (!rawSession) return null;
 
-  const supabase = await getSupabaseServerClient();
+    const parsed = JSON.parse(rawSession) as PublicSession;
 
-  const { data: session } = await supabase
-    .from('public_access_sessions')
-    .select('id, visitor_name, visitor_email, first_access_at, last_access_at')
-    .eq('id', sessionId)
-    .eq('campaign_id', campaignId)
-    .maybeSingle();
+    if (!parsed?.visitor_name || parsed.campaign_id !== campaignId) {
+      return null;
+    }
 
-  return session;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function identifyPublicVisitor({
+  access,
+  defaultAccess,
+  token,
+  visitorName,
+  visitorEmail,
+}: IdentifyPublicVisitorParams): Promise<
+  ActionResult<{
+    access: unknown;
+    visitorName: string;
+    visitorEmail: string | null;
+    identifiedAt: string;
+    path: string;
+    href: string;
+    url: string;
+    redirectTo: string;
+  }>
+> {
+  try {
+    if (!visitorName || !visitorName.trim()) {
+      return {
+        success: false,
+        error: 'Informe seu nome para continuar.',
+      };
+    }
+
+    const cleanName = visitorName.trim();
+    const cleanEmail = visitorEmail?.trim() || null;
+    const accessPayload = access ?? defaultAccess ?? token ?? null;
+    const accessToken = token || getTokenFromAccess(accessPayload);
+
+    let campaignId = getCampaignIdFromAccess(accessPayload);
+    let safePath = getSafePath(accessPayload, accessToken);
+    let finalAccess = accessPayload;
+
+    if (accessToken) {
+      const campaignResult = await getPublicAccessByToken(accessToken);
+
+      if (!campaignResult.success) {
+        return campaignResult;
+      }
+
+      campaignId = campaignResult.data.id;
+      finalAccess = campaignResult.data;
+      safePath = `/acesso/${campaignResult.data.approval_token}`;
+    }
+
+    if (campaignId) {
+      await savePublicAccessSession({
+        campaignId,
+        visitorName: cleanName,
+        visitorEmail: cleanEmail,
+      });
+    }
+
+    return {
+      success: true,
+      data: {
+        access: finalAccess,
+        visitorName: cleanName,
+        visitorEmail: cleanEmail,
+        identifiedAt: new Date().toISOString(),
+        path: safePath,
+        href: safePath,
+        url: safePath,
+        redirectTo: safePath,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível identificar o visitante.',
+    };
+  }
 }
