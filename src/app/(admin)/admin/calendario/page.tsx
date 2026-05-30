@@ -498,6 +498,7 @@ export default async function CalendarioPage({
             .calendar-header { align-items: stretch; flex-direction: column; }
             .calendar-desktop { display: none; }
             .calendar-mobile-agenda { display: none; }
+            .calendar-toolbar { display: none; }
             .cal-mob { display: block; }
           }
 
@@ -738,6 +739,21 @@ export default async function CalendarioPage({
       <div className="cal-mob">
         {/* Month grid */}
         <div className="card" style={{ padding: '14px 12px' }}>
+          {/* Month navigation inside mobile card */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <Link href={prevHref} className="calendar-nav-button" style={{ width: 36, height: 36 }}>
+              <Icon name="arrow-left" size={14} />
+            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em' }}>{monthTitle}</span>
+              <Link href="/admin/calendario" className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '0 10px', minHeight: 28 }}>
+                Hoje
+              </Link>
+            </div>
+            <Link href={nextHref} className="calendar-nav-button" style={{ width: 36, height: 36 }}>
+              <Icon name="arrow" size={14} />
+            </Link>
+          </div>
           {/* Weekday labels */}
           <div className="cal-mob-head">
             {['D','S','T','Q','Q','S','S'].map((d, i) => (
