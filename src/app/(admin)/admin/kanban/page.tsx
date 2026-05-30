@@ -4,6 +4,7 @@ import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_STATUS_LABEL } from '@/lib/validations/schemas';
+import { markPostAsScheduled } from '@/actions/content-items';
 
 export const metadata: Metadata = { title: 'Kanban' };
 
@@ -15,26 +16,29 @@ const COLUMNS = [
   { key: 'em_producao',  label: 'Em produção',   color: '#ea580c', bg: '#fff7ed' },
   { key: 'em_aprovacao', label: 'Em aprovação',  color: '#d97706', bg: '#fffbeb' },
   { key: 'ajustes',      label: 'Ajustes',       color: '#dc2626', bg: '#fef2f2' },
-  { key: 'concluido',    label: 'Concluído',     color: '#166534', bg: '#f0fdf4' },
+  { key: 'aprovado',     label: 'Aprovado',      color: '#16a34a', bg: '#f0fdf4' },
+  { key: 'programado',   label: 'Programado',    color: '#0891b2', bg: '#ecfeff' },
+  { key: 'concluido',    label: 'Concluído',     color: '#374151', bg: '#f9fafb' },
 ] as const;
 
 type KanbanColumn = (typeof COLUMNS)[number]['key'];
 const COLUMN_KEYS = COLUMNS.map((c) => c.key) as KanbanColumn[];
 
-// ── Mapeamento: status antigo dos posts → coluna nova ─────────
-// content_items usam: pendente | em_revisao | aprovado | em_producao | finalizado
-// Mapeamento para o fluxo interno da agência:
+// ── Mapeamento: status dos posts → coluna do Kanban ──────────
+// content_items usam: pendente | em_revisao | aprovado | programado | em_producao | finalizado
 //   pendente    → em_aprovacao  (aguardando aprovação do cliente)
 //   em_producao → em_producao   (sendo produzido pela equipe)
 //   em_revisao  → ajustes       (cliente pediu ajustes)
-//   aprovado    → concluido     (cliente aprovou)
+//   aprovado    → aprovado      (cliente aprovou, aguarda programação)
+//   programado  → programado    (agendado na ferramenta de publicação)
 //   finalizado  → concluido     (publicado)
 function postStatusToColumn(status: string): KanbanColumn {
   const map: Record<string, KanbanColumn> = {
     pendente:    'em_aprovacao',
     em_producao: 'em_producao',
     em_revisao:  'ajustes',
-    aprovado:    'concluido',
+    aprovado:    'aprovado',
+    programado:  'programado',
     finalizado:  'concluido',
   };
   return map[status] ?? 'entrada';
@@ -93,7 +97,8 @@ type KanbanCard = PostCard | ActivityCard;
 function createEmptyGrouped(): Record<KanbanColumn, KanbanCard[]> {
   return {
     entrada: [], em_analise: [], atribuido: [],
-    em_producao: [], em_aprovacao: [], ajustes: [], concluido: [],
+    em_producao: [], em_aprovacao: [], ajustes: [],
+    aprovado: [], programado: [], concluido: [],
   };
 }
 
@@ -268,13 +273,13 @@ export default async function KanbanPage({
           <div className="eyebrow">Tucan · Interno</div>
           <h1 className="h1" style={{ marginTop: 6 }}>Kanban</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-            Fluxo de trabalho: Entrada → Em análise → Atribuído → Em produção → Em aprovação → Ajustes → Concluído
+            Entrada → Em análise → Atribuído → Em produção → Em aprovação → Ajustes → Aprovado → Programado → Concluído
           </p>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="kanban-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 8, marginBottom: 16 }}>
+      <div className="kanban-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))', gap: 8, marginBottom: 16 }}>
         <div className="kanban-summary-card">
           <span className="muted tiny">Total</span>
           <strong>{totalAll}</strong>
@@ -366,9 +371,9 @@ export default async function KanbanPage({
         </div>
       </form>
 
-      {/* Board — 7 colunas */}
+      {/* Board — 9 colunas */}
       <div className="kanban-board-scroll">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(230px, 1fr))', gap: 12, alignItems: 'start', minWidth: 1700 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(220px, 1fr))', gap: 12, alignItems: 'start', minWidth: 2100 }}>
           {COLUMNS.map((col) => {
             const colItems = grouped[col.key];
 
@@ -385,13 +390,9 @@ export default async function KanbanPage({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {colItems.map((card) => {
                     if (card.type === 'post') {
-                      return (
-                        <Link
-                          key={`post-${card.id}`}
-                          href={`/admin/posts/${card.id}` as Route}
-                          className="card kanban-card-link"
-                          style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'block' }}
-                        >
+                      const scheduleAction = markPostAsScheduled.bind(null, card.id);
+                      const cardInner = (
+                        <>
                           {/* Topo: badge origem + formato */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginBottom: 8 }}>
                             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', minWidth: 0 }}>
@@ -423,6 +424,42 @@ export default async function KanbanPage({
                             </span>
                             <span className="kanban-card-arrow" style={{ color: 'var(--green)', fontSize: 14, flexShrink: 0, fontWeight: 700 }}>→</span>
                           </div>
+                        </>
+                      );
+
+                      if (col.key === 'aprovado') {
+                        return (
+                          <div key={`post-${card.id}`} className="card kanban-card-link" style={{ padding: 12 }}>
+                            <Link
+                              href={`/admin/posts/${card.id}` as Route}
+                              style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 10 }}
+                            >
+                              {cardInner}
+                            </Link>
+                            <form action={scheduleAction}>
+                              <button
+                                type="submit"
+                                style={{
+                                  width: '100%', height: 28, borderRadius: 8, border: '1px solid #0891b2',
+                                  background: '#ecfeff', color: '#0891b2', fontSize: 11, fontWeight: 700,
+                                  cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em',
+                                }}
+                              >
+                                Marcar como programado →
+                              </button>
+                            </form>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Link
+                          key={`post-${card.id}`}
+                          href={`/admin/posts/${card.id}` as Route}
+                          className="card kanban-card-link"
+                          style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'block' }}
+                        >
+                          {cardInner}
                         </Link>
                       );
                     }

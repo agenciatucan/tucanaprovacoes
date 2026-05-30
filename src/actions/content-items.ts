@@ -230,6 +230,36 @@ export async function updateContentItemStatus(
   return { success: true, data: undefined };
 }
 
+// ── Marcar post como programado (agendado na ferramenta) ─────
+// Retorna void para poder ser usada diretamente como form action.
+export async function markPostAsScheduled(id: string): Promise<void> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return;
+
+  const { data: item } = await supabase
+    .from('content_items')
+    .select('campaign_id, general_status')
+    .eq('id', id)
+    .single();
+
+  if (!item || item.general_status !== 'aprovado') return;
+
+  const { error } = await supabase
+    .from('content_items')
+    .update({ general_status: 'programado' })
+    .eq('id', id);
+
+  if (error) {
+    logger.error('markPostAsScheduled', error.message);
+    return;
+  }
+
+  revalidatePath(`/admin/kanban`);
+  revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
+  revalidatePath(`/admin/posts/${id}`);
+}
+
 // ── Reenviar post para aprovação do cliente ──────────────────
 // Reseta os campos com ajuste_solicitado de volta para aguardando,
 // mantendo os que já foram aprovados. Recalcula o general_status.
