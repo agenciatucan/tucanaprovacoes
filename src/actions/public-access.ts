@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import {
   getSupabaseServerClient,
   getSupabaseServiceClient,
@@ -354,6 +355,23 @@ export async function getPublicSession(
       return null;
     }
 
+    // Verificar se o token de aprovação da campanha ainda está válido.
+    // Se o token expirou, a sessão de cookie não deve ser aceita.
+    const supabase = await getPublicSupabaseClient();
+    const { data: campaign } = await supabase
+      .from('campaigns')
+      .select('token_expires_at, status')
+      .eq('id', campaignId)
+      .maybeSingle();
+
+    if (!campaign) return null;
+    if (campaign.status === 'arquivado') return null;
+    if (campaign.token_expires_at && new Date(campaign.token_expires_at) < new Date()) {
+      // Token expirado — limpar cookie silenciosamente
+      cookieStore.delete(getSessionCookieName(campaignId));
+      return null;
+    }
+
     return parsed;
   } catch {
     return null;
@@ -437,4 +455,10 @@ export async function identifyPublicVisitor({
           : 'Não foi possível identificar o visitante.',
     };
   }
+}
+
+export async function clearPublicSession(campaignId: string, token: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(getSessionCookieName(campaignId));
+  redirect(`/acesso/${token}`);
 }

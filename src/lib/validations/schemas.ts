@@ -65,7 +65,23 @@ export const contentItemSchema = z.object({
   creative_concept: OPTIONAL_TEXT(1000),
   caption:          OPTIONAL_TEXT(3000),
   script:           OPTIONAL_TEXT(5000),
-  reference_url:    z.string().url("URL inválida").nullish().or(z.literal("")).transform(v => v || null),
+  reference_url: z
+    .string()
+    .url("URL inválida")
+    .refine((url) => {
+      try {
+        const { protocol, hostname } = new URL(url);
+        // Apenas HTTP/HTTPS — bloqueia javascript:, data:, file:, etc.
+        if (!['http:', 'https:'].includes(protocol)) return false;
+        // Bloqueia localhost e ranges de IP privados (SSRF)
+        if (['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(hostname)) return false;
+        if (/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(hostname)) return false;
+        return true;
+      } catch { return false; }
+    }, "Apenas URLs HTTP/HTTPS externas são permitidas")
+    .nullish()
+    .or(z.literal(""))
+    .transform(v => v || null),
   internal_notes:   OPTIONAL_TEXT(1000),
 }).refine(
   (data) => !(data.format === "reels" && !data.script),
@@ -139,3 +155,56 @@ export const approveCampaignSchema = z.object({
   note:        OPTIONAL_TEXT(500),
 });
 export type ApproveCampaignInput = z.infer<typeof approveCampaignSchema>;
+
+// ── Atividades ────────────────────────────────────────────────
+export const ACTIVITY_CATEGORIES = [
+  'criacao', 'video', 'social_media', 'trafego_pago', 'atendimento',
+  'gravacao', 'relatorio', 'administrativo', 'ajustes', 'estrategia',
+] as const;
+export type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number];
+
+export const ACTIVITY_CATEGORY_LABEL: Record<string, string> = {
+  criacao:        'Criação',
+  video:          'Vídeo',
+  social_media:   'Social Media',
+  trafego_pago:   'Tráfego Pago',
+  atendimento:    'Atendimento',
+  gravacao:       'Gravação',
+  relatorio:      'Relatório',
+  administrativo: 'Administrativo',
+  ajustes:        'Ajustes',
+  estrategia:     'Estratégia',
+};
+
+export const ACTIVITY_PRIORITIES = ['baixa', 'media', 'alta', 'urgente'] as const;
+export type ActivityPriority = (typeof ACTIVITY_PRIORITIES)[number];
+
+// Novo fluxo da agência: 7 etapas
+export const ACTIVITY_STATUSES = [
+  'entrada', 'em_analise', 'atribuido', 'em_producao',
+  'em_aprovacao', 'ajustes', 'concluido',
+] as const;
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
+export const ACTIVITY_STATUS_LABEL: Record<string, string> = {
+  entrada:      'Entrada',
+  em_analise:   'Em análise',
+  atribuido:    'Atribuído',
+  em_producao:  'Em produção',
+  em_aprovacao: 'Em aprovação',
+  ajustes:      'Ajustes',
+  concluido:    'Concluído',
+};
+
+export const activitySchema = z.object({
+  title:          z.string().min(2, 'Título obrigatório').max(200),
+  description:    OPTIONAL_TEXT(2000),
+  client_id:      UUID.nullish().or(z.literal('')).transform(v => v || null),
+  responsible_id: UUID.nullish().or(z.literal('')).transform(v => v || null),
+  category:       z.enum(ACTIVITY_CATEGORIES),
+  priority:       z.enum(ACTIVITY_PRIORITIES).default('media'),
+  status:         z.enum(ACTIVITY_STATUSES).default('entrada'),
+  due_date:       DATE_STR.nullish().or(z.literal('')).transform(v => v || null),
+  visibility:     z.enum(['interna', 'cliente']).default('interna'),
+});
+export type ActivityInput = z.infer<typeof activitySchema>;

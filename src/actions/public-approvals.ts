@@ -5,6 +5,7 @@ import {
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -195,6 +196,25 @@ export async function approvePublicPost(params: {
     const supabase = await getPublicSupabaseClient();
     const { token, postId, name } = params;
 
+    // Rate limit: máximo 60 aprovações por token a cada hora
+    const rl = await checkRateLimit({ key: token, action: 'publicApproval', limit: 60, windowSeconds: 3600 });
+    if (!rl.allowed) {
+      return { success: false, error: 'Muitas ações em curto período. Aguarde alguns minutos.' };
+    }
+
+    // Revalida token antes de aprovar — garante que links expirados não aprovam posts
+    const { data: tokenCheck } = await supabase
+      .from('campaigns')
+      .select('id, token_expires_at, status')
+      .eq('approval_token', token)
+      .maybeSingle();
+
+    if (!tokenCheck) return { success: false, error: 'Link inválido.' };
+    if (tokenCheck.status === 'arquivado') return { success: false, error: 'Este cronograma foi arquivado.' };
+    if (tokenCheck.token_expires_at && new Date(tokenCheck.token_expires_at) < new Date()) {
+      return { success: false, error: 'Este link de aprovação expirou.' };
+    }
+
     const result = await getPublicPostForApproval(token, postId);
 
     if (!result.success) {
@@ -261,10 +281,26 @@ export async function requestPublicPostAdjustment(params: {
     const { token, postId, name, message } = params;
 
     if (!message.trim()) {
-      return {
-        success: false,
-        error: 'Digite o ajuste solicitado.',
-      };
+      return { success: false, error: 'Digite o ajuste solicitado.' };
+    }
+
+    // Rate limit: compartilhado com approvePublicPost (mesmo bucket por token)
+    const rl = await checkRateLimit({ key: token, action: 'publicApproval', limit: 60, windowSeconds: 3600 });
+    if (!rl.allowed) {
+      return { success: false, error: 'Muitas ações em curto período. Aguarde alguns minutos.' };
+    }
+
+    // Revalida token antes de registrar ajuste
+    const { data: tokenCheck } = await supabase
+      .from('campaigns')
+      .select('id, token_expires_at, status')
+      .eq('approval_token', token)
+      .maybeSingle();
+
+    if (!tokenCheck) return { success: false, error: 'Link inválido.' };
+    if (tokenCheck.status === 'arquivado') return { success: false, error: 'Este cronograma foi arquivado.' };
+    if (tokenCheck.token_expires_at && new Date(tokenCheck.token_expires_at) < new Date()) {
+      return { success: false, error: 'Este link de aprovação expirou.' };
     }
 
     const result = await getPublicPostForApproval(token, postId);

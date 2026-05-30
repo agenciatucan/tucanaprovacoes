@@ -9,6 +9,7 @@
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -37,7 +38,7 @@ export async function createSignedUploadUrl(
     .createSignedUploadUrl(storagePath);
 
   if (error || !data) {
-    console.error("[createSignedUploadUrl]", error?.message);
+    logger.error("createSignedUploadUrl", error?.message);
     return { success: false, error: "Erro ao criar URL de upload" };
   }
 
@@ -69,7 +70,7 @@ export async function saveFileRecord(input: {
     .single();
 
   if (error || !data) {
-    console.error("[saveFileRecord]", error?.message);
+    logger.error("saveFileRecord", error?.message);
     return { success: false, error: "Erro ao salvar registro do arquivo" };
   }
 
@@ -101,7 +102,7 @@ export async function deleteFile(
 
     if (storageErr) {
       // Logar mas não bloquear — o registro do banco será removido de qualquer forma
-      console.error("[deleteFile] storage remove:", storageErr.message);
+      logger.error("deleteFile/storage", storageErr.message);
     }
   }
 

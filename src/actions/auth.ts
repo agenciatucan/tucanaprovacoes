@@ -2,6 +2,8 @@
 import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validations/schemas";
 import { redirect } from "next/navigation";
+import { logger } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -11,23 +13,28 @@ export async function signIn(input: unknown): Promise<Result> {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
+  // Rate limit: máximo 10 tentativas por email a cada 15 minutos
+  const rl = await checkRateLimit({
+    key: parsed.data.email.toLowerCase(),
+    action: 'signIn',
+    limit: 10,
+    windowSeconds: 900,
+  });
+  if (!rl.allowed) {
+    return { success: false, error: "Muitas tentativas de login. Aguarde alguns minutos e tente novamente." };
+  }
+
   const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
 
-  // Log detalhado no terminal do Next.js para debug
   if (error) {
-    console.error("❌ Supabase signIn error:", {
-      message: error.message,
-      status: error.status,
-      code: (error as any).code,
-    });
+    logger.error("signIn", { message: error.message, status: error.status });
     return { success: false, error: `Erro: ${error.message}` };
   }
 
-  console.log("✅ Login OK:", data.user?.email, "role:", data.user?.user_metadata?.role);
   return { success: true, data: undefined };
 }
 
@@ -43,7 +50,7 @@ export async function requestPasswordReset(email: string): Promise<Result> {
   });
 
   if (error) {
-    console.error("[requestPasswordReset] error:", error.message);
+    logger.error("requestPasswordReset", error.message);
     // Não expor se o e-mail existe ou não (segurança)
     return { success: true, data: undefined };
   }

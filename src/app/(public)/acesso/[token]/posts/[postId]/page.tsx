@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getPublicPostForApproval } from '@/actions/public-approvals';
+import { getPublicSession } from '@/actions/public-access';
 import PublicApprovalPanel from '@/components/aprovacao/PublicApprovalPanel';
 
 type PublicPostPageProps = {
@@ -7,6 +8,22 @@ type PublicPostPageProps = {
     token: string;
     postId: string;
   }>;
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  reels: 'Reels',
+  carrossel: 'Carrossel',
+  post_estatico: 'Post estático',
+  story: 'Story',
+  outro: 'Outro',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pendente: 'Aguardando aprovação',
+  em_revisao: 'Em revisão',
+  aprovado: 'Aprovado',
+  em_producao: 'Em produção',
+  finalizado: 'Finalizado',
 };
 
 function getPostDate(post: {
@@ -17,9 +34,7 @@ function getPostDate(post: {
   return post.scheduled_date || post.publish_date || post.published_at || null;
 }
 
-function formatDate(date?: string | null) {
-  if (!date) return 'Data não definida';
-
+function formatDate(date: string) {
   try {
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
@@ -27,7 +42,7 @@ function formatDate(date?: string | null) {
       year: 'numeric',
     }).format(new Date(date));
   } catch {
-    return 'Data não definida';
+    return null;
   }
 }
 
@@ -35,7 +50,8 @@ function getPostType(post: {
   format?: string | null;
   type?: string | null;
 }) {
-  return post.format || post.type || 'Post';
+  const raw = post.format || post.type || null;
+  return raw ? (FORMAT_LABEL[raw] ?? raw) : 'Post';
 }
 
 function getPostMedia(post: {
@@ -89,6 +105,9 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
 
   const { campaign, post } = result.data;
 
+  const session = await getPublicSession(campaign.id);
+  const visitorName = session?.visitor_name ?? null;
+
   const postDate = getPostDate(post);
   const postType = getPostType(post);
   const postMedia = getPostMedia(post);
@@ -121,13 +140,15 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
                   {postType}
                 </span>
 
-                <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
-                  {formatDate(postDate)}
-                </span>
-
-                {post.status ? (
+                {postDate ? (
                   <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
-                    Status: {post.status}
+                    {formatDate(postDate)}
+                  </span>
+                ) : null}
+
+                {post.status && STATUS_LABEL[post.status] ? (
+                  <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
+                    {STATUS_LABEL[post.status]}
                   </span>
                 ) : null}
               </div>
@@ -186,6 +207,7 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
               token={token}
               postId={post.id}
               postTitle={post.title}
+              visitorName={visitorName}
             />
           </aside>
         </div>

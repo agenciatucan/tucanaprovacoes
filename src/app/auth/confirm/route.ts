@@ -11,25 +11,36 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
+
+// Rotas internas permitidas após confirmação de email/convite.
+// Nunca aceitar URLs externas ou paths arbitrários do query string.
+const ALLOWED_NEXT_PATHS = ['/definir-senha', '/admin', '/cliente'];
+
+function getSafeNext(raw: string | null): string {
+  if (!raw) return '/definir-senha';
+  const trimmed = raw.trim();
+  // Aceita apenas paths relativos internos da allowlist
+  if (ALLOWED_NEXT_PATHS.includes(trimmed)) return trimmed;
+  return '/definir-senha';
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const token_hash = searchParams.get('token_hash');
   const type       = searchParams.get('type') as EmailOtpType | null;
-  const next       = searchParams.get('next') ?? '/definir-senha';
+  const next       = getSafeNext(searchParams.get('next'));
 
   if (token_hash && type) {
     const supabase = await getSupabaseServerClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
 
     if (!error) {
-      // Sessão criada com sucesso — redirecionar para definir senha
       return NextResponse.redirect(`${origin}${next}`);
     }
 
-    console.error('[auth/confirm] verifyOtp error:', error.message);
+    logger.error('auth/confirm', error.message);
   }
 
-  // Token inválido ou expirado
   return NextResponse.redirect(`${origin}/login?erro=link_invalido`);
 }

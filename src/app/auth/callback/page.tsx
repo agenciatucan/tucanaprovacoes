@@ -112,11 +112,6 @@ function AuthCallbackContent() {
             router.replace(next as Route);
             return;
           }
-
-          console.error(
-            '[auth/callback] exchangeCodeForSession:',
-            error.message
-          );
         }
 
         const hash = window.location.hash.replace(/^#/, '');
@@ -140,19 +135,17 @@ function AuthCallbackContent() {
             router.replace(next as Route);
             return;
           }
-
-          console.error('[auth/callback] setSession:', error.message);
         }
 
         if (errorDescription) {
-          console.error('[auth/callback] error_description:', errorDescription);
+          setMsg('Link inválido ou expirado. Solicite um novo acesso.');
+          router.replace('/login?erro=link_invalido' as Route);
+          return;
         }
 
         setMsg('Link inválido ou expirado. Solicite um novo acesso.');
         router.replace('/login?erro=link_invalido' as Route);
-      } catch (error) {
-        console.error('[auth/callback] unexpected error:', error);
-
+      } catch {
         setMsg('Erro ao confirmar acesso. Tente novamente.');
         router.replace('/login?erro=callback' as Route);
       }

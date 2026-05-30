@@ -9,6 +9,7 @@ import {
   type ContentItemInput,
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -104,12 +105,7 @@ export async function createContentItem(
     .single();
 
   if (error || !data) {
-    console.error(
-      "[createContentItem]",
-      error?.message,
-      error?.code,
-      error?.details
-    );
+    logger.error("createContentItem", { message: error?.message, code: error?.code });
 
     return {
       success: false,
@@ -151,12 +147,7 @@ export async function updateContentItem(
     .eq("id", id);
 
   if (error) {
-    console.error(
-      "[updateContentItem]",
-      error.message,
-      error.code,
-      error.details
-    );
+    logger.error("updateContentItem", { message: error.message, code: error.code });
 
     return {
       success: false,
@@ -308,7 +299,7 @@ export async function resendForApproval(id: string): Promise<Result> {
       .eq("id", id);
 
     if (error) {
-      console.error("[resendForApproval]", error.message);
+      logger.error("resendForApproval", error.message);
 
       return {
         success: false,
@@ -330,10 +321,7 @@ export async function resendForApproval(id: string): Promise<Result> {
     .eq("status", "aberta");
 
   if (resolveCommentsError) {
-    console.warn(
-      "[resendForApproval] erro ao resolver observações:",
-      resolveCommentsError.message
-    );
+    logger.warn("resendForApproval/resolveComments", resolveCommentsError.message);
 
     return {
       success: false,
@@ -357,10 +345,7 @@ export async function resendForApproval(id: string): Promise<Result> {
     });
 
   if (historyError) {
-    console.warn(
-      "[resendForApproval] erro ao registrar histórico:",
-      historyError.message
-    );
+    logger.warn("resendForApproval/history", historyError.message);
   }
 
   revalidatePath(`/admin/posts/${id}`);

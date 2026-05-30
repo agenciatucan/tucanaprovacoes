@@ -1,5 +1,25 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === "production";
+const SUPABASE_HOSTNAME = "*.supabase.co";
+
+// CSP aplicada APENAS em produção.
+// Em desenvolvimento o Next.js/Turbopack usa HTTP, blob: URLs e WebSockets
+// que são bloqueados por uma CSP restrita — aplicar em prod evita quebrar o dev.
+const cspDirectives = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: https://${SUPABASE_HOSTNAME}`,
+  `media-src 'self' blob: https://${SUPABASE_HOSTNAME}`,
+  `connect-src 'self' https://${SUPABASE_HOSTNAME} wss://${SUPABASE_HOSTNAME}`,
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -9,6 +29,19 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+          // CSP e HSTS só em produção — em dev o HTTP local + Turbopack é incompatível com CSP estrita
+          ...(isProd ? [
+            { key: "Content-Security-Policy", value: cspDirectives },
+            { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
+          ] : []),
+        ],
+      },
+      // Content-Disposition em arquivos do Storage (impede SVG/HTML de executar no browser)
+      {
+        source: "/storage/:path*",
+        headers: [
+          { key: "Content-Disposition", value: "attachment" },
         ],
       },
     ];

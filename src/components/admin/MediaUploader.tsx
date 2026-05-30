@@ -20,12 +20,34 @@ interface Props {
   initialFiles: FileRecord[];
 }
 
+// MIME types explicitamente permitidos — bloqueia SVG (XSS), executáveis, etc.
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'application/pdf',
+  'text/plain',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/msword', // .doc
+]);
+
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function inferFileType(mime: string): 'imagem' | 'video' | 'pdf' | 'roteiro' | 'referencia' {
   if (mime.startsWith('image/')) return 'imagem';
   if (mime.startsWith('video/')) return 'video';
   if (mime === 'application/pdf') return 'pdf';
-  if (mime.startsWith('text/')) return 'roteiro';
+  if (mime.startsWith('text/') || mime.includes('word')) return 'roteiro';
   return 'referencia';
+}
+
+function validateFile(file: File): string | null {
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    return `Tipo de arquivo não permitido: ${file.type || 'desconhecido'}. Use imagens (JPG, PNG, WebP), vídeos (MP4, WebM), PDF ou documentos Word.`;
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return `"${file.name}" excede o limite de 50 MB.`;
+  }
+  return null;
 }
 
 function formatBytes(bytes: number): string {
@@ -129,6 +151,12 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
     const supabase = getSupabaseBrowserClient();
 
     for (const file of Array.from(selected)) {
+      const validationError = validateFile(file);
+      if (validationError) {
+        toast.error(validationError);
+        continue;
+      }
+
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${contentItemId}/${crypto.randomUUID()}-${safeName}`;
 

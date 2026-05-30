@@ -8,6 +8,7 @@ import {
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 type TeamRole = "admin" | "equipe";
 
@@ -97,7 +98,7 @@ export async function inviteTeamMember(input: {
       .maybeSingle();
 
   if (existingProfileError) {
-    console.error("[inviteTeamMember] existing profile error:", existingProfileError.message);
+    logger.error("inviteTeamMember/existingProfile", existingProfileError.message);
 
     return {
       success: false,
@@ -115,7 +116,7 @@ export async function inviteTeamMember(input: {
       .eq("id", existingProfile.id);
 
     if (updateError) {
-      console.error("[inviteTeamMember] update existing profile error:", updateError.message);
+      logger.error("inviteTeamMember/updateProfile", updateError.message);
 
       return {
         success: false,
@@ -136,7 +137,7 @@ export async function inviteTeamMember(input: {
         });
 
       if (resetError) {
-        console.error("[inviteTeamMember] reset existing user error:", resetError.message);
+        logger.error("inviteTeamMember/resetUser", resetError.message);
 
         return {
           success: false,
@@ -158,7 +159,7 @@ export async function inviteTeamMember(input: {
     });
 
   if (inviteError || !inviteData?.user) {
-    console.error("[inviteTeamMember] invite error:", inviteError?.message);
+    logger.error("inviteTeamMember/invite", inviteError?.message);
 
     return {
       success: false,
@@ -177,7 +178,7 @@ export async function inviteTeamMember(input: {
       .maybeSingle();
 
   if (triggerLookupError) {
-    console.error("[inviteTeamMember] trigger lookup error:", triggerLookupError.message);
+    logger.error("inviteTeamMember/triggerLookup", triggerLookupError.message);
   }
 
   if (profileFromTrigger) {
@@ -191,7 +192,7 @@ export async function inviteTeamMember(input: {
       .eq("id", profileFromTrigger.id);
 
     if (updateRoleError) {
-      console.error("[inviteTeamMember] update role error:", updateRoleError.message);
+      logger.error("inviteTeamMember/updateRole", updateRoleError.message);
 
       return {
         success: false,
@@ -215,7 +216,7 @@ export async function inviteTeamMember(input: {
     });
 
   if (manualProfileError) {
-    console.error("[inviteTeamMember] manual profile error:", manualProfileError.message);
+    logger.error("inviteTeamMember/manualProfile", manualProfileError.message);
 
     return {
       success: false,
@@ -248,7 +249,7 @@ export async function resendTeamInvite(
     .maybeSingle();
 
   if (profileError) {
-    console.error("[resendTeamInvite] profile error:", profileError.message);
+    logger.error("resendTeamInvite/profile", profileError.message);
 
     return {
       success: false,
@@ -289,7 +290,7 @@ export async function resendTeamInvite(
       });
 
     if (resetError) {
-      console.error("[resendTeamInvite] reset error:", resetError.message);
+      logger.error("resendTeamInvite/reset", resetError.message);
 
       return {
         success: false,
@@ -332,7 +333,7 @@ export async function updateMemberRole(
     .maybeSingle();
 
   if (targetError) {
-    console.error("[updateMemberRole] target error:", targetError.message);
+    logger.error("updateMemberRole/target", targetError.message);
 
     return {
       success: false,
@@ -361,7 +362,7 @@ export async function updateMemberRole(
     .eq("id", targetProfileId);
 
   if (error) {
-    console.error("[updateMemberRole] update error:", error.message);
+    logger.error("updateMemberRole/update", error.message);
 
     return {
       success: false,
@@ -401,7 +402,7 @@ export async function removeMember(targetProfileId: string): Promise<Result> {
     .maybeSingle();
 
   if (targetError) {
-    console.error("[removeMember] target error:", targetError.message);
+    logger.error("removeMember/target", targetError.message);
 
     return {
       success: false,
@@ -430,7 +431,7 @@ export async function removeMember(targetProfileId: string): Promise<Result> {
     .eq("id", targetProfileId);
 
   if (error) {
-    console.error("[removeMember] update error:", error.message);
+    logger.error("removeMember/update", error.message);
 
     return {
       success: false,

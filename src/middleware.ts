@@ -11,6 +11,10 @@ const PUBLIC_ROUTES = ["/", "/login", "/acesso"];
 const ADMIN_ROUTES = ["/admin"];
 const CLIENT_ROUTES = ["/cliente"];
 
+// Prefixos permitidos para o parâmetro ?redirect= após login.
+// Nunca redirecionar para URLs externas ou paths arbitrários.
+const SAFE_REDIRECT_PREFIXES = ["/admin", "/cliente"];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next({ request });
@@ -60,7 +64,10 @@ export async function middleware(request: NextRequest) {
   // Sem sessão — redireciona para login
   if (!user || error) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    // Só preserva o destino se for uma rota interna permitida
+    if (SAFE_REDIRECT_PREFIXES.some((p) => pathname.startsWith(p))) {
+      loginUrl.searchParams.set("redirect", pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

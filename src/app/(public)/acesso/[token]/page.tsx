@@ -7,6 +7,7 @@ import TokenAccessForm from '@/components/auth/TokenAccessForm';
 import { getPublicCampaignByAccess, getPublicSession } from '@/actions/public-access';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
+import PublicSessionLogout from '@/components/aprovacao/PublicSessionLogout';
 
 export const metadata: Metadata = {
   title: 'Cronograma público',
@@ -317,6 +318,8 @@ export default async function PublicCampaignPage({ params }: Props) {
             >
               Suas aprovações serão registradas com esse nome.
             </div>
+
+            <PublicSessionLogout campaignId={campaign.id} token={token} />
           </div>
         </div>
       </div>

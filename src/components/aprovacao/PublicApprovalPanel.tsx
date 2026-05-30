@@ -11,6 +11,7 @@ type PublicApprovalPanelProps = {
   postId: string;
   postTitle?: string | null;
   clientName?: string | null;
+  visitorName?: string | null;
 };
 
 export default function PublicApprovalPanel({
@@ -18,8 +19,10 @@ export default function PublicApprovalPanel({
   postId,
   postTitle,
   clientName,
+  visitorName,
 }: PublicApprovalPanelProps) {
-  const [name, setName] = useState(clientName || '');
+  const knownName = visitorName || clientName || '';
+  const [name, setName] = useState(knownName);
   const [message, setMessage] = useState('');
   const [mode, setMode] = useState<'idle' | 'adjustment'>('idle');
   const [feedback, setFeedback] = useState<{
@@ -120,23 +123,29 @@ export default function PublicApprovalPanel({
       </div>
 
       <div className="space-y-4">
-        <div>
-          <label
-            htmlFor="approval-name"
-            className="mb-1 block text-sm font-medium text-zinc-700"
-          >
-            Seu nome
-          </label>
+        {knownName ? (
+          <p className="text-sm text-zinc-500">
+            Aprovando como <strong className="text-zinc-800">{knownName}</strong>
+          </p>
+        ) : (
+          <div>
+            <label
+              htmlFor="approval-name"
+              className="mb-1 block text-sm font-medium text-zinc-700"
+            >
+              Seu nome
+            </label>
 
-          <input
-            id="approval-name"
-            type="text"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Digite seu nome"
-            className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
-          />
-        </div>
+            <input
+              id="approval-name"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Digite seu nome"
+              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+            />
+          </div>
+        )}
 
         {mode === 'adjustment' ? (
           <div>

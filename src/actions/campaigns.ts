@@ -9,6 +9,7 @@ import {
   campaignSchema,
   type CampaignInput,
 } from "@/lib/validations/schemas";
+import { logger } from "@/lib/logger";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -55,7 +56,9 @@ async function requireAdmin() {
 }
 
 function createApprovalToken() {
-  return crypto.randomUUID();
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function createTokenExpirationDate() {
@@ -112,7 +115,7 @@ export async function createCampaign(
     .single();
 
   if (error || !data) {
-    console.error("[createCampaign] Supabase error:", error);
+    logger.error("createCampaign", error);
 
     return {
       success: false,
@@ -180,7 +183,7 @@ export async function updateCampaign(
     .eq("id", id);
 
   if (error) {
-    console.error("[updateCampaign]", error.message);
+    logger.error("updateCampaign", error.message);
 
     return {
       success: false,
@@ -227,7 +230,7 @@ export async function sendCampaignForApproval(
     .in("status", ["rascunho", "em_revisao"]);
 
   if (error) {
-    console.error("[sendCampaignForApproval]", error.message);
+    logger.error("sendCampaignForApproval", error.message);
 
     return {
       success: false,
@@ -265,7 +268,7 @@ export async function updateCampaignStatus(
     .eq("id", campaignId);
 
   if (error) {
-    console.error("[updateCampaignStatus]", error.message);
+    logger.error("updateCampaignStatus", error.message);
 
     return {
       success: false,
@@ -304,7 +307,7 @@ export async function regenerateApprovalToken(
     .single();
 
   if (error || !data) {
-    console.error("[regenerateApprovalToken]", error?.message);
+    logger.error("regenerateApprovalToken", error?.message);
 
     return {
       success: false,
@@ -361,7 +364,7 @@ export async function archiveCampaign(campaignId: string): Promise<Result> {
     .eq("id", campaignId);
 
   if (error) {
-    console.error("[archiveCampaign]", error.message);
+    logger.error("archiveCampaign", error.message);
 
     return {
       success: false,

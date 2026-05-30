@@ -27,6 +27,7 @@ const ADMIN_LINKS = [
   { href: '/admin', label: 'Visão geral', adminOnly: false },
   { href: '/admin/clientes', label: 'Clientes', adminOnly: false },
   { href: '/admin/cronogramas', label: 'Cronogramas', adminOnly: false },
+  { href: '/admin/atividades', label: 'Atividades', adminOnly: false },
   { href: '/admin/kanban', label: 'Kanban', adminOnly: false },
   { href: '/admin/calendario', label: 'Calendário', adminOnly: false },
   { href: '/admin/observacoes', label: 'Observações', adminOnly: false },

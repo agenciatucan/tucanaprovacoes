@@ -5,6 +5,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import SearchInput from '@/components/ui/SearchInput';
+import Pagination from '@/components/ui/Pagination';
+
+const PAGE_SIZE = 20;
 
 export const metadata: Metadata = { title: 'Cronogramas' };
 
@@ -83,39 +86,56 @@ function buildFilterHref(status: string, search?: string) {
   return `/admin/cronogramas${query ? `?${query}` : ''}` as Route;
 }
 
+function buildPageHref(page: number, status?: string, search?: string) {
+  const params = new URLSearchParams();
+
+  if (status && status !== 'todos') params.set('status', status);
+  if (search?.trim()) params.set('search', search.trim());
+  if (page > 1) params.set('page', String(page));
+
+  const query = params.toString();
+  return `/admin/cronogramas${query ? `?${query}` : ''}`;
+}
+
 export default async function AdminCronogramasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; search?: string }>;
+  searchParams: Promise<{ status?: string; search?: string; page?: string }>;
 }) {
-  const { status: filterStatus, search: filterSearch } = await searchParams;
+  const { status: filterStatus, search: filterSearch, page: pageParam } = await searchParams;
+
+  const currentPage = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
+  const offset = (currentPage - 1) * PAGE_SIZE;
 
   const supabase = await getSupabaseServerClient();
 
-  let query = supabase
+  let baseQuery = supabase
     .from('campaigns')
     .select(
-      'id, name, type, status, period_label, created_at, updated_at, clients(id, name, company_name), content_items(id, general_status)'
+      'id, name, type, status, period_label, created_at, updated_at, clients(id, name, company_name), content_items(id, general_status)',
+      { count: 'exact' }
     )
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (filterStatus && filterStatus !== 'todos') {
-    query = query.eq('status', filterStatus);
+    baseQuery = baseQuery.eq('status', filterStatus);
   } else {
-    query = query.not('status', 'eq', 'arquivado');
+    baseQuery = baseQuery.not('status', 'eq', 'arquivado');
   }
 
   if (filterSearch?.trim()) {
-    query = query.ilike('name', `%${filterSearch.trim()}%`);
+    baseQuery = baseQuery.ilike('name', `%${filterSearch.trim()}%`);
   }
 
-  const [{ data: campaigns }, { data: allCampaigns }] = await Promise.all([
-    query,
+  const [{ data: campaigns, count: totalCount }, { data: allCampaigns }] = await Promise.all([
+    baseQuery,
     supabase.from('campaigns').select('id, status'),
   ]);
 
   const campaignList = campaigns ?? [];
   const allCampaignList = allCampaigns ?? [];
+  const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE);
 
   const totalAtivos = allCampaignList.filter(
     (campaign) => campaign.status !== 'arquivado'
@@ -436,8 +456,8 @@ export default async function AdminCronogramasPage({
           </h1>
 
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-            {campaignList.length}{' '}
-            {campaignList.length === 1
+            {totalCount ?? 0}{' '}
+            {(totalCount ?? 0) === 1
               ? 'cronograma encontrado'
               : 'cronogramas encontrados'}
           </p>
@@ -676,6 +696,13 @@ export default async function AdminCronogramasPage({
             })}
           </div>
 
+          {/* Paginação desktop */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            buildHref={(p) => buildPageHref(p, filterStatus, filterSearch)}
+          />
+
           {/* Mobile cards */}
           <div className="campaigns-mobile-list">
             {campaignList.map((campaign) => {
@@ -798,6 +825,13 @@ export default async function AdminCronogramasPage({
               );
             })}
           </div>
+
+          {/* Paginação mobile */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            buildHref={(p) => buildPageHref(p, filterStatus, filterSearch)}
+          />
         </>
       )}
     </div>

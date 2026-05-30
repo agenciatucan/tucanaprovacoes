@@ -7,6 +7,7 @@ import {
   type ApproveCampaignInput,
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -61,7 +62,7 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
   });
 
   if (approvalError) {
-    console.error("[submitApproval]", approvalError.message);
+    logger.error("submitApproval", approvalError.message);
     return { success: false, error: "Erro ao registrar aprovação" };
   }
 
@@ -86,7 +87,7 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         .update({ [field]: parsed.data.status })
         .eq("id", parsed.data.content_item_id);
 
-      if (updateError) console.error("[submitApproval] field update error:", updateError.message);
+      if (updateError) logger.error("submitApproval/fieldUpdate", updateError.message);
 
       // Recalcular general_status com base nos três campos após a atualização
       const { data: updatedItem } = await serviceClient
@@ -136,7 +137,7 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         .eq("id", parsed.data.content_item_id);
 
       if (updateError) {
-        console.error("[submitApproval] post_completo update error:", updateError.message);
+        logger.error("submitApproval/postCompleto", updateError.message);
         return { success: false, error: "Erro ao atualizar status do post" };
       }
     }
@@ -227,7 +228,7 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         }
       } catch (e) {
         // Notificações são best-effort — não bloquear a aprovação
-        console.warn("[submitApproval] notification error:", e);
+        logger.warn("submitApproval/notification", e);
       }
     }
   }

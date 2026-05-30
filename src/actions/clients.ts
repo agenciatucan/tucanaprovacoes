@@ -2,6 +2,7 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { clientSchema, type ClientInput } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -80,7 +81,7 @@ export async function inactivateClient(clientId: string): Promise<Result> {
   });
 
   if (error) {
-    console.error("[inactivateClient]", error.message);
+    logger.error("inactivateClient", error.message);
     return { success: false, error: error.message ?? "Erro ao inativar cliente" };
   }
 
@@ -101,7 +102,7 @@ export async function reactivateClient(clientId: string): Promise<Result> {
   });
 
   if (error) {
-    console.error("[reactivateClient]", error.message);
+    logger.error("reactivateClient", error.message);
     return { success: false, error: error.message ?? "Erro ao reativar cliente" };
   }
 
