@@ -309,12 +309,20 @@ export default async function AdminDashboard() {
         @media (max-width: 960px)  {
           .dash-main { grid-template-columns: 1fr; }
           .dash-agenda { flex-direction: column; align-items: stretch; gap: 18px; }
+          .dash-agenda-side { gap: 12px; }
         }
         @media (max-width: 680px) {
           .dash-hero { flex-direction: column; align-items: flex-start; padding: 22px 20px; }
           .dash-hero-title { font-size: 24px; }
+          .dash-hero-actions { width: 100%; }
           .dash-kpi-grid { grid-template-columns: repeat(2, 1fr); }
           .dash-agenda-stats { flex-wrap: wrap; }
+          .dash-stat-tile { min-width: calc(50% - 6px); }
+        }
+        @media (max-width: 440px) {
+          .dash-kpi-grid { grid-template-columns: 1fr; }
+          .dash-crono-badge { display: none; }
+          .dash-stat-tile { min-width: 0; flex: 1; }
         }
       `}</style>
 
@@ -487,7 +495,7 @@ export default async function AdminDashboard() {
                       )}
                     </div>
                     {/* Status badge */}
-                    <span style={{
+                    <span className="dash-crono-badge" style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       fontSize: 12, fontWeight: 600, padding: '5px 11px', borderRadius: 999,
                       background: isAdjust ? '#fbeed1' : '#f8e4d6',

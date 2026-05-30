@@ -128,6 +128,7 @@ export default async function AtividadesPage({
         .act-tag { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
         @media (max-width: 900px) { .act-summary { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 760px) { .act-header { flex-direction: column; align-items: stretch; } .act-card-footer { flex-direction: column; align-items: flex-start; } }
+        @media (max-width: 420px)  { .act-summary { grid-template-columns: 1fr; } }
       `}</style>
 
       {/* Header */}

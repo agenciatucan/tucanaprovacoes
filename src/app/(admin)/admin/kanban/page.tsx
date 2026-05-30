@@ -254,16 +254,21 @@ export default async function KanbanPage({
         .kanban-filter-input:focus { border-color: rgba(37,65,30,.35); box-shadow: 0 0 0 3px rgba(37,65,30,.08); }
         .kanban-summary-card {
           background: #fff; border: 1px solid var(--line); border-radius: 14px;
-          padding: 10px 12px; min-width: 100px;
+          padding: 10px 12px; min-width: 0;
         }
         .kanban-summary-card strong { display: block; margin-top: 4px; font-size: 20px; line-height: 1; letter-spacing: -0.03em; }
+        .kanban-summary-card .tiny { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
         .kb-type-badge {
           font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 999px;
           letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
         }
         @media (max-width: 760px) {
           .kanban-filter-grid { display: grid !important; grid-template-columns: 1fr !important; }
-          .kanban-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+          .kanban-summary-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 500px) {
+          .kanban-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .kanban-summary-card strong { font-size: 17px; }
         }
       `}</style>
 
@@ -286,7 +291,7 @@ export default async function KanbanPage({
         </div>
         {COLUMNS.map((col) => (
           <div key={col.key} className="kanban-summary-card">
-            <span className="tiny" style={{ color: col.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span className="tiny" style={{ color: col.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', minWidth: 0 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: col.color, flexShrink: 0 }} />
               {col.label}
             </span>
