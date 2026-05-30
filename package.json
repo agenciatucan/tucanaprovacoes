@@ -7,7 +7,7 @@
     "dev:lan": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --config .eslintrc.json",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
