@@ -419,118 +419,96 @@ export default async function CalendarioPage({
             text-overflow: ellipsis;
           }
 
-          .calendar-mobile-agenda {
-            display: none;
-          }
+          /* ── mobile agenda (list cards) ── */
+          .calendar-mobile-agenda { display: none; }
 
-          .calendar-agenda-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
+          .calendar-agenda-list { display: flex; flex-direction: column; gap: 10px; }
 
           .calendar-agenda-card {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
-            gap: 12px;
-            align-items: center;
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: 20px;
-            padding: 15px;
-            color: inherit;
-            text-decoration: none;
+            display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px; align-items: center;
+            background: #fff; border: 1px solid var(--line); border-radius: 20px;
+            padding: 15px; color: inherit; text-decoration: none;
           }
 
           .calendar-agenda-date {
-            width: 48px;
-            height: 48px;
-            border-radius: 16px;
-            background: var(--green-50);
-            color: var(--green);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            flex-shrink: 0;
+            width: 48px; height: 48px; border-radius: 16px;
+            background: var(--green-50); color: var(--green);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; flex-shrink: 0;
           }
+          .calendar-agenda-date strong { font-size: 18px; line-height: 1; }
+          .calendar-agenda-date span { margin-top: 2px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
 
-          .calendar-agenda-date strong {
-            font-size: 18px;
-            line-height: 1;
+          /* ── mobile compact calendar grid ── */
+          .cal-mob { display: none; }
+          .cal-mob-head {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+            margin-bottom: 4px;
           }
+          .cal-mob-wday {
+            text-align: center; font-size: 10px; font-weight: 800;
+            color: var(--muted); padding: 5px 0; letter-spacing: .06em;
+          }
+          .cal-mob-cells { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+          .cal-mob-cell {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 5px 2px 6px; gap: 3px; border-radius: 10px;
+          }
+          .cal-mob-cell-muted { opacity: .3; }
+          .cal-mob-cell-has { background: rgba(0,0,0,.025); }
+          .cal-mob-num {
+            width: 28px; height: 28px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: var(--ink);
+          }
+          .cal-mob-today { background: var(--orange) !important; color: #fff !important; border-radius: 8px; }
+          .cal-mob-dots { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; }
+          .cal-mob-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+          .cal-mob-dot-rascunho  { background: var(--st-rascunho-fg); }
+          .cal-mob-dot-aguardando{ background: var(--st-aguardando-fg); }
+          .cal-mob-dot-revisao   { background: var(--st-revisao-fg); }
+          .cal-mob-dot-aprovado  { background: var(--st-aprovado-fg); }
+          .cal-mob-dot-agendado  { background: var(--st-agendado-fg); }
+          .cal-mob-dot-publicado { background: var(--st-publicado-fg); }
+          .cal-mob-more          { font-size: 8px; font-weight: 900; color: var(--muted); line-height: 5px; }
 
-          .calendar-agenda-date span {
-            margin-top: 2px;
-            font-size: 9px;
-            font-weight: 900;
-            text-transform: uppercase;
+          .cal-mob-list-head {
+            font-size: 12px; font-weight: 800; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .08em;
+            margin: 20px 0 10px;
           }
 
           .calendar-empty {
-            margin-top: 24px;
-            padding: clamp(34px, 8vw, 56px);
+            margin-top: 24px; padding: clamp(34px, 8vw, 56px);
             text-align: center;
           }
 
+          /* ── breakpoints ── */
           @media (max-width: 1100px) {
-            .calendar-summary-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            .calendar-toolbar {
-              align-items: stretch;
-              flex-direction: column;
-            }
-
-            .calendar-month-nav {
-              justify-content: space-between;
-            }
-
-            .calendar-month-title {
-              min-width: 0;
-              flex: 1;
-            }
-
-            .calendar-legend {
-              margin-left: 0;
-              overflow-x: auto;
-              flex-wrap: nowrap;
-              padding-bottom: 2px;
-            }
-
-            .calendar-legend > span {
-              flex-shrink: 0;
-            }
+            .calendar-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .calendar-toolbar { align-items: stretch; flex-direction: column; }
+            .calendar-month-nav { justify-content: space-between; }
+            .calendar-month-title { min-width: 0; flex: 1; }
+            .calendar-legend { margin-left: 0; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+            .calendar-legend > span { flex-shrink: 0; }
           }
 
           @media (max-width: 760px) {
-            .calendar-header {
-              align-items: stretch;
-              flex-direction: column;
-            }
-
-            .calendar-desktop {
-              display: none;
-            }
-
-            .calendar-mobile-agenda {
-              display: block;
-            }
+            .calendar-header { align-items: stretch; flex-direction: column; }
+            .calendar-desktop { display: none; }
+            .calendar-mobile-agenda { display: none; }
+            .cal-mob { display: block; }
           }
 
           @media (max-width: 520px) {
-            .calendar-summary-grid {
-              grid-template-columns: 1fr;
-            }
+            .calendar-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .calendar-agenda-card { grid-template-columns: auto minmax(0, 1fr); }
+            .calendar-agenda-card > svg { display: none; }
+          }
 
-            .calendar-agenda-card {
-              grid-template-columns: auto minmax(0, 1fr);
-            }
-
-            .calendar-agenda-card > svg {
-              display: none;
-            }
+          @media (max-width: 380px) {
+            .calendar-summary-grid { grid-template-columns: 1fr; }
           }
         `}
       </style>
@@ -756,33 +734,86 @@ export default async function CalendarioPage({
         </div>
       </div>
 
-      {/* Mobile agenda */}
-      <div className="calendar-mobile-agenda">
+      {/* Mobile: compact calendar grid + agenda list */}
+      <div className="cal-mob">
+        {/* Month grid */}
+        <div className="card" style={{ padding: '14px 12px' }}>
+          {/* Weekday labels */}
+          <div className="cal-mob-head">
+            {['D','S','T','Q','Q','S','S'].map((d, i) => (
+              <div key={i} className="cal-mob-wday">{d}</div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div className="cal-mob-cells">
+            {cells.map((cell) => {
+              const isToday = !cell.muted && cell.isoDate === todayIso;
+              const dayItems = !cell.muted ? (byDay[cell.day] ?? []) : [];
+              return (
+                <div
+                  key={cell.isoDate}
+                  className={[
+                    'cal-mob-cell',
+                    cell.muted ? 'cal-mob-cell-muted' : '',
+                    !cell.muted && dayItems.length > 0 ? 'cal-mob-cell-has' : '',
+                  ].join(' ')}
+                >
+                  <span className={`cal-mob-num${isToday ? ' cal-mob-today' : ''}`}>
+                    {cell.day}
+                  </span>
+                  {dayItems.length > 0 && (
+                    <div className="cal-mob-dots">
+                      {dayItems.slice(0, 3).map((c, i) => {
+                        const k = STATUS_KIND[c.status] ?? 'rascunho';
+                        return <span key={i} className={`cal-mob-dot cal-mob-dot-${k}`} />;
+                      })}
+                      {dayItems.length > 3 && (
+                        <span className="cal-mob-more">+{dayItems.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* Dot legend */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}>
+            {([
+              ['rascunho',   'Rascunho'],
+              ['aguardando', 'Aguardando'],
+              ['revisao',    'Em revisão'],
+              ['aprovado',   'Aprovado'],
+              ['publicado',  'Publicado'],
+            ] as [string, string][]).map(([k, l]) => (
+              <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' }}>
+                <span className={`cal-mob-dot cal-mob-dot-${k}`} />
+                {l}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Campaign list */}
+        {agendaItems.length > 0 && (
+          <div className="cal-mob-list-head">
+            {agendaItems.length} cronograma{agendaItems.length !== 1 ? 's' : ''} em {monthTitle.split(' ')[0]}
+          </div>
+        )}
         <div className="calendar-agenda-list">
           {agendaItems.length === 0 ? (
             <div className="card calendar-empty">
               <Icon name="calendar" size={28} color="var(--muted-2)" />
-
               <p className="muted" style={{ margin: '12px 0 0' }}>
-                Nenhum cronograma iniciando em {monthTitle.split(' ')[0]}.
+                Nenhum cronograma em {monthTitle.split(' ')[0]}.
               </p>
             </div>
           ) : (
             agendaItems.map(({ campaign, date }) => {
               const kind = STATUS_KIND[campaign.status] ?? 'rascunho';
               const label = STATUS_LABEL[campaign.status];
-
               const { total, approved } = getProgress(campaign.content_items);
-
-              const day = new Date(`${date}T00:00:00`).toLocaleDateString(
-                'pt-BR',
-                { day: '2-digit' }
-              );
-
-              const monthShort = new Date(
-                `${date}T00:00:00`
-              ).toLocaleDateString('pt-BR', { month: 'short' });
-
+              const day = new Date(`${date}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit' });
+              const monthShort = new Date(`${date}T00:00:00`).toLocaleDateString('pt-BR', { month: 'short' });
               return (
                 <Link
                   key={campaign.id}
@@ -793,39 +824,18 @@ export default async function CalendarioPage({
                     <strong>{day}</strong>
                     <span>{monthShort.replace('.', '')}</span>
                   </div>
-
                   <div style={{ minWidth: 0 }}>
-                    <div className="muted tiny" style={{ marginBottom: 4 }}>
-                      {formatFullDate(date)}
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 800,
-                        color: 'var(--ink)',
-                        lineHeight: 1.25,
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical' as const,
-                      }}
-                    >
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
                       {campaign.name}
                     </div>
-
-                    <div className="muted tiny" style={{ marginTop: 5 }}>
+                    <div className="muted tiny" style={{ marginTop: 4 }}>
                       {getClientName(campaign.clients)}
-                      {total > 0
-                        ? ` · ${approved}/${total} aprovados`
-                        : ' · Sem posts'}
+                      {total > 0 ? ` · ${approved}/${total} aprovados` : ' · Sem posts'}
                     </div>
-
-                    <div style={{ marginTop: 10 }}>
+                    <div style={{ marginTop: 8 }}>
                       <StatusBadge kind={kind} label={label} />
                     </div>
                   </div>
-
                   <Icon name="chevron" size={15} color="var(--muted-2)" />
                 </Link>
               );
