@@ -242,11 +242,15 @@ export default async function AtividadesPage({
         }
         @media (max-width: 760px) {
           .act-header { flex-direction: column; align-items: stretch; }
-          .act-filters { flex-direction: column; }
-          .act-filter-field { width: 100%; }
-          .act-filter-input { width: 100%; }
-          .act-filter-search { min-width: 0; width: 100%; }
-          .act-filter-actions { width: 100%; display: flex; gap: 8px; flex-direction: column; margin-left: 0 !important; }
+          /* Filtros: flex-basis vira altura no modo coluna — anular com flex:none */
+          .act-filters { flex-direction: column; gap: 8px; }
+          .act-filter-field { flex: none !important; width: 100%; }
+          .act-filter-input {
+            width: 100%; height: 42px !important; font-size: 16px;
+            -webkit-appearance: none; appearance: none;
+          }
+          .act-filter-search { min-width: 0; }
+          .act-filter-actions { flex: none !important; width: 100%; display: flex; gap: 8px; flex-direction: column; margin-left: 0 !important; }
           .act-filter-actions .btn { width: 100%; justify-content: center; }
           .act-card-footer { flex-direction: column; align-items: flex-start; }
           .act-card-actions { width: 100%; }
