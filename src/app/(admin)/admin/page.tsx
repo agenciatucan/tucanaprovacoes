@@ -100,15 +100,15 @@ function DonutChart({ segments, size = 156, thickness = 22, centerValue, centerL
   );
 }
 
-function HeatCalendar({ postsPerDay, year, month, cell = 34, gap = 6 }: {
+function HeatCalendar({ postsPerDay, year, month, todayDay: todayDayProp, cell = 34, gap = 6 }: {
   postsPerDay: Record<number, number>;
   year: number; month: number;
+  todayDay: number; // dia atual em BRT, passado pelo server — evita UTC no Vercel
   cell?: number; gap?: number;
 }) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
-  const todayDay = (today.getFullYear() === year && today.getMonth() === month) ? today.getDate() : -1;
+  const todayDay = todayDayProp;
 
   type Cell = { d: number; n: number; today: boolean } | null;
   const cells: Cell[] = [];
@@ -155,10 +155,19 @@ function HeatCalendar({ postsPerDay, year, month, cell = 34, gap = 6 }: {
 export default async function AdminDashboard() {
   const supabase = await getSupabaseServerClient();
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const hour = now.getHours();
-  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+
+  // Vercel roda em UTC — usar timezone explícito para o horário de Brasília
+  // Todos os valores de data/hora explicitamente em America/Sao_Paulo
+  // para funcionar corretamente em produção (Vercel usa UTC por padrão)
+  const brLocale = (opts: Intl.DateTimeFormatOptions) =>
+    now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', ...opts });
+
+  const brHour  = parseInt(brLocale({ hour: 'numeric', hour12: false }), 10);
+  const year    = parseInt(brLocale({ year: 'numeric' }), 10);
+  const month   = parseInt(brLocale({ month: 'numeric' }), 10) - 1; // 0-indexed
+  const brDay   = parseInt(brLocale({ day: 'numeric' }), 10);
+
+  const greeting = brHour < 12 ? 'Bom dia' : brHour < 18 ? 'Boa tarde' : 'Boa noite';
   const monthStart = new Date(year, month, 1).toISOString();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long' });
 
@@ -214,8 +223,7 @@ export default async function AdminDashboard() {
   }
   const totalMonthPosts = monthPostsRaw?.length ?? 0;
   const fullDays        = Object.values(postsPerDay).filter(n => n >= 3).length;
-  const todayKey        = now.getDate();
-  const todayPosts      = postsPerDay[todayKey] ?? 0;
+  const todayPosts      = postsPerDay[brDay] ?? 0;
 
   // Funil de produção
   const funnelSegments = [
@@ -392,7 +400,7 @@ export default async function AdminDashboard() {
         </div>
         <div className="dash-agenda">
           <div style={{ flexShrink: 0 }}>
-            <HeatCalendar postsPerDay={postsPerDay} year={year} month={month} cell={36} gap={7} />
+            <HeatCalendar postsPerDay={postsPerDay} year={year} month={month} todayDay={brDay} cell={36} gap={7} />
           </div>
           <div className="dash-agenda-side">
             {/* Summary tiles */}
