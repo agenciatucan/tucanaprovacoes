@@ -226,10 +226,17 @@ export default async function KanbanPage({
     ]),
   ];
 
-  const hasFilters = Boolean(
-    (filterTipo && filterTipo !== 'todos') ||
-    filterClient || filterResponsavel || filterWeek || filterCategoria || filterPriority || search
-  );
+  const activeFilterCount = [
+    filterTipo && filterTipo !== 'todos',
+    search,
+    filterClient,
+    filterResponsavel,
+    filterWeek,
+    filterCategoria,
+    filterPriority,
+  ].filter(Boolean).length;
+
+  const hasFilters = activeFilterCount > 0;
 
   return (
     <div className="page" style={{ maxWidth: 1800, paddingBottom: 60 }}>
@@ -261,6 +268,31 @@ export default async function KanbanPage({
         .kb-type-badge {
           font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 999px;
           letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+        }
+        /* ── Filter toggle (details/summary) ── */
+        .kanban-filter-details {
+          background: #fff; border: 1px solid var(--line);
+          border-radius: 14px; margin-bottom: 20px; overflow: hidden;
+        }
+        .kanban-filter-summary {
+          display: flex; align-items: center; gap: 10px;
+          padding: 11px 16px; cursor: pointer; list-style: none;
+          font-size: 14px; font-weight: 700; color: var(--ink);
+          user-select: none;
+        }
+        .kanban-filter-summary::-webkit-details-marker { display: none; }
+        .kanban-filter-summary:hover { background: var(--bg); }
+        .kanban-filter-chevron {
+          margin-left: auto; color: var(--muted); display: flex;
+          transition: transform .2s ease;
+        }
+        .kanban-filter-details[open] .kanban-filter-chevron { transform: rotate(90deg); }
+        .kanban-filter-badge {
+          font-size: 10px; font-weight: 800; padding: 2px 8px;
+          border-radius: 999px; background: var(--orange); color: #fff;
+        }
+        .kanban-filter-body {
+          padding: 0 14px 14px; border-top: 1px solid var(--line);
         }
         @media (max-width: 760px) {
           .kanban-filter-grid { display: grid !important; grid-template-columns: 1fr !important; }
@@ -300,8 +332,20 @@ export default async function KanbanPage({
         ))}
       </div>
 
-      {/* Filters */}
-      <form action="/admin/kanban" className="kanban-filter-grid" style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 10, marginBottom: 20, alignItems: 'end' }}>
+      {/* Filters — collapsible */}
+      <details className="kanban-filter-details" open={hasFilters || undefined}>
+        <summary className="kanban-filter-summary">
+          <Icon name="filter" size={14} color="var(--muted)" />
+          Filtros
+          {hasFilters && (
+            <span className="kanban-filter-badge">{activeFilterCount}</span>
+          )}
+          <span className="kanban-filter-chevron">
+            <Icon name="chevron" size={16} />
+          </span>
+        </summary>
+        <div className="kanban-filter-body">
+      <form action="/admin/kanban" className="kanban-filter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 10, paddingTop: 14, alignItems: 'end' }}>
         {/* Linha 1 */}
         <div className="field" style={{ gap: 5 }}>
           <label className="field-label" htmlFor="k-tipo">Tipo</label>
@@ -375,6 +419,8 @@ export default async function KanbanPage({
           </button>
         </div>
       </form>
+        </div>{/* kanban-filter-body */}
+      </details>
 
       {/* Board — 9 colunas */}
       <div className="kanban-board-scroll">
