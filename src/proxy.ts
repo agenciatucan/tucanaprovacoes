@@ -1,6 +1,6 @@
 // ============================================================
-// MIDDLEWARE — Proteção de rotas no edge (executa antes de tudo)
-// Valida sessão e redireciona baseado em perfil
+// PROXY — Substitui a antiga `middleware.ts` (nova convenção)
+// Mantém a mesma lógica: proteção de rotas no edge, valida sessão
 // ============================================================
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -15,11 +15,10 @@ const CLIENT_ROUTES = ["/cliente"];
 // Nunca redirecionar para URLs externas ou paths arbitrários.
 const SAFE_REDIRECT_PREFIXES = ["/admin", "/cliente"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next({ request });
 
-  // Inicializa cliente Supabase com cookies da requisição
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -43,17 +42,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Verifica sessão ativa — SEMPRE via getUser() não getSession()
-  // getUser() valida o token com o servidor Supabase (mais seguro)
   const { data: { user }, error } = await supabase.auth.getUser();
 
   const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
   const isAdminRoute = ADMIN_ROUTES.some((route) => pathname.startsWith(route));
   const isClientRoute = CLIENT_ROUTES.some((route) => pathname.startsWith(route));
 
-  // Rota pública — qualquer um pode acessar
   if (isPublicRoute) {
-    // Se já está logado em / ou /login, redireciona para a área correta
     if (user && (pathname === "/" || pathname === "/login")) {
       const role = await getUserRole(supabase, user.id);
       return NextResponse.redirect(new URL(getDefaultRoute(role), request.url));
@@ -61,17 +56,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Sem sessão — redireciona para login
   if (!user || error) {
     const loginUrl = new URL("/login", request.url);
-    // Só preserva o destino se for uma rota interna permitida
     if (SAFE_REDIRECT_PREFIXES.some((p) => pathname.startsWith(p))) {
       loginUrl.searchParams.set("redirect", pathname);
     }
     return NextResponse.redirect(loginUrl);
   }
 
-  // Verifica perfil e permissões
   const role = await getUserRole(supabase, user.id);
 
   if (isAdminRoute && role !== "admin" && role !== "equipe") {
@@ -105,7 +97,6 @@ function getDefaultRoute(role: string) {
 
 export const config = {
   matcher: [
-    // Aplica middleware em todas as rotas exceto assets estáticos
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

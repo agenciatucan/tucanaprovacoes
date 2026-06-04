@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const isProd = process.env.NODE_ENV === "production";
 const SUPABASE_HOSTNAME = "*.supabase.co";
@@ -59,8 +60,12 @@ const nextConfig: NextConfig = {
 
   poweredByHeader: false,
 
-  experimental: {
-    typedRoutes: true,
+  // typedRoutes moved out of `experimental` in newer Next.js versions
+  typedRoutes: true,
+
+  // Explicit Turbopack root to avoid workspace root inference warnings
+  turbopack: {
+    root: path.resolve(__dirname),
   },
 };
 
