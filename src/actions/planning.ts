@@ -231,9 +231,10 @@ export async function deletePlanningItem(id: string, scheduleId: string): Promis
 export async function getPlanningByToken(
   token: string
 ): Promise<Result<{ schedule: Record<string, unknown>; items: Record<string, unknown>[] }>> {
-  const supabase = await getSupabaseServerClient();
+  // Usa service client: página pública (sem login), RLS bloquearia a leitura
+  const service = await getSupabaseServiceClient();
 
-  const { data: schedule } = await supabase
+  const { data: schedule } = await service
     .from("planning_schedules")
     .select("*, clients(id, name, company_name, logo_url)")
     .eq("approval_token", token)
@@ -242,7 +243,7 @@ export async function getPlanningByToken(
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
 
-  const { data: items } = await supabase
+  const { data: items } = await service
     .from("planning_items")
     .select("*")
     .eq("planning_schedule_id", schedule.id)
