@@ -232,6 +232,16 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         logger.warn("submitApproval/notification", e);
       }
 
+      // Quando cliente solicita ajuste, move a campanha para em_revisao
+      // para que o próximo envio da equipe dispare a notificação correta
+      if (parsed.data.status === "ajuste_solicitado" || parsed.data.status === "substituir_tema") {
+        await serviceClient
+          .from("campaigns")
+          .update({ status: "em_revisao" })
+          .eq("id", parsed.data.campaign_id)
+          .eq("status", "enviado_para_aprovacao");
+      }
+
       // WhatsApp: confirma para o cliente a ação realizada
       try {
         const { data: postInfo } = await serviceClient
