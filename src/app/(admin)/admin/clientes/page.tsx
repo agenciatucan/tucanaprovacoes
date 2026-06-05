@@ -55,7 +55,7 @@ export default async function AdminClientesPage({
   let query = supabase
     .from('clients')
     .select(
-      'id, name, company_name, email, status, internal_owner_id, created_at, user_profiles(name)'
+      'id, name, company_name, email, status, internal_owner_id, created_at, logo_url, user_profiles(name)'
     )
     .order('created_at', { ascending: false });
 
@@ -515,9 +515,11 @@ export default async function AdminClientesPage({
                   <div className="client-main">
                     <div
                       className="client-avatar"
-                      style={{ background: accentColor }}
+                      style={{ background: client.logo_url ? 'var(--bg)' : accentColor, border: client.logo_url ? '1px solid var(--line)' : 'none', overflow: 'hidden' }}
                     >
-                      {initials}
+                      {client.logo_url
+                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        : initials}
                     </div>
 
                     <div style={{ minWidth: 0 }}>
@@ -599,13 +601,17 @@ export default async function AdminClientesPage({
                     <div
                       className="client-avatar"
                       style={{
-                        background: accentColor,
+                        background: client.logo_url ? 'var(--bg)' : accentColor,
+                        border: client.logo_url ? '1px solid var(--line)' : 'none',
                         width: 44,
                         height: 44,
                         borderRadius: 16,
+                        overflow: 'hidden',
                       }}
                     >
-                      {initials}
+                      {client.logo_url
+                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        : initials}
                     </div>
 
                     <div className="client-mobile-card-content">
