@@ -10,7 +10,7 @@ import {
   type CampaignInput,
 } from "@/lib/validations/schemas";
 import { logger } from "@/lib/logger";
-import { notifyCampaignSentForApproval } from "@/lib/whatsapp-notifications";
+import { notifyCampaignSentForApproval, notifyCampaignUpdatedForReview } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -221,6 +221,15 @@ export async function sendCampaignForApproval(
     };
   }
 
+  // Guarda o status atual para saber qual notificação enviar
+  const { data: current } = await supabase
+    .from("campaigns")
+    .select("status")
+    .eq("id", campaignId)
+    .single();
+
+  const previousStatus = current?.status ?? "rascunho";
+
   const { error } = await supabase
     .from("campaigns")
     .update({
@@ -241,8 +250,12 @@ export async function sendCampaignForApproval(
 
   revalidateCampaignPaths(campaignId);
 
-  // Notifica o cliente via WhatsApp (sem bloquear a resposta)
-  notifyCampaignSentForApproval(campaignId).catch(() => {});
+  // Notifica o cliente via WhatsApp com mensagem adequada ao contexto
+  if (previousStatus === "em_revisao") {
+    notifyCampaignUpdatedForReview(campaignId).catch(() => {});
+  } else {
+    notifyCampaignSentForApproval(campaignId).catch(() => {});
+  }
 
   return { success: true, data: undefined };
 }

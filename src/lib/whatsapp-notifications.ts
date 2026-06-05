@@ -62,6 +62,27 @@ export async function notifyClientApproved(campaignId: string, postTitle: string
   }
 }
 
+// Disparado quando a equipe sobe alterações após ajuste solicitado
+export async function notifyCampaignUpdatedForReview(campaignId: string) {
+  try {
+    const info = await getClientWhatsApp(campaignId);
+    if (!info) return;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://portal.agenciatucan.com.br";
+    const link   = `${appUrl}/cliente/cronogramas/${campaignId}`;
+
+    const message =
+      `Olá, ${info.name}! 🔄\n\n` +
+      `As alterações solicitadas no cronograma *${info.campaignName}* foram realizadas e estão prontas para sua análise.\n\n` +
+      `Acesse abaixo para revisar e aprovar:\n` +
+      `${link}`;
+
+    await sendWhatsApp(info.phone, message);
+  } catch (err) {
+    logger.error("notifyCampaignUpdatedForReview", String(err));
+  }
+}
+
 // Disparado quando o cliente solicita ajuste em um post
 export async function notifyClientRequestedAdjustment(campaignId: string, postTitle: string) {
   try {
