@@ -252,9 +252,9 @@ export async function sendCampaignForApproval(
 
   // Notifica o cliente via WhatsApp com mensagem adequada ao contexto
   if (previousStatus === "em_revisao") {
-    notifyCampaignUpdatedForReview(campaignId).catch(() => {});
+    notifyCampaignUpdatedForReview(campaignId).catch((e) => logger.error("whatsapp/updatedForReview", String(e)));
   } else {
-    notifyCampaignSentForApproval(campaignId).catch(() => {});
+    notifyCampaignSentForApproval(campaignId).catch((e) => logger.error("whatsapp/sentForApproval", String(e)));
   }
 
   return { success: true, data: undefined };
@@ -294,6 +294,11 @@ export async function updateCampaignStatus(
   }
 
   revalidateCampaignPaths(campaignId);
+
+  // Notifica o cliente se status foi manualmente mudado para enviado_para_aprovacao
+  if (status === "enviado_para_aprovacao") {
+    notifyCampaignUpdatedForReview(campaignId).catch((e) => logger.error("whatsapp/manualSend", String(e)));
+  }
 
   return { success: true, data: undefined };
 }
