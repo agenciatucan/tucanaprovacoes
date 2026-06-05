@@ -14,7 +14,7 @@ export default function LandingPage() {
       {/* Top nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px clamp(16px, 4vw, 48px)' }}>
         <Image src="/assets/tucan-logo.png" alt="Tucan Marketing Digital" height={26} width={105} style={{ height: 26, width: 'auto' }} />
-        <a style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500, cursor: 'pointer' }}>Sobre a Tucan</a>
+        <a href="https://www.agenciatucan.com.br" target="_blank" rel="noreferrer" style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 500, textDecoration: 'none' }}>Sobre a Tucan</a>
       </div>
 
       {/* Hero — split */}
