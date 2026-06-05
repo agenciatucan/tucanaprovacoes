@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { notFound } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -14,6 +15,22 @@ const STATUS_KIND: Record<string, string> = {
   rascunho: 'rascunho', enviado_para_aprovacao: 'aguardando', em_revisao: 'revisao',
   aprovado: 'aprovado', em_producao: 'agendado', finalizado: 'publicado', arquivado: 'rascunho',
 };
+
+const PLANNING_STATUS_KIND: Record<string, string> = {
+  rascunho: 'rascunho', enviado_para_aprovacao: 'aguardando',
+  em_revisao: 'revisao', aprovado: 'aprovado',
+};
+
+const PLANNING_STATUS_LABEL: Record<string, string> = {
+  rascunho: 'Rascunho', enviado_para_aprovacao: 'Aguardando',
+  em_revisao: 'Em revisão', aprovado: 'Aprovado',
+};
+
+function formatMonthYear(value: string) {
+  const [year, month] = value.split('-');
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+}
 
 interface Props { params: Promise<{ id: string }>; }
 
@@ -41,11 +58,19 @@ export default async function ClienteDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
-  const { data: campaigns } = await supabase
-    .from('campaigns')
-    .select('id, name, type, status, period_label, content_items(id, general_status)')
-    .eq('client_id', id)
-    .order('created_at', { ascending: false });
+  const [{ data: campaigns }, { data: planningSchedules }] = await Promise.all([
+    supabase
+      .from('campaigns')
+      .select('id, name, type, status, period_label, content_items(id, general_status)')
+      .eq('client_id', id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('planning_schedules')
+      .select('id, title, month_year, status')
+      .eq('client_id', id)
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ]);
 
   const owner = Array.isArray(client.user_profiles) ? client.user_profiles[0] : client.user_profiles;
 
@@ -95,6 +120,7 @@ export default async function ClienteDetailPage({ params }: Props) {
                 status: client.status,
                 internal_notes: client.internal_notes,
                 logo_url: client.logo_url,
+                requires_planning_approval: client.requires_planning_approval,
               }}
             />
           </div>
@@ -159,6 +185,33 @@ export default async function ClienteDetailPage({ params }: Props) {
               </div>
             )}
           </div>
+
+          {/* Planning schedules */}
+          {client.requires_planning_approval && (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div className="eyebrow">Planejamentos</div>
+                <Link href={"/admin/planejamento/novo" as Route} className="btn-text tiny" style={{ color: 'var(--orange)', fontWeight: 600 }}>
+                  <Icon name="plus" size={12} /> Novo
+                </Link>
+              </div>
+              {(!planningSchedules || planningSchedules.length === 0) ? (
+                <p className="muted tiny">Nenhum planejamento ainda.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {planningSchedules.map((p) => (
+                    <Link key={p.id} href={`/admin/planejamento/${p.id}` as Route} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                        <div className="muted tiny" style={{ marginTop: 2 }}>{formatMonthYear(p.month_year)}</div>
+                      </div>
+                      <StatusBadge kind={PLANNING_STATUS_KIND[p.status] as Parameters<typeof StatusBadge>[0]['kind']} label={PLANNING_STATUS_LABEL[p.status]} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Danger zone */}
           <div className="card" style={{ border: '1px solid #fecaca' }}>

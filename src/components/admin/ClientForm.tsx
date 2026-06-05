@@ -20,6 +20,7 @@ interface ClientFormProps {
     status: string;
     internal_notes?: string | null;
     logo_url?: string | null;
+    requires_planning_approval?: boolean;
   };
 }
 
@@ -31,6 +32,9 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
   const [logoPreview, setLogoPreview] = useState<string | null>(initial?.logo_url ?? null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [requiresPlanningApproval, setRequiresPlanningApproval] = useState(
+    initial?.requires_planning_approval ?? false
+  );
   const [form, setForm] = useState({
     name:              initial?.name              ?? '',
     company_name:      initial?.company_name      ?? '',
@@ -79,14 +83,15 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
     }
 
     const payload = {
-      name:              form.name,
-      company_name:      form.company_name,
-      email:             form.email,
-      whatsapp:          form.whatsapp || null,
-      internal_owner_id: form.internal_owner_id || null,
-      status:            form.status as 'ativo' | 'inativo',
-      internal_notes:    form.internal_notes || null,
-      logo_url:          finalLogoUrl ?? null,
+      name:                       form.name,
+      company_name:               form.company_name,
+      email:                      form.email,
+      whatsapp:                   form.whatsapp || null,
+      internal_owner_id:          form.internal_owner_id || null,
+      status:                     form.status as 'ativo' | 'inativo',
+      internal_notes:             form.internal_notes || null,
+      logo_url:                   finalLogoUrl ?? null,
+      requires_planning_approval: requiresPlanningApproval,
     };
 
     const result = isEdit
@@ -207,6 +212,41 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
             <option value="ativo">Ativo</option>
             <option value="inativo">Inativo</option>
           </select>
+        </div>
+      </div>
+
+      {/* Fluxo de aprovação */}
+      <div className="field">
+        <label className="field-label">Fluxo de trabalho</label>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line)',
+            background: 'var(--bg)', cursor: 'pointer',
+          }}
+          onClick={() => setRequiresPlanningApproval((v) => !v)}
+        >
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Aprovação de planejamento antes da produção</div>
+            <div className="muted tiny" style={{ marginTop: 3 }}>
+              O cliente aprova os temas do mês antes da equipe iniciar a produção
+            </div>
+          </div>
+          <div
+            style={{
+              width: 42, height: 24, borderRadius: 12, flexShrink: 0, marginLeft: 16,
+              background: requiresPlanningApproval ? 'var(--green)' : 'var(--line)',
+              position: 'relative', transition: 'background 0.2s',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute', top: 3, left: requiresPlanningApproval ? 21 : 3,
+                width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+              }}
+            />
+          </div>
         </div>
       </div>
 

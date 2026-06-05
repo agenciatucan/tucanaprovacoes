@@ -27,7 +27,9 @@ export type ApprovalStatus =
 export type PostStatus      = "pendente" | "em_revisao" | "aprovado" | "em_producao" | "finalizado";
 export type CommentStatus   = "aberta" | "resolvida";
 export type FileType        = "imagem" | "video" | "pdf" | "roteiro" | "referencia" | "capa";
-export type ApprovalType    = "tema" | "legenda" | "arte" | "post_completo" | "cronograma";
+export type ApprovalType    = "tema" | "legenda" | "arte" | "post_completo" | "cronograma" | "planejamento";
+export type PlanningStatus  = "rascunho" | "enviado_para_aprovacao" | "em_revisao" | "aprovado";
+export type PlanningContentType = "arte" | "reels" | "carrossel" | "story" | "outro";
 export type PostFormat      = "reels" | "carrossel" | "post_estatico" | "story" | "outro";
 
 // ── Entidades ─────────────────────────────────────────────────
@@ -51,8 +53,40 @@ export interface Client {
   internal_owner_id: string | null;
   status: ClientStatus;
   internal_notes: string | null;
+  logo_url: string | null;
+  requires_planning_approval: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PlanningSchedule {
+  id: string;
+  client_id: string;
+  title: string;
+  month_year: string;
+  status: PlanningStatus;
+  approval_token: string;
+  token_expires_at: string;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanningItem {
+  id: string;
+  planning_schedule_id: string;
+  client_id: string;
+  week_label: string;
+  title: string;
+  content_type: PlanningContentType;
+  order_index: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface PlanningScheduleWithClient extends PlanningSchedule {
+  client: Pick<Client, "id" | "name" | "company_name">;
 }
 
 export interface ClientUser {

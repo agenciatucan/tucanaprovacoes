@@ -12,6 +12,7 @@ import {
   Calendar,
   MessageSquare,
   Settings,
+  ClipboardList,
   X,
 } from "lucide-react";
 import type { UserRole } from "@/types/database.types";
@@ -33,6 +34,12 @@ const NAV_ITEMS = [
     href: "/admin/cronogramas",
     label: "Cronogramas",
     icon: CalendarDays,
+    roles: ["admin", "equipe"],
+  },
+  {
+    href: "/admin/planejamento",
+    label: "Planejamento",
+    icon: ClipboardList,
     roles: ["admin", "equipe"],
   },
   {

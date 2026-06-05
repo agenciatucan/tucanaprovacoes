@@ -38,9 +38,30 @@ export const clientSchema = z.object({
   internal_owner_id: UUID.optional().nullable(),
   status:            z.enum(["ativo", "inativo"]).default("ativo"),
   internal_notes:    OPTIONAL_TEXT(1000),
-  logo_url:          z.string().url().nullish().or(z.literal("")).transform(v => v || null),
+  logo_url:                  z.string().url().nullish().or(z.literal("")).transform(v => v || null),
+  requires_planning_approval: z.boolean().optional().default(false),
 });
 export type ClientInput = z.infer<typeof clientSchema>;
+
+// ── Planejamento mensal ───────────────────────────────────────
+export const planningScheduleSchema = z.object({
+  client_id:  UUID,
+  title:      z.string().min(3, "Título deve ter pelo menos 3 caracteres").max(200),
+  month_year: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido (use AAAA-MM)"),
+  notes:      OPTIONAL_TEXT(3000),
+});
+export type PlanningScheduleInput = z.infer<typeof planningScheduleSchema>;
+
+export const planningItemSchema = z.object({
+  planning_schedule_id: UUID,
+  client_id:            UUID,
+  week_label:           z.string().min(1, "Semana obrigatória").max(50),
+  title:                z.string().min(2, "Título do tema obrigatório").max(500),
+  content_type:         z.enum(["arte", "reels", "carrossel", "story", "outro"]).default("arte"),
+  order_index:          z.number().int().min(0).default(0),
+  notes:                OPTIONAL_TEXT(1000),
+});
+export type PlanningItemInput = z.infer<typeof planningItemSchema>;
 
 // ── Cronogramas ───────────────────────────────────────────────
 export const campaignSchema = z.object({
