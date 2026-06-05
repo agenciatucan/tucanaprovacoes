@@ -198,7 +198,7 @@ export default async function AdminDashboard() {
     supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds),
     supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta'),
     supabase.from('campaigns').select('id, name, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
-    supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).limit(500),
+    supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).in('client_id', activeClientIds).limit(500),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
     supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4),
   ]);
