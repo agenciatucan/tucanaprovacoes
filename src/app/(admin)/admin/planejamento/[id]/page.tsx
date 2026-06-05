@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import PlanningItemsEditor from '@/components/admin/PlanningItemsEditor';
 import SendPlanningButton from '@/components/admin/SendPlanningButton';
 import DeletePlanningButton from '@/components/admin/DeletePlanningButton';
+import CopyLinkButton from '@/components/admin/CopyLinkButton';
 
 export const metadata: Metadata = { title: 'Planejamento' };
 
@@ -164,14 +165,7 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
               }}>
                 {approvalLink}
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ marginTop: 10, width: '100%' }}
-                onClick={() => {}}
-              >
-                <Icon name="copy" size={14} /> Copiar link
-              </button>
+              <CopyLinkButton url={approvalLink} />
             </div>
           ) : (
             <p className="muted tiny">
