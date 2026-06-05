@@ -168,6 +168,13 @@ export default async function AdminDashboard() {
   const brDay   = parseInt(brLocale({ day: 'numeric' }), 10);
 
   const greeting = brHour < 12 ? 'Bom dia' : brHour < 18 ? 'Boa tarde' : 'Boa noite';
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: currentProfile } = user
+    ? await supabase.from('user_profiles').select('name').eq('auth_user_id', user.id).single()
+    : { data: null };
+  const userName = currentProfile?.name?.split(' ')[0] ?? 'Admin';
+
   const monthStart = new Date(year, month, 1).toISOString();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long' });
 
@@ -353,7 +360,7 @@ export default async function AdminDashboard() {
         <div className="dash-hero-bubble" />
         <div style={{ position: 'relative' }}>
           <div className="eyebrow" style={{ color: 'rgba(255,255,255,.6)' }}>Tucan · Interno</div>
-          <h1 className="dash-hero-title">{greeting}, Admin 👋</h1>
+          <h1 className="dash-hero-title">{greeting}, {userName} 👋</h1>
           <p className="dash-hero-sub">
             Você tem{' '}
             <b style={{ color: '#fff' }}>{pendingApprovalCount ?? 0} cronograma{pendingApprovalCount !== 1 ? 's' : ''}</b>{' '}
