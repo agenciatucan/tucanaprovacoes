@@ -171,6 +171,13 @@ export default async function AdminDashboard() {
   const monthStart = new Date(year, month, 1).toISOString();
   const monthLabel = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long' });
 
+  // Pré-busca IDs de clientes ativos para filtrar posts/cronogramas
+  const { data: activeClientRows } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('status', 'ativo');
+  const activeClientIds = (activeClientRows ?? []).map((c: any) => c.id as string);
+
   // ── Queries ───────────────────────────────────────────────────────────────
   const [
     { count: activeClients },
@@ -186,14 +193,14 @@ export default async function AdminDashboard() {
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
     supabase.from('campaigns').select('*', { count: 'exact', head: true }).in('status', ['enviado_para_aprovacao', 'em_revisao']),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente'),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao'),
+    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds),
+    supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']).in('client_id', activeClientIds),
+    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds),
     supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta'),
     supabase.from('campaigns').select('id, name, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
     supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).limit(500),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
-    supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).order('updated_at', { ascending: false }).limit(4),
+    supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4),
   ]);
 
   // Progress bars: post counts per pending campaign
