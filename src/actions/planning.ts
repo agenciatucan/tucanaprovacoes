@@ -80,6 +80,7 @@ export async function updatePlanningSchedule(
 
   if (!schedule) return { success: false, error: "Planejamento não encontrado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado não pode ser editado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado não pode ser editado" };
 
   const { error } = await supabase
     .from("planning_schedules")
@@ -106,6 +107,7 @@ export async function deletePlanningSchedule(id: string): Promise<Result> {
 
   if (!schedule) return { success: false, error: "Planejamento não encontrado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento aprovado não pode ser excluído" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado não pode ser excluído" };
 
   const { error } = await supabase
     .from("planning_schedules")
@@ -131,6 +133,7 @@ export async function sendPlanningForApproval(id: string): Promise<Result> {
     .single();
 
   if (!schedule) return { success: false, error: "Planejamento não encontrado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado não pode ser enviado para aprovação" };
   if (!["rascunho", "em_revisao"].includes(schedule.status)) {
     return { success: false, error: "Planejamento já foi enviado para aprovação" };
   }
@@ -156,6 +159,34 @@ export async function sendPlanningForApproval(id: string): Promise<Result> {
 
   // Notifica cliente via WhatsApp (fire-and-forget)
   notifyPlanningForApproval(id).catch(() => {});
+
+  return { success: true, data: undefined };
+}
+
+export async function archivePlanningSchedule(id: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { data: schedule } = await supabase
+    .from("planning_schedules")
+    .select("client_id, status")
+    .eq("id", id)
+    .single();
+
+  if (!schedule) return { success: false, error: "Planejamento não encontrado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento já está arquivado" };
+
+  const { error } = await supabase
+    .from("planning_schedules")
+    .update({ status: "arquivado" })
+    .eq("id", id);
+
+  if (error) return { success: false, error: "Erro ao arquivar planejamento" };
+
+  revalidatePath("/admin/planejamento");
+  revalidatePath(`/admin/planejamento/${id}`);
+  revalidatePath(`/admin/clientes/${schedule.client_id}`);
 
   return { success: true, data: undefined };
 }
@@ -239,6 +270,7 @@ export async function getPlanningByToken(
     .select("*, clients(id, name, company_name, logo_url)")
     .eq("approval_token", token)
     .gt("token_expires_at", new Date().toISOString())
+    .neq("status", "arquivado")
     .single();
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
@@ -268,6 +300,7 @@ export async function savePlanningItemNote(
     .single();
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
 
   const { data: item } = await service
@@ -407,6 +440,8 @@ export async function requestPlanningAdjustment(
     .single();
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
 
   const { error } = await service

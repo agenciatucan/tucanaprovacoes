@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import PlanningItemsEditor from '@/components/admin/PlanningItemsEditor';
 import SendPlanningButton from '@/components/admin/SendPlanningButton';
 import DeletePlanningButton from '@/components/admin/DeletePlanningButton';
+import ArchivePlanningButton from '@/components/admin/ArchivePlanningButton';
 import CopyLinkButton from '@/components/admin/CopyLinkButton';
 
 export const metadata: Metadata = { title: 'Planejamento' };
@@ -17,6 +18,7 @@ const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
   enviado_para_aprovacao: 'aguardando',
   em_revisao:             'revisao',
   aprovado:               'aprovado',
+  arquivado:              'arquivado',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,6 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
   enviado_para_aprovacao: 'Aguardando aprovação',
   em_revisao:             'Em revisão — cliente solicitou ajustes',
   aprovado:               'Aprovado pelo cliente',
+  arquivado:              'Arquivado',
 };
 
 function formatMonthYear(value: string) {
@@ -55,6 +58,7 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
 
   const client = Array.isArray(schedule.clients) ? schedule.clients[0] : schedule.clients;
   const clientName = client?.company_name ?? client?.name ?? '—';
+  const isArchived = schedule.status === 'arquivado';
   const isEditable = ['rascunho', 'em_revisao'].includes(schedule.status);
   const canSend = isEditable && (items?.length ?? 0) > 0;
 
@@ -140,6 +144,18 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
         </div>
       )}
 
+      {isArchived && (
+        <div style={{
+          padding: '14px 18px', borderRadius: 12, marginBottom: 20,
+          background: '#f3f4f6', border: '1px solid #d1d5db',
+        }}>
+          <strong style={{ fontSize: 13, color: '#374151' }}>Planejamento arquivado.</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#4b5563' }}>
+            Este planejamento não pode mais ser editado ou enviado para aprovação.
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         {/* Itens do planejamento */}
         <div style={{ gridColumn: '1 / -1' }}>
@@ -207,6 +223,9 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
             )}
             {isEditable && (
               <DeletePlanningButton scheduleId={id} />
+            )}
+            {!isArchived && (
+              <ArchivePlanningButton scheduleId={id} />
             )}
           </div>
         </div>

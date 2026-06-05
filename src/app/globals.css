@@ -33,6 +33,8 @@
   --st-revisao-fg: #92400e;
   --st-aprovado-bg: #e3ecde;
   --st-aprovado-fg: #25411e;
+  --st-arquivado-bg: #f3f4f6;
+  --st-arquivado-fg: #4b5563;
   --st-agendado-bg: #dbe5f7;
   --st-agendado-fg: #1d4ed8;
   --st-publicado-bg: #d8eee2;
@@ -518,6 +520,11 @@ textarea {
 .status-aprovado {
   background: var(--st-aprovado-bg);
   color: var(--st-aprovado-fg);
+}
+
+.status-arquivado {
+  background: var(--st-arquivado-bg);
+  color: var(--st-arquivado-fg);
 }
 
 .status-agendado {

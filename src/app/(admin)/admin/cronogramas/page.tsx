@@ -172,6 +172,7 @@ export default async function AdminCronogramasPage({
     supabase
       .from('planning_schedules')
       .select('id, title, month_year, status, clients(id, name, company_name)')
+      .neq('status', 'arquivado')
       .order('created_at', { ascending: false }),
   ]);
 

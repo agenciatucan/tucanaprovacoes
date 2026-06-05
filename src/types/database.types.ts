@@ -28,7 +28,7 @@ export type PostStatus      = "pendente" | "em_revisao" | "aprovado" | "em_produ
 export type CommentStatus   = "aberta" | "resolvida";
 export type FileType        = "imagem" | "video" | "pdf" | "roteiro" | "referencia" | "capa";
 export type ApprovalType    = "tema" | "legenda" | "arte" | "post_completo" | "cronograma" | "planejamento";
-export type PlanningStatus  = "rascunho" | "enviado_para_aprovacao" | "em_revisao" | "aprovado";
+export type PlanningStatus  = "rascunho" | "enviado_para_aprovacao" | "em_revisao" | "aprovado" | "arquivado";
 export type PlanningContentType = "arte" | "reels" | "carrossel" | "story" | "outro";
 export type PostFormat      = "reels" | "carrossel" | "post_estatico" | "story" | "outro";
 

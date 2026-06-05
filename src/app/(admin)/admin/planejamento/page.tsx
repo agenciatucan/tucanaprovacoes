@@ -12,6 +12,7 @@ const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
   enviado_para_aprovacao: 'aguardando',
   em_revisao:             'revisao',
   aprovado:               'aprovado',
+  arquivado:              'arquivado',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -19,6 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
   enviado_para_aprovacao: 'Aguardando aprovação',
   em_revisao:             'Em revisão',
   aprovado:               'Aprovado',
+  arquivado:              'Arquivado',
 };
 
 function formatMonthYear(value: string) {
@@ -33,6 +35,7 @@ export default async function PlanejamentoPage() {
   const { data: schedules } = await supabase
     .from('planning_schedules')
     .select('*, clients(id, name, company_name, logo_url)')
+    .neq('status', 'arquivado')
     .order('created_at', { ascending: false });
 
   return (

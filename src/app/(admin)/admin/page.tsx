@@ -185,6 +185,17 @@ export default async function AdminDashboard() {
     .eq('status', 'ativo');
   const activeClientIds = (activeClientRows ?? []).map((c: any) => c.id as string);
 
+  const { data: activeCampaignRows } = await supabase
+    .from('campaigns')
+    .select('id')
+    .not('status', 'eq', 'arquivado');
+  const activeCampaignIds = (activeCampaignRows ?? []).map((c: any) => c.id as string);
+
+  const applyActiveCampaignsFilter = (query: any) =>
+    activeCampaignIds.length > 0
+      ? query.in('campaign_id', activeCampaignIds)
+      : query.eq('campaign_id', '');
+
   // ── Queries ───────────────────────────────────────────────────────────────
   const [
     { count: activeClients },
@@ -193,6 +204,7 @@ export default async function AdminDashboard() {
     { count: approvedPosts },
     { count: adjustPosts },
     { count: openComments },
+    { count: activeCampaigns },
     { data: pendingCampaigns },
     { data: monthPostsRaw },
     { data: openCommentsData },
@@ -200,14 +212,15 @@ export default async function AdminDashboard() {
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
     supabase.from('campaigns').select('*', { count: 'exact', head: true }).in('status', ['enviado_para_aprovacao', 'em_revisao']),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']).in('client_id', activeClientIds),
-    supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds)),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']).in('client_id', activeClientIds)),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds)),
     supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta'),
+    Promise.resolve({ count: activeCampaignIds.length }),
     supabase.from('campaigns').select('id, name, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
-    supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).in('client_id', activeClientIds).limit(500),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).in('client_id', activeClientIds).limit(500)),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
-    supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4)),
   ]);
 
   // Progress bars: post counts per pending campaign
@@ -238,6 +251,7 @@ export default async function AdminDashboard() {
   const totalMonthPosts = monthPostsRaw?.length ?? 0;
   const fullDays        = Object.values(postsPerDay).filter(n => n >= 3).length;
   const todayPosts      = postsPerDay[brDay] ?? 0;
+  const totalActiveCampaigns = activeCampaigns ?? 0;
 
   // Funil de produção
   const funnelSegments = [
@@ -251,6 +265,7 @@ export default async function AdminDashboard() {
   // KPI cards
   const kpis = [
     { label: 'Clientes ativos',        value: activeClients ?? 0,          color: '#1f2515', soft: '#f0f0eb', icon: 'users',           href: '/admin/clientes' as Route,                              delta: null,              spark: [1, 2, 2, 2, 3, activeClients ?? 0] },
+    { label: 'Cronogramas ativos',     value: totalActiveCampaigns ?? 0,   color: '#0f766e', soft: '#e0f2f1', icon: 'calendar',        href: '/admin/cronogramas' as Route,                          delta: 'ativos',          spark: [2, 3, 2, 3, 4, totalActiveCampaigns ?? 0] },
     { label: 'Aguardando aprovação',   value: pendingApprovalCount ?? 0,   color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/cronogramas?status=enviado_para_aprovacao' as Route, delta: 'cronogramas',  spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
     { label: 'Posts pendentes',        value: pendingPosts ?? 0,           color: '#9aa15f', soft: '#ecedda', icon: 'flag',            href: '/admin/kanban' as Route,                                delta: 'para produzir',   spark: [9, 8, 8, 7, 7, pendingPosts ?? 0] },
     { label: 'Posts aprovados',        value: approvedPosts ?? 0,          color: '#5b9e3f', soft: '#e6efdd', icon: 'check',           href: '/admin/kanban' as Route,                                delta: 'este mês',        spark: [0, 1, 2, 3, 4, approvedPosts ?? 0] },
@@ -364,7 +379,9 @@ export default async function AdminDashboard() {
           <p className="dash-hero-sub">
             Você tem{' '}
             <b style={{ color: '#fff' }}>{pendingApprovalCount ?? 0} cronograma{pendingApprovalCount !== 1 ? 's' : ''}</b>{' '}
-            aguardando o cliente e{' '}
+            aguardando o cliente,{' '}
+            <b style={{ color: '#fff' }}>{totalActiveCampaigns ?? 0} cronograma{totalActiveCampaigns !== 1 ? 's' : ''}</b>{' '}
+            ativo{totalActiveCampaigns !== 1 ? 's' : ''}, e{' '}
             <b style={{ color: '#fff' }}>{pendingPosts ?? 0} post{pendingPosts !== 1 ? 's' : ''}</b>{' '}
             em produção esta semana.
           </p>

@@ -52,6 +52,22 @@ export default function SetPasswordForm({ userRole }: Props) {
         data: { session },
       } = await supabase.auth.getSession();
 
+      // Se o cliente não tem sessão local, tente checar a sessão server-side
+      // via endpoint que lê os cookies HttpOnly configurados por `verifyOtp`.
+      if (!session) {
+        try {
+          const res = await fetch('/api/auth/session');
+          if (res.ok) {
+            const json = await res.json();
+            setSessionReady(!!json.hasSession);
+            setCheckingSession(false);
+            return;
+          }
+        } catch (e) {
+          // ignore and fallback
+        }
+      }
+
       setSessionReady(!!session);
       setCheckingSession(false);
     }
@@ -130,6 +146,39 @@ export default function SetPasswordForm({ userRole }: Props) {
           {checkingSession
             ? 'Validando seu link de acesso...'
             : 'Não encontramos uma sessão válida. Solicite um novo link de acesso.'}
+        </div>
+      )}
+
+      {!sessionReady && !checkingSession && (
+        <div style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={async () => {
+              const email = window.prompt('Digite seu e-mail para reenviar o link:');
+              if (!email) return;
+
+              try {
+                const res = await fetch('/api/auth/resend', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email }),
+                });
+
+                const json = await res.json();
+
+                if (res.ok && json.success) {
+                  toast.success('Link reenviado! Verifique seu e-mail.');
+                } else {
+                  toast.error(json.error || 'Erro ao reenviar link');
+                }
+              } catch (e: any) {
+                toast.error(e?.message || 'Erro ao reenviar link');
+              }
+            }}
+          >
+            Solicitar novo link
+          </button>
         </div>
       )}
 

@@ -33,13 +33,25 @@ export async function GET(request: NextRequest) {
 
   if (token_hash && type) {
     const supabase = await getSupabaseServerClient();
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
+    try {
+      const result = await supabase.auth.verifyOtp({ type, token_hash });
 
-    if (!error) {
+      // Quando o Supabase retornar a sessão, preferimos redirecionar para
+      // /auth/callback incluindo os tokens no fragmento (hash). Assim o
+      // código cliente (`/auth/callback`) consegue criar a sessão no
+      // browser (localStorage) e o formulário de definir senha funciona.
+      const session = (result as any)?.data?.session;
+
+      if (session?.access_token && session?.refresh_token) {
+        const hash = `#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}`;
+        return NextResponse.redirect(`${origin}/auth/callback${hash}?next=${encodeURIComponent(next)}`);
+      }
+
+      // Fallback: se não vierem tokens, redireciona para o next padrão.
       return NextResponse.redirect(`${origin}${next}`);
+    } catch (error: any) {
+      logger.error('auth/confirm', error?.message ?? String(error));
     }
-
-    logger.error('auth/confirm', error.message);
   }
 
   return NextResponse.redirect(`${origin}/login?erro=link_invalido`);

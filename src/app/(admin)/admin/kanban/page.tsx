@@ -142,15 +142,24 @@ export default async function KanbanPage({
   const showPosts      = !filterTipo || filterTipo === 'todos' || filterTipo === 'cronograma';
   const showActivities = !filterTipo || filterTipo === 'todos' || filterTipo === 'atividade';
 
+  const { data: activeCampaignRows } = await supabase
+    .from('campaigns')
+    .select('id')
+    .not('status', 'eq', 'arquivado');
+  const activeCampaignIds = (activeCampaignRows ?? []).map((c: any) => c.id as string);
+
   // ── Query: posts de cronograma ────────────────────────────────
   let postsQuery = supabase
     .from('content_items')
-    .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name, clients(name, company_name, status))')
+    .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name, status, clients(name, company_name, status))')
+    .in('campaign_id', activeCampaignIds)
     .order('order_index');
 
   if (filterClient) postsQuery = postsQuery.eq('client_id', filterClient);
   if (filterWeek)   postsQuery = postsQuery.eq('week_label', filterWeek);
   if (search)       postsQuery = postsQuery.ilike('title', `%${search}%`);
+
+  postsQuery = postsQuery.neq('campaigns.status', 'arquivado');
 
   // ── Query: atividades ─────────────────────────────────────────
   let activitiesQuery = supabase

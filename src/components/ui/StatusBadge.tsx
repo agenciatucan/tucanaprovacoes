@@ -1,5 +1,5 @@
 // Status badge — exact vocabulary from design (seção 10 do MVP)
-export type StatusKind = 'rascunho' | 'aguardando' | 'revisao' | 'aprovado' | 'agendado' | 'publicado';
+export type StatusKind = 'rascunho' | 'aguardando' | 'revisao' | 'aprovado' | 'agendado' | 'publicado' | 'arquivado';
 
 const LABELS: Record<StatusKind, string> = {
   rascunho:   'Rascunho',
@@ -8,6 +8,7 @@ const LABELS: Record<StatusKind, string> = {
   aprovado:   'Aprovado',
   agendado:   'Agendado',
   publicado:  'Publicado',
+  arquivado:  'Arquivado',
 };
 
 interface Props {
