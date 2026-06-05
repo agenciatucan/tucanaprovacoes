@@ -109,7 +109,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
     if (!isEdit && 'data' in result) {
       router.push(`/admin/clientes/${(result as { success: true; data: { id: string } }).data.id}` as Route);
     } else {
-      router.push(`/admin/clientes/${initial!.id}` as Route);
+      router.refresh();
     }
   }
 
