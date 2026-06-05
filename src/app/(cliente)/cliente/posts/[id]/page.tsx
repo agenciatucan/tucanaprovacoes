@@ -356,61 +356,21 @@ export default async function PostDetailPage({ params }: Props) {
         />
 
         <div className="client-post-content-stack">
-          {(post.theme || post.objective || post.creative_concept) && (
+          {post.theme && (
             <div className="card client-post-section-card">
-              {post.theme && (
-                <div>
-                  <div className="eyebrow">Tema</div>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      fontWeight: 700,
-                      fontSize: 15,
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {post.theme}
-                  </div>
+              <div>
+                <div className="eyebrow">Tema</div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {post.theme}
                 </div>
-              )}
-
-              {post.theme && post.objective && <div className="divider" />}
-
-              {post.objective && (
-                <div>
-                  <div className="eyebrow">Objetivo</div>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      color: 'var(--ink-2)',
-                    }}
-                  >
-                    {post.objective}
-                  </div>
-                </div>
-              )}
-
-              {post.objective && post.creative_concept && (
-                <div className="divider" />
-              )}
-
-              {post.creative_concept && (
-                <div>
-                  <div className="eyebrow">Conceito criativo</div>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      color: 'var(--ink-2)',
-                    }}
-                  >
-                    {post.creative_concept}
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
 

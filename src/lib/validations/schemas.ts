@@ -38,6 +38,7 @@ export const clientSchema = z.object({
   internal_owner_id: UUID.optional().nullable(),
   status:            z.enum(["ativo", "inativo"]).default("ativo"),
   internal_notes:    OPTIONAL_TEXT(1000),
+  logo_url:          z.string().url().nullish().or(z.literal("")).transform(v => v || null),
 });
 export type ClientInput = z.infer<typeof clientSchema>;
 

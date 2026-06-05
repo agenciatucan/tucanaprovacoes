@@ -66,7 +66,7 @@ function getCommentAuthor(comment: CommentItem) {
 
 function StatusPill({ status }: { status: string }) {
   return (
-    <span className={`status-badge status-${status}`}>
+    <span className={`status status-${status}`}>
       {STATUS_LABEL[status] || status}
     </span>
   );
@@ -158,19 +158,19 @@ export default function ApprovalPanel({ post, comments = [] }: ApprovalPanelProp
 
       <div style={{ display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span className="muted tiny">Tema</span>
+          <span className="muted" style={{ fontSize: 13 }}>Tema</span>
           <StatusPill status={post.theme_status || 'aguardando'} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span className="muted tiny">Legenda</span>
+          <span className="muted" style={{ fontSize: 13 }}>Legenda</span>
           <StatusPill status={post.caption_status || 'aguardando'} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span className="muted tiny">Arte</span>
+          <span className="muted" style={{ fontSize: 13 }}>Arte</span>
           <StatusPill status={post.artwork_status || 'aguardando'} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span className="muted tiny">Status geral</span>
+          <span className="muted" style={{ fontSize: 13 }}>Status geral</span>
           <StatusPill status={post.general_status || 'pendente'} />
         </div>
       </div>

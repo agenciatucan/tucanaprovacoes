@@ -77,7 +77,7 @@ export default async function CronogramaPage({ params }: Props) {
   const { data: campaign } = await supabase
     .from('campaigns')
     .select(
-      'id, name, status, period_label, overview, start_date, end_date, client_id, is_locked, clients(name, company_name)'
+      'id, name, status, period_label, overview, start_date, end_date, client_id, is_locked, clients(name, company_name, logo_url)'
     )
     .eq('id', id)
     .single();
@@ -381,6 +381,19 @@ export default async function CronogramaPage({ params }: Props) {
       <div className="client-campaign-hero">
         <div className="client-campaign-hero-inner">
           <div style={{ minWidth: 0 }}>
+            {(client as any)?.logo_url && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.12)', borderRadius: 10,
+                padding: '5px 10px', marginBottom: 10,
+              }}>
+                <img
+                  src={(client as any).logo_url}
+                  alt={client?.company_name ?? ''}
+                  style={{ height: 28, width: 'auto', maxWidth: 120, objectFit: 'contain' }}
+                />
+              </div>
+            )}
             <div className="client-campaign-kicker">
               {client?.company_name ?? client?.name ?? 'Portal do cliente'}
             </div>
@@ -444,18 +457,6 @@ export default async function CronogramaPage({ params }: Props) {
           </div>
         </div>
 
-        {campaign.overview && (
-          <div className="client-campaign-overview">
-            <div className="client-campaign-overview-icon">
-              <Icon name="target" size={16} />
-            </div>
-
-            <div className="client-campaign-overview-text">
-              <strong style={{ color: '#fff' }}>Visão estratégica:</strong>{' '}
-              {campaign.overview}
-            </div>
-          </div>
-        )}
       </div>
 
       {total > 0 && (

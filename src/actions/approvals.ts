@@ -8,6 +8,7 @@ import {
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
+import { notifyClientRequestedAdjustment } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -229,6 +230,24 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
       } catch (e) {
         // Notificações são best-effort — não bloquear a aprovação
         logger.warn("submitApproval/notification", e);
+      }
+
+      // WhatsApp: confirma para o cliente a ação realizada
+      try {
+        const { data: postInfo } = await serviceClient
+          .from("content_items")
+          .select("title")
+          .eq("id", parsed.data.content_item_id)
+          .single();
+
+        const postTitle = postInfo?.title ?? "post";
+        const isApproval = parsed.data.status === "aprovado";
+
+        if (!isApproval) {
+          notifyClientRequestedAdjustment(parsed.data.campaign_id, postTitle).catch(() => {});
+        }
+      } catch (e) {
+        logger.warn("submitApproval/whatsapp", e);
       }
     }
   }

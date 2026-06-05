@@ -1,5 +1,5 @@
 "use server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { clientSchema, type ClientInput } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
@@ -18,6 +18,34 @@ async function requireStaff(supabase: Awaited<ReturnType<typeof getSupabaseServe
 
   if (!data || !["admin", "equipe"].includes(data.role)) return null;
   return data;
+}
+
+export async function uploadClientLogo(formData: FormData): Promise<Result<{ url: string }>> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const file = formData.get("file") as File | null;
+  if (!file || !file.size) return { success: false, error: "Nenhum arquivo enviado" };
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+  const path = `${crypto.randomUUID()}.${ext}`;
+
+  const serviceClient = await getSupabaseServiceClient();
+  const { error } = await serviceClient.storage
+    .from("client-logos")
+    .upload(path, file, { contentType: file.type, upsert: false });
+
+  if (error) {
+    logger.error("uploadClientLogo", error.message);
+    return { success: false, error: "Erro ao fazer upload da logo" };
+  }
+
+  const { data: { publicUrl } } = serviceClient.storage
+    .from("client-logos")
+    .getPublicUrl(path);
+
+  return { success: true, data: { url: publicUrl } };
 }
 
 export async function createClient(input: ClientInput): Promise<Result<{ id: string }>> {

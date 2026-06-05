@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function CallbackCard({ msg }: { msg: string }) {
   return (
@@ -81,16 +81,7 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     async function handleCallback() {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        setMsg('Erro: variáveis do Supabase não configuradas.');
-        router.replace('/login?erro=configuracao' as Route);
-        return;
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = getSupabaseBrowserClient();
 
       const nextParam = searchParams.get('next');
 

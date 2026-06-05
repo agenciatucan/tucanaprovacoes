@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
-import { createClient, updateClient } from '@/actions/clients';
+import { createClient, updateClient, uploadClientLogo } from '@/actions/clients';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
@@ -19,6 +19,7 @@ interface ClientFormProps {
     internal_owner_id?: string | null;
     status: string;
     internal_notes?: string | null;
+    logo_url?: string | null;
   };
 }
 
@@ -26,6 +27,10 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
   const router = useRouter();
   const isEdit = !!initial;
   const [loading, setLoading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(initial?.logo_url ?? null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(initial?.logo_url ?? null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name:              initial?.name              ?? '',
     company_name:      initial?.company_name      ?? '',
@@ -40,9 +45,38 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveLogo() {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+
+    let finalLogoUrl = logoUrl;
+
+    if (logoFile) {
+      const fd = new FormData();
+      fd.append('file', logoFile);
+      const uploadResult = await uploadClientLogo(fd);
+      if (!uploadResult.success) {
+        toast.error(uploadResult.error);
+        setLoading(false);
+        return;
+      }
+      finalLogoUrl = uploadResult.data.url;
+      setLogoUrl(finalLogoUrl);
+    }
 
     const payload = {
       name:              form.name,
@@ -52,6 +86,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
       internal_owner_id: form.internal_owner_id || null,
       status:            form.status as 'ativo' | 'inativo',
       internal_notes:    form.internal_notes || null,
+      logo_url:          finalLogoUrl ?? null,
     };
 
     const result = isEdit
@@ -75,6 +110,57 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Logo */}
+      <div className="field">
+        <label className="field-label">
+          Logo do cliente <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span>
+        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 2 }}>
+          <div
+            style={{
+              width: 64, height: 64, borderRadius: 14, flexShrink: 0,
+              border: '1px solid var(--line)', background: 'var(--bg)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {logoPreview
+              ? <img src={logoPreview} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              : <Icon name="image" size={22} color="var(--muted-2)" />
+            }
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Icon name="image" size={14} />
+              {logoPreview ? 'Trocar logo' : 'Enviar logo'}
+            </button>
+            {logoPreview && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={handleRemoveLogo}
+                style={{ color: '#b91c1c' }}
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          <p className="muted tiny" style={{ margin: 0 }}>PNG, JPG ou SVG · máx. 5 MB</p>
+        </div>
+      </div>
+
       {/* Nome + Empresa */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         <div className="field">
@@ -96,7 +182,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
             placeholder="aprovador@empresa.com.br"
             value={form.email}
             onChange={(e) => set('email', e.target.value)}
-            disabled={isEdit} // não permite alterar e-mail após criação
+            disabled={isEdit}
           />
           {isEdit && <p className="muted tiny" style={{ marginTop: 4 }}>O e-mail não pode ser alterado após o cadastro.</p>}
         </div>

@@ -10,6 +10,7 @@ import {
   type CampaignInput,
 } from "@/lib/validations/schemas";
 import { logger } from "@/lib/logger";
+import { notifyCampaignSentForApproval } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -239,6 +240,9 @@ export async function sendCampaignForApproval(
   }
 
   revalidateCampaignPaths(campaignId);
+
+  // Notifica o cliente via WhatsApp (sem bloquear a resposta)
+  notifyCampaignSentForApproval(campaignId).catch(() => {});
 
   return { success: true, data: undefined };
 }

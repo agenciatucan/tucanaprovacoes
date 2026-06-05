@@ -46,7 +46,7 @@ export async function requestPasswordReset(email: string): Promise<Result> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const { error } = await serviceClient.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${appUrl}/auth/callback`,
+    redirectTo: `${appUrl}/auth/callback?next=/definir-senha`,
   });
 
   if (error) {

@@ -190,7 +190,7 @@ export default async function AdminDashboard() {
     supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']),
     supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao'),
     supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta'),
-    supabase.from('campaigns').select('id, name, status, clients(id, name, company_name)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
+    supabase.from('campaigns').select('id, name, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
     supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).limit(500),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
     supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).order('updated_at', { ascending: false }).limit(4),
@@ -487,8 +487,10 @@ export default async function AdminDashboard() {
                 return (
                   <Link key={c.id} href={`/admin/cronogramas/${c.id}` as Route} className="dash-crono-row">
                     {/* Avatar */}
-                    <div className="dash-crono-avatar" style={{ width: 40, height: 40, borderRadius: 11, background: color, display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                      {initials}
+                    <div className="dash-crono-avatar" style={{ width: 40, height: 40, borderRadius: 11, background: client?.logo_url ? 'var(--bg)' : color, border: client?.logo_url ? '1px solid var(--line)' : 'none', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
+                      {client?.logo_url
+                        ? <img src={client.logo_url} alt={clientName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        : initials}
                     </div>
                     {/* Info + progress */}
                     <div style={{ flex: 1, minWidth: 0 }}>

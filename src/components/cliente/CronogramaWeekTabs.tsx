@@ -169,9 +169,18 @@ export default function CronogramaWeekTabs({
                   {week}
                   <span
                     style={{
-                      marginLeft: 6,
-                      opacity: isActive ? 0.75 : 0.5,
-                      fontSize: 11,
+                      marginLeft: 7,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      padding: '0 5px',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      background: isActive ? 'rgba(255,255,255,0.22)' : 'var(--bg-2)',
+                      color: isActive ? '#fff' : 'var(--muted)',
                     }}
                   >
                     {count}

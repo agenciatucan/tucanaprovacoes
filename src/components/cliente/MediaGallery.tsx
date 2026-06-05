@@ -125,14 +125,9 @@ export default function MediaGallery({ files, postTitle, postFormat }: Props) {
         )}
       </div>
 
-      {/* File info chip (current file) */}
+      {/* Download button (current file) */}
       {mediaFiles.length > 0 && currentFile && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <span className="chip chip-outline">
-            <Icon name={currentFile.file_type === 'video' ? 'more' : 'image'} size={11} />
-            {currentFile.file_name}
-            {currentFile.file_size_bytes ? ` · ${formatBytes(currentFile.file_size_bytes)}` : ''}
-          </span>
           <a href={currentFile.file_url} download target="_blank" rel="noreferrer" className="chip chip-outline" style={{ textDecoration: 'none', color: 'var(--ink-2)' }}>
             <Icon name="download" size={11} /> Baixar
           </a>

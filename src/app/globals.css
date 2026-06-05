@@ -37,6 +37,14 @@
   --st-agendado-fg: #1d4ed8;
   --st-publicado-bg: #d8eee2;
   --st-publicado-fg: #066a3a;
+  --st-pendente-bg: #ececec;
+  --st-pendente-fg: #5a5a5a;
+  --st-ajuste-bg: #fee2e2;
+  --st-ajuste-fg: #991b1b;
+  --st-substituir-bg: #f3e8ff;
+  --st-substituir-fg: #7e22ce;
+  --st-naoseaplica-bg: #f0f0f0;
+  --st-naoseaplica-fg: #737373;
 
   --r-sm: 10px;
   --r: 14px;
@@ -520,6 +528,41 @@ textarea {
 .status-publicado {
   background: var(--st-publicado-bg);
   color: var(--st-publicado-fg);
+}
+
+.status-pendente {
+  background: var(--st-pendente-bg);
+  color: var(--st-pendente-fg);
+}
+
+.status-em_revisao {
+  background: var(--st-revisao-bg);
+  color: var(--st-revisao-fg);
+}
+
+.status-em_producao {
+  background: var(--st-agendado-bg);
+  color: var(--st-agendado-fg);
+}
+
+.status-finalizado {
+  background: var(--st-publicado-bg);
+  color: var(--st-publicado-fg);
+}
+
+.status-ajuste_solicitado {
+  background: var(--st-ajuste-bg);
+  color: var(--st-ajuste-fg);
+}
+
+.status-substituir_tema {
+  background: var(--st-substituir-bg);
+  color: var(--st-substituir-fg);
+}
+
+.status-nao_se_aplica {
+  background: var(--st-naoseaplica-bg);
+  color: var(--st-naoseaplica-fg);
 }
 
 .status-lg {

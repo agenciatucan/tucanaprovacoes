@@ -63,8 +63,11 @@ export default async function ClienteDetailPage({ params }: Props) {
         <div>
           {/* Client header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, flexShrink: 0 }}>
-              {client.name.slice(0, 2).toUpperCase()}
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, flexShrink: 0, overflow: 'hidden' }}>
+              {client.logo_url
+                ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                : client.name.slice(0, 2).toUpperCase()
+              }
             </div>
             <div>
               <h1 className="h1" style={{ fontSize: 24 }}>{client.name}</h1>
@@ -91,6 +94,7 @@ export default async function ClienteDetailPage({ params }: Props) {
                 internal_owner_id: client.internal_owner_id,
                 status: client.status,
                 internal_notes: client.internal_notes,
+                logo_url: client.logo_url,
               }}
             />
           </div>
