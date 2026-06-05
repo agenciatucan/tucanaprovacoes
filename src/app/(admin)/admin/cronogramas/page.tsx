@@ -18,6 +18,26 @@ const TYPE_LABEL: Record<string, string> = {
   campanha: 'Campanha',
 };
 
+const PLANNING_STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
+  rascunho:               'rascunho',
+  enviado_para_aprovacao: 'aguardando',
+  em_revisao:             'revisao',
+  aprovado:               'aprovado',
+};
+
+const PLANNING_STATUS_LABEL: Record<string, string> = {
+  rascunho:               'Rascunho',
+  enviado_para_aprovacao: 'Aguardando aprovação',
+  em_revisao:             'Em revisão',
+  aprovado:               'Aprovado',
+};
+
+function formatMonthYear(value: string) {
+  const [year, month] = value.split('-');
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
 // ── Mapeamento visual de status (banco → exibição) ────────────────────────────
 // Não altera nenhum dado — apenas renomeia o que aparece na tela.
 //
@@ -146,9 +166,13 @@ export default async function AdminCronogramasPage({
     baseQuery = baseQuery.ilike('name', `%${filterSearch.trim()}%`);
   }
 
-  const [{ data: campaigns, count: totalCount }, { data: allCampaigns }] = await Promise.all([
+  const [{ data: campaigns, count: totalCount }, { data: allCampaigns }, { data: plannings }] = await Promise.all([
     baseQuery,
     supabase.from('campaigns').select('id, status'),
+    supabase
+      .from('planning_schedules')
+      .select('id, title, month_year, status, clients(id, name, company_name)')
+      .order('created_at', { ascending: false }),
   ]);
 
   const campaignList    = campaigns ?? [];
@@ -381,10 +405,16 @@ export default async function AdminCronogramasPage({
             {(totalCount ?? 0) === 1 ? 'cronograma encontrado' : 'cronogramas encontrados'}
           </p>
         </div>
-        <Link href={'/admin/cronogramas/novo' as Route} className="btn btn-primary">
-          <Icon name="plus" size={16} />
-          Novo cronograma
-        </Link>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link href={'/admin/planejamento/novo' as Route} className="btn btn-ghost">
+            <Icon name="plus" size={16} />
+            Novo planejamento
+          </Link>
+          <Link href={'/admin/cronogramas/novo' as Route} className="btn btn-primary">
+            <Icon name="plus" size={16} />
+            Novo cronograma
+          </Link>
+        </div>
       </div>
 
       {/* ── Resumo ── */}
@@ -632,6 +662,112 @@ export default async function AdminCronogramasPage({
           />
         </>
       )}
+
+      {/* ── Planejamentos de temas ── */}
+      {plannings && plannings.length > 0 && (
+        <div style={{ marginTop: 36 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <h2 className="h2" style={{ fontSize: 16 }}>Planejamentos de temas</h2>
+              <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                Aprovação de temas enviada antes da produção dos posts
+              </p>
+            </div>
+            <Link href={'/admin/planejamento/novo' as Route} className="btn btn-ghost btn-sm">
+              <Icon name="plus" size={14} /> Novo planejamento
+            </Link>
+          </div>
+
+          <div className="campaigns-table campaigns-desktop-table">
+            <div className="campaigns-table-head" style={{ gridTemplateColumns: '2fr 1.5fr 1fr 1fr 50px' }}>
+              <div>Planejamento</div>
+              <div>Cliente</div>
+              <div>Período</div>
+              <div>Status</div>
+              <div />
+            </div>
+
+            {plannings.map((p) => {
+              const client = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+              return (
+                <Link
+                  key={p.id}
+                  href={`/admin/planejamento/${p.id}` as Route}
+                  className="campaigns-table-row"
+                  style={{ gridTemplateColumns: '2fr 1.5fr 1fr 1fr 50px' }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div className="campaigns-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                        background: '#f0fdf4', color: '#15803d',
+                        textTransform: 'uppercase', letterSpacing: '.05em', flexShrink: 0,
+                      }}>
+                        Planejamento
+                      </span>
+                      {p.title}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {(client as any)?.company_name ?? (client as any)?.name ?? '—'}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+                    {formatMonthYear(p.month_year)}
+                  </div>
+                  <div>
+                    <StatusBadge
+                      kind={PLANNING_STATUS_KIND[p.status] ?? 'rascunho'}
+                      label={PLANNING_STATUS_LABEL[p.status]}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Icon name="chevron" size={14} color="var(--muted-2)" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Mobile */}
+          <div className="campaigns-mobile-list">
+            {plannings.map((p) => {
+              const client = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+              return (
+                <Link
+                  key={p.id}
+                  href={`/admin/planejamento/${p.id}` as Route}
+                  className="campaign-mobile-card"
+                >
+                  <div className="campaign-mobile-top">
+                    <div className="campaign-mobile-icon">
+                      <Icon name="calendar" size={22} stroke={1.8} />
+                    </div>
+                    <div className="campaign-mobile-content">
+                      <div className="campaign-mobile-title-row">
+                        <div style={{ minWidth: 0 }}>
+                          <div className="campaign-mobile-title">{p.title}</div>
+                          <div className="muted tiny" style={{ marginTop: 5 }}>
+                            {(client as any)?.company_name ?? (client as any)?.name ?? '—'}
+                          </div>
+                        </div>
+                        <Icon name="chevron" size={16} color="var(--muted-2)" />
+                      </div>
+                      <div className="campaign-mobile-meta" style={{ marginTop: 10 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: '#f0fdf4', color: '#15803d', textTransform: 'uppercase' }}>
+                          Planejamento
+                        </span>
+                        <StatusBadge kind={PLANNING_STATUS_KIND[p.status] ?? 'rascunho'} label={PLANNING_STATUS_LABEL[p.status]} />
+                        <span className="muted tiny">{formatMonthYear(p.month_year)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

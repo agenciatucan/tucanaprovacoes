@@ -153,16 +153,46 @@ export default async function ClienteDetailPage({ params }: Props) {
             />
           </div>
 
-          {/* Campaigns */}
+          {/* Campaigns + Planejamentos (mesmo card) */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div className="eyebrow">Cronogramas</div>
-              <Link href={`/admin/cronogramas/novo`} className="btn-text tiny" style={{ color: 'var(--orange)', fontWeight: 600 }}>
-                <Icon name="plus" size={12} /> Novo
-              </Link>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {client.requires_planning_approval && (
+                  <Link href={"/admin/planejamento/novo" as Route} className="btn-text tiny" style={{ color: 'var(--green)', fontWeight: 600 }}>
+                    <Icon name="plus" size={12} /> Planejamento
+                  </Link>
+                )}
+                <Link href={`/admin/cronogramas/novo`} className="btn-text tiny" style={{ color: 'var(--orange)', fontWeight: 600 }}>
+                  <Icon name="plus" size={12} /> Cronograma
+                </Link>
+              </div>
             </div>
 
+            {/* Planejamentos de temas */}
+            {client.requires_planning_approval && planningSchedules && planningSchedules.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--muted-2)', marginBottom: 6 }}>
+                  Planejamentos
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {planningSchedules.map((p) => (
+                    <Link key={p.id} href={`/admin/planejamento/${p.id}` as Route} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--bg)', textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
+                        <div className="muted tiny" style={{ marginTop: 2 }}>{formatMonthYear(p.month_year)}</div>
+                      </div>
+                      <StatusBadge kind={PLANNING_STATUS_KIND[p.status] as Parameters<typeof StatusBadge>[0]['kind']} label={PLANNING_STATUS_LABEL[p.status]} />
+                    </Link>
+                  ))}
+                </div>
+                {(campaigns && campaigns.length > 0) && (
+                  <div style={{ borderTop: '1px solid var(--line-soft)', margin: '12px 0 10px' }} />
+                )}
+              </div>
+            )}
 
+            {/* Cronogramas */}
             {(!campaigns || campaigns.length === 0) ? (
               <p className="muted tiny">Nenhum cronograma ainda.</p>
             ) : (
@@ -185,33 +215,6 @@ export default async function ClienteDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-
-          {/* Planning schedules */}
-          {client.requires_planning_approval && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div className="eyebrow">Planejamentos</div>
-                <Link href={"/admin/planejamento/novo" as Route} className="btn-text tiny" style={{ color: 'var(--orange)', fontWeight: 600 }}>
-                  <Icon name="plus" size={12} /> Novo
-                </Link>
-              </div>
-              {(!planningSchedules || planningSchedules.length === 0) ? (
-                <p className="muted tiny">Nenhum planejamento ainda.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {planningSchedules.map((p) => (
-                    <Link key={p.id} href={`/admin/planejamento/${p.id}` as Route} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', textDecoration: 'none', color: 'inherit' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
-                        <div className="muted tiny" style={{ marginTop: 2 }}>{formatMonthYear(p.month_year)}</div>
-                      </div>
-                      <StatusBadge kind={PLANNING_STATUS_KIND[p.status] as Parameters<typeof StatusBadge>[0]['kind']} label={PLANNING_STATUS_LABEL[p.status]} />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Danger zone */}
           <div className="card" style={{ border: '1px solid #fecaca' }}>

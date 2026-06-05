@@ -110,6 +110,7 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
       router.push(`/admin/clientes/${(result as { success: true; data: { id: string } }).data.id}` as Route);
     } else {
       router.refresh();
+      setLoading(false);
     }
   }
 
