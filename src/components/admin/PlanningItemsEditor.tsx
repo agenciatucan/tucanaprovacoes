@@ -13,6 +13,7 @@ interface Item {
   content_type: ContentType;
   order_index: number;
   notes: string | null;
+  client_note: string | null;
 }
 
 interface Props {
@@ -82,6 +83,7 @@ export default function PlanningItemsEditor({ scheduleId, clientId, items: initi
         content_type: form.content_type,
         order_index:  prev.length,
         notes:        form.notes || null,
+        client_note:  null,
       }]);
     });
     setForm(BLANK_FORM);
@@ -176,40 +178,56 @@ export default function PlanningItemsEditor({ scheduleId, clientId, items: initi
                   </div>
                 ) : (
                   /* Display row */
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px', borderRadius: 10,
-                    border: '1px solid var(--line)', background: 'var(--bg)',
-                  }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-                      background: CONTENT_TYPE_COLOR[item.content_type] + '18',
-                      color: CONTENT_TYPE_COLOR[item.content_type],
-                      textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+                  <div>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 14px', borderRadius: item.client_note ? '10px 10px 0 0' : 10,
+                      border: `1px solid ${item.client_note ? '#fed7aa' : 'var(--line)'}`,
+                      borderBottom: item.client_note ? 'none' : undefined,
+                      background: 'var(--bg)',
                     }}>
-                      {CONTENT_TYPE_LABEL[item.content_type]}
-                    </span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.title}</span>
-                    {isEditable && (
-                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '4px 8px' }}
-                          onClick={() => startEdit(item)}
-                          title="Editar"
-                        >
-                          <Icon name="pencil" size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '4px 8px', color: '#b91c1c' }}
-                          onClick={() => handleDelete(item.id)}
-                          title="Remover"
-                        >
-                          <Icon name="trash-2" size={13} />
-                        </button>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                        background: CONTENT_TYPE_COLOR[item.content_type] + '18',
+                        color: CONTENT_TYPE_COLOR[item.content_type],
+                        textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+                      }}>
+                        {CONTENT_TYPE_LABEL[item.content_type]}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.title}</span>
+                      {isEditable && (
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 8px' }}
+                            onClick={() => startEdit(item)}
+                            title="Editar"
+                          >
+                            <Icon name="edit" size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 8px', color: '#b91c1c' }}
+                            onClick={() => handleDelete(item.id)}
+                            title="Remover"
+                          >
+                            <Icon name="trash" size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {item.client_note && (
+                      <div style={{
+                        padding: '8px 14px', borderRadius: '0 0 10px 10px',
+                        background: '#fff7ed', border: '1px solid #fed7aa',
+                        display: 'flex', alignItems: 'flex-start', gap: 6,
+                      }}>
+                        <Icon name="chat" size={12} color="#c2410c" />
+                        <span style={{ fontSize: 12, color: '#7c2d12', lineHeight: 1.5 }}>
+                          <strong style={{ color: '#c2410c' }}>Obs. do cliente:</strong> {item.client_note}
+                        </span>
                       </div>
                     )}
                   </div>

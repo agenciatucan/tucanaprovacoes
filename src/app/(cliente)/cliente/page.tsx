@@ -72,14 +72,22 @@ export default async function ClienteDashboard() {
     ? primaryClient?.clients[0]
     : primaryClient?.clients;
 
-  const { data: campaigns } = await supabase
-    .from('campaigns')
-    .select(
-      'id, name, type, status, period_label, start_date, created_at, content_items(id, general_status)'
-    )
-    .in('client_id', clientIds.length > 0 ? clientIds : ['__none__'])
-    .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
-    .order('created_at', { ascending: false });
+  const [{ data: campaigns }, { data: planningSchedules }] = await Promise.all([
+    supabase
+      .from('campaigns')
+      .select(
+        'id, name, type, status, period_label, start_date, created_at, content_items(id, general_status)'
+      )
+      .in('client_id', clientIds.length > 0 ? clientIds : ['__none__'])
+      .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('planning_schedules')
+      .select('id, title, month_year, status, approval_token')
+      .in('client_id', clientIds.length > 0 ? clientIds : ['__none__'])
+      .in('status', ['enviado_para_aprovacao', 'em_revisao', 'aprovado'])
+      .order('created_at', { ascending: false }),
+  ]);
 
   const campaignIds = campaigns?.map((campaign) => campaign.id) ?? [];
 
@@ -671,6 +679,75 @@ export default async function ClienteDashboard() {
                 );
               })}
             </div>
+          )}
+        </section>
+
+        {/* Planejamentos */}
+        <section>
+          {planningSchedules && planningSchedules.length > 0 && (
+            <>
+              <div className="cliente-section-head">
+                <div>
+                  <h2 className="h2" style={{ fontSize: 18 }}>
+                    Planejamentos de temas
+                  </h2>
+                  <p className="muted tiny" style={{ marginTop: 4 }}>
+                    Aprove os temas antes da produção dos posts.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+                {planningSchedules.map((p) => {
+                  const isPending = p.status === 'enviado_para_aprovacao';
+                  const isRevision = p.status === 'em_revisao';
+                  const isApproved = p.status === 'aprovado';
+                  const [year, month] = p.month_year.split('-');
+                  const monthLabel = new Date(Number(year), Number(month) - 1, 1)
+                    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                  return (
+                    <a
+                      key={p.id}
+                      href={`/acesso/planejamento/${p.approval_token}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'auto minmax(0,1fr) auto',
+                        gap: 14,
+                        alignItems: 'center',
+                        background: '#fff',
+                        border: `1px solid ${isPending ? 'var(--orange)' : 'var(--line)'}`,
+                        borderRadius: 18,
+                        padding: '16px 18px',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        transition: 'transform .15s ease, box-shadow .15s ease',
+                      }}
+                    >
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+                        background: isPending ? 'var(--orange)' : isRevision ? '#fef3c7' : '#f0fdf4',
+                        color: isPending ? '#fff' : isRevision ? '#92400e' : 'var(--green)',
+                        display: 'grid', placeItems: 'center',
+                      }}>
+                        <Icon name={isApproved ? 'check-circle' : 'calendar'} size={20} stroke={1.8} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.title}
+                        </div>
+                        <div className="muted tiny" style={{ marginTop: 3 }}>{monthLabel}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                        <StatusBadge
+                          kind={isPending ? 'aguardando' : isRevision ? 'revisao' : 'aprovado'}
+                          label={isPending ? 'Aguarda aprovação' : isRevision ? 'Em revisão' : 'Aprovado'}
+                        />
+                        <Icon name="chevron" size={14} color="var(--muted-2)" />
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
 

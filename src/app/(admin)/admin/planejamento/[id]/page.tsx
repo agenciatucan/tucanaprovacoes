@@ -120,12 +120,23 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
         <div style={{
           padding: '14px 18px', borderRadius: 12, marginBottom: 20,
           background: '#f0fdf4', border: '1px solid #bbf7d0',
-          display: 'flex', alignItems: 'center', gap: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
-          <Icon name="check-circle" size={16} color="#16a34a" />
-          <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
-            Planejamento aprovado pelo cliente. A equipe pode iniciar a produção.
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Icon name="check-circle" size={16} color="#16a34a" />
+            <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
+              Planejamento aprovado pelo cliente. A equipe pode iniciar a produção.
+            </span>
+          </div>
+          {(schedule as any).campaign_id && (
+            <Link
+              href={`/admin/cronogramas/${(schedule as any).campaign_id}` as Route}
+              className="btn btn-primary btn-sm"
+              style={{ flexShrink: 0 }}
+            >
+              <Icon name="calendar" size={13} /> Ver cronograma
+            </Link>
+          )}
         </div>
       )}
 
@@ -185,6 +196,15 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
             >
               <Icon name="user" size={14} /> Ver cliente
             </Link>
+            {(schedule as any).campaign_id && (
+              <Link
+                href={`/admin/cronogramas/${(schedule as any).campaign_id}` as Route}
+                className="btn btn-ghost btn-sm"
+                style={{ justifyContent: 'flex-start' }}
+              >
+                <Icon name="calendar" size={14} /> Ver cronograma gerado
+              </Link>
+            )}
             {isEditable && (
               <DeletePlanningButton scheduleId={id} />
             )}

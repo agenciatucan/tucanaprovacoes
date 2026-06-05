@@ -1,5 +1,5 @@
 "use server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import {
   planningScheduleSchema,
   planningItemSchema,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
+import { notifyPlanningForApproval } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -21,6 +22,18 @@ async function requireStaff(supabase: Awaited<ReturnType<typeof getSupabaseServe
     .single();
   if (!data || !["admin", "equipe"].includes(data.role)) return null;
   return data;
+}
+
+function makeToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function tokenExpiry(days = 60) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
 }
 
 // ── CRUD de planejamentos ─────────────────────────────────────
@@ -122,12 +135,12 @@ export async function sendPlanningForApproval(id: string): Promise<Result> {
     return { success: false, error: "Planejamento já foi enviado para aprovação" };
   }
 
-  const { data: itemsCount } = await supabase
+  const { count } = await supabase
     .from("planning_items")
     .select("id", { count: "exact", head: true })
     .eq("planning_schedule_id", id);
 
-  if ((itemsCount as unknown as number) === 0) {
+  if (!count || count === 0) {
     return { success: false, error: "Adicione ao menos um tema antes de enviar" };
   }
 
@@ -140,6 +153,10 @@ export async function sendPlanningForApproval(id: string): Promise<Result> {
 
   revalidatePath("/admin/planejamento");
   revalidatePath(`/admin/planejamento/${id}`);
+
+  // Notifica cliente via WhatsApp (fire-and-forget)
+  notifyPlanningForApproval(id).catch(() => {});
+
   return { success: true, data: undefined };
 }
 
@@ -234,12 +251,17 @@ export async function getPlanningByToken(
   return { success: true, data: { schedule, items: items ?? [] } };
 }
 
-export async function approvePlanning(token: string): Promise<Result> {
-  const supabase = await getSupabaseServerClient();
+// Salva observação do cliente em um tema específico (via token público)
+export async function savePlanningItemNote(
+  token: string,
+  itemId: string,
+  note: string
+): Promise<Result> {
+  const service = await getSupabaseServiceClient();
 
-  const { data: schedule } = await supabase
+  const { data: schedule } = await service
     .from("planning_schedules")
-    .select("id, status, client_id")
+    .select("id, status")
     .eq("approval_token", token)
     .gt("token_expires_at", new Date().toISOString())
     .single();
@@ -247,12 +269,118 @@ export async function approvePlanning(token: string): Promise<Result> {
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
 
-  const { error } = await supabase
+  const { data: item } = await service
+    .from("planning_items")
+    .select("id")
+    .eq("id", itemId)
+    .eq("planning_schedule_id", schedule.id)
+    .single();
+
+  if (!item) return { success: false, error: "Tema não encontrado" };
+
+  const { error } = await service
+    .from("planning_items")
+    .update({ client_note: note.trim() || null })
+    .eq("id", itemId);
+
+  if (error) return { success: false, error: "Erro ao salvar observação" };
+
+  return { success: true, data: undefined };
+}
+
+// Aprovação do planejamento — cria cronograma automaticamente
+export async function approvePlanning(token: string): Promise<Result> {
+  const service = await getSupabaseServiceClient();
+
+  const { data: schedule } = await service
+    .from("planning_schedules")
+    .select("id, status, client_id, title, month_year, created_by")
+    .eq("approval_token", token)
+    .gt("token_expires_at", new Date().toISOString())
+    .single();
+
+  if (!schedule) return { success: false, error: "Link inválido ou expirado" };
+  if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
+
+  // Marca como aprovado
+  const { error: approvalError } = await service
     .from("planning_schedules")
     .update({ status: "aprovado" })
     .eq("id", schedule.id);
 
-  if (error) return { success: false, error: "Erro ao aprovar planejamento" };
+  if (approvalError) return { success: false, error: "Erro ao aprovar planejamento" };
+
+  // Busca os itens para criar o cronograma
+  const { data: items } = await service
+    .from("planning_items")
+    .select("*")
+    .eq("planning_schedule_id", schedule.id)
+    .order("order_index");
+
+  if (items && items.length > 0) {
+    const parts = (schedule.month_year as string).split("-");
+    const year  = Number(parts[0]);
+    const month = Number(parts[1]);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate   = new Date(year, month, 0);
+    const periodLabel = startDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    const { data: campaign, error: campaignError } = await service
+      .from("campaigns")
+      .insert({
+        client_id:        schedule.client_id,
+        name:             schedule.title,
+        type:             "mensal",
+        status:           "em_producao",
+        period_label:     periodLabel,
+        start_date:       startDate.toISOString().split("T")[0],
+        end_date:         endDate.toISOString().split("T")[0],
+        is_locked:        false,
+        approval_token:   makeToken(),
+        token_expires_at: tokenExpiry(30),
+        created_by:       schedule.created_by,
+      })
+      .select("id")
+      .single();
+
+    if (!campaignError && campaign) {
+      const formatMap: Record<string, string> = {
+        arte:      "post_estatico",
+        reels:     "reels",
+        carrossel: "carrossel",
+        story:     "story",
+        outro:     "outro",
+      };
+
+      const contentItems = (items as Record<string, unknown>[]).map((item) => ({
+        campaign_id:     campaign.id,
+        client_id:       item.client_id,
+        week_label:      item.week_label,
+        order_index:     item.order_index,
+        format:          formatMap[item.content_type as string] ?? "outro",
+        title:           item.title,
+        theme:           item.title,
+        theme_status:    "aprovado", // temas aprovados pelo cliente
+        caption_status:  "aguardando",
+        artwork_status:  "aguardando",
+        general_status:  "pendente",
+        is_locked:       false,
+        created_by:      schedule.created_by,
+      }));
+
+      await service.from("content_items").insert(contentItems);
+
+      // Vincula cronograma ao planejamento
+      await service
+        .from("planning_schedules")
+        .update({ campaign_id: campaign.id })
+        .eq("id", schedule.id);
+
+      revalidatePath("/admin/cronogramas");
+      revalidatePath(`/admin/cronogramas/${campaign.id}`);
+      revalidatePath(`/admin/clientes/${schedule.client_id}`);
+    }
+  }
 
   revalidatePath("/admin/planejamento");
   revalidatePath(`/admin/planejamento/${schedule.id}`);
@@ -261,15 +389,16 @@ export async function approvePlanning(token: string): Promise<Result> {
 
 export async function requestPlanningAdjustment(
   token: string,
-  note: string
+  note: string,
+  itemNotes?: { itemId: string; note: string }[]
 ): Promise<Result> {
   if (!note || note.trim().length < 5) {
     return { success: false, error: "Descreva o ajuste solicitado (mínimo 5 caracteres)" };
   }
 
-  const supabase = await getSupabaseServerClient();
+  const service = await getSupabaseServiceClient();
 
-  const { data: schedule } = await supabase
+  const { data: schedule } = await service
     .from("planning_schedules")
     .select("id, status, client_id")
     .eq("approval_token", token)
@@ -279,12 +408,25 @@ export async function requestPlanningAdjustment(
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
 
-  const { error } = await supabase
+  const { error } = await service
     .from("planning_schedules")
     .update({ status: "em_revisao", notes: note.trim() })
     .eq("id", schedule.id);
 
   if (error) return { success: false, error: "Erro ao solicitar ajuste" };
+
+  // Salva notas por tema se fornecidas
+  if (itemNotes && itemNotes.length > 0) {
+    for (const { itemId, note: itemNote } of itemNotes) {
+      if (itemNote.trim()) {
+        await service
+          .from("planning_items")
+          .update({ client_note: itemNote.trim() })
+          .eq("id", itemId)
+          .eq("planning_schedule_id", schedule.id);
+      }
+    }
+  }
 
   revalidatePath("/admin/planejamento");
   revalidatePath(`/admin/planejamento/${schedule.id}`);

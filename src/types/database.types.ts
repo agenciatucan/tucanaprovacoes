@@ -68,6 +68,7 @@ export interface PlanningSchedule {
   approval_token: string;
   token_expires_at: string;
   notes: string | null;
+  campaign_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -82,6 +83,7 @@ export interface PlanningItem {
   content_type: PlanningContentType;
   order_index: number;
   notes: string | null;
+  client_note: string | null;
   created_at: string;
 }
 

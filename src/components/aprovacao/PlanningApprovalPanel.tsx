@@ -5,17 +5,20 @@ import { approvePlanning, requestPlanningAdjustment } from '@/actions/planning';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
+interface Item { id: string; title: string; }
+
 interface Props {
   token: string;
   isEditable: boolean;
   status: string;
+  items?: Item[];
 }
 
-export default function PlanningApprovalPanel({ token, isEditable, status }: Props) {
+export default function PlanningApprovalPanel({ token, isEditable, items = [] }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<'idle' | 'adjusting'>('idle');
-  const [note, setNote] = useState('');
+  const [mode, setMode]       = useState<'idle' | 'adjusting'>('idle');
+  const [note, setNote]       = useState('');
 
   if (!isEditable) {
     return (
@@ -39,7 +42,7 @@ export default function PlanningApprovalPanel({ token, isEditable, status }: Pro
       setLoading(false);
       return;
     }
-    toast.success('Planejamento aprovado com sucesso!');
+    toast.success('Planejamento aprovado! O cronograma foi criado.');
     router.refresh();
   }
 
@@ -90,13 +93,17 @@ export default function PlanningApprovalPanel({ token, isEditable, status }: Pro
               disabled={loading}
               onClick={() => setMode('adjusting')}
             >
-              <Icon name="message-square" size={16} /> Solicitar ajuste
+              <Icon name="chat" size={16} /> Solicitar ajuste
             </button>
           </div>
         )}
 
         {mode === 'adjusting' && (
           <div>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14, lineHeight: 1.5 }}>
+              Use o campo abaixo para um resumo geral do ajuste.
+              {items.length > 0 && ' Você também pode adicionar observações em cada tema acima.'}
+            </p>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
               Descreva o ajuste solicitado <span style={{ color: 'var(--orange)' }}>*</span>
             </label>
@@ -104,7 +111,7 @@ export default function PlanningApprovalPanel({ token, isEditable, status }: Pro
               autoFocus
               rows={4}
               className="input"
-              placeholder="Ex.: Gostaria de trocar o tema da Semana 2 por algo relacionado a asma em crianças…"
+              placeholder="Ex.: Gostaria de trocar o tema da Semana 2 por algo relacionado a saúde preventiva…"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               style={{ width: '100%', marginBottom: 12 }}

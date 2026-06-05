@@ -24,6 +24,41 @@ async function getClientWhatsApp(campaignId: string): Promise<{ phone: string; n
   };
 }
 
+// Disparado quando a equipe envia o planejamento de temas para aprovação
+export async function notifyPlanningForApproval(planningId: string) {
+  try {
+    const serviceClient = await getSupabaseServiceClient();
+
+    const { data } = await serviceClient
+      .from("planning_schedules")
+      .select("title, month_year, approval_token, clients(name, company_name, whatsapp)")
+      .eq("id", planningId)
+      .single();
+
+    if (!data) return;
+    const client = Array.isArray(data.clients) ? data.clients[0] : data.clients;
+    if (!client?.whatsapp) return;
+
+    const clientName = client.company_name ?? client.name ?? "Cliente";
+    const [year, month] = (data.month_year as string).split("-");
+    const monthLabel = new Date(Number(year), Number(month) - 1, 1)
+      .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://tucanaprovacoes.vercel.app";
+    const link   = `${appUrl}/acesso/planejamento/${data.approval_token}`;
+
+    const message =
+      `Olá, ${clientName}! 🎯\n\n` +
+      `O planejamento de temas *${data.title}* para ${monthLabel} está pronto para sua aprovação.\n\n` +
+      `Acesse o link abaixo para visualizar os temas propostos e aprovar ou solicitar ajustes:\n` +
+      `${link}`;
+
+    await sendWhatsApp(client.whatsapp as string, message);
+  } catch (err) {
+    logger.error("notifyPlanningForApproval", String(err));
+  }
+}
+
 // Disparado quando a equipe envia o cronograma para aprovação
 export async function notifyCampaignSentForApproval(campaignId: string) {
   try {

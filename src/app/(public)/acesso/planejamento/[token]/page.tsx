@@ -1,7 +1,9 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPlanningByToken } from '@/actions/planning';
 import PlanningApprovalPanel from '@/components/aprovacao/PlanningApprovalPanel';
+import PlanningItemNote from '@/components/aprovacao/PlanningItemNote';
 
 export const metadata: Metadata = { title: 'Aprovação de planejamento' };
 
@@ -121,6 +123,17 @@ export default async function PublicPlanningPage({ params }: Props) {
           </div>
         )}
 
+        {/* Instrução para editar temas */}
+        {isEditable && (
+          <div style={{
+            padding: '12px 16px', borderRadius: 12, marginBottom: 20,
+            background: 'var(--card)', border: '1px solid var(--line)',
+            fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5,
+          }}>
+            💡 <strong>Dica:</strong> Você pode adicionar uma observação em cada tema antes de enviar o retorno para a equipe.
+          </div>
+        )}
+
         {/* Temas por semana */}
         <div style={{ marginBottom: 28 }}>
           {weeks.length === 0 && (
@@ -129,29 +142,48 @@ export default async function PublicPlanningPage({ params }: Props) {
             </div>
           )}
           {weeks.map((week) => (
-            <div key={week} style={{ marginBottom: 24 }}>
+            <div key={week} style={{ marginBottom: 28 }}>
               <div style={{
                 fontSize: 12, fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '.07em', color: 'var(--muted-2)', marginBottom: 10,
               }}>
                 {week}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(byWeek[week] ?? []).map((item) => (
-                  <div key={item.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 16px', borderRadius: 12,
-                    border: '1px solid var(--line)', background: 'var(--card)',
-                  }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-                      background: (CONTENT_TYPE_COLOR[item.content_type] ?? '#6b7280') + '18',
-                      color: CONTENT_TYPE_COLOR[item.content_type] ?? '#6b7280',
-                      textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+                  <div key={item.id}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', borderRadius: 12,
+                      border: `1px solid ${item.client_note ? '#fed7aa' : 'var(--line)'}`,
+                      background: item.client_note ? '#fff7ed' : 'var(--card)',
                     }}>
-                      {CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{item.title}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+                        background: (CONTENT_TYPE_COLOR[item.content_type] ?? '#6b7280') + '18',
+                        color: CONTENT_TYPE_COLOR[item.content_type] ?? '#6b7280',
+                        textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+                      }}>
+                        {CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{item.title}</span>
+                    </div>
+                    {isEditable && (
+                      <PlanningItemNote
+                        token={token}
+                        itemId={item.id}
+                        initialNote={item.client_note ?? ''}
+                      />
+                    )}
+                    {!isEditable && item.client_note && (
+                      <div style={{
+                        marginTop: 6, padding: '8px 12px', borderRadius: 8,
+                        background: '#fff7ed', border: '1px solid #fed7aa',
+                        fontSize: 13, color: '#7c2d12',
+                      }}>
+                        Observação: {item.client_note}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -161,8 +193,28 @@ export default async function PublicPlanningPage({ params }: Props) {
 
         {/* Painel de aprovação */}
         {!isApproved && (
-          <PlanningApprovalPanel token={token} isEditable={isEditable} status={(schedule as any).status} />
+          <PlanningApprovalPanel
+            token={token}
+            isEditable={isEditable}
+            status={(schedule as any).status}
+            items={(items as any[]).map((it) => ({ id: it.id, title: it.title }))}
+          />
         )}
+
+        {/* Botão voltar ao portal */}
+        <div style={{ marginTop: 32, textAlign: 'center' }}>
+          <Link
+            href="/cliente"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 20px', borderRadius: 10,
+              border: '1px solid var(--line)', background: 'var(--card)',
+              textDecoration: 'none', fontSize: 13, color: 'var(--muted)',
+            }}
+          >
+            ← Voltar ao portal
+          </Link>
+        </div>
       </div>
     </div>
   );
