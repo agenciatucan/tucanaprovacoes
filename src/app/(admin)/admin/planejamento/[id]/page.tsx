@@ -17,6 +17,7 @@ const STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']> = {
   enviado_para_aprovacao: 'aguardando',
   em_revisao:             'revisao',
   aprovado:               'aprovado',
+  arquivado:              'rascunho',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
   enviado_para_aprovacao: 'Aguardando aprovação',
   em_revisao:             'Em revisão — cliente solicitou ajustes',
   aprovado:               'Aprovado pelo cliente',
+  arquivado:              'Arquivado',
 };
 
 function formatMonthYear(value: string) {

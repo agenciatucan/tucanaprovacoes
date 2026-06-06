@@ -43,6 +43,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
       return;
     }
     toast.success('Planejamento aprovado! O cronograma foi criado.');
+    setLoading(false);
     router.refresh();
   }
 
@@ -59,6 +60,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
       return;
     }
     toast.success('Solicitação de ajuste enviada!');
+    setLoading(false);
     router.refresh();
   }
 
