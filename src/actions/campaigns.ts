@@ -11,6 +11,7 @@ import {
 } from "@/lib/validations/schemas";
 import { logger } from "@/lib/logger";
 import { notifyCampaignSentForApproval, notifyCampaignUpdatedForReview } from "@/lib/whatsapp-notifications";
+import { createApprovalToken, createTokenExpiry } from "@/lib/utils";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -56,17 +57,6 @@ async function requireAdmin() {
   return data;
 }
 
-function createApprovalToken() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function createTokenExpirationDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  return date.toISOString();
-}
 
 function revalidateCampaignPaths(campaignId: string) {
   revalidatePath("/admin");
@@ -109,7 +99,7 @@ export async function createCampaign(
       status: "rascunho",
       is_locked: false,
       approval_token: approvalToken,
-      token_expires_at: createTokenExpirationDate(),
+      token_expires_at: createTokenExpiry(),
       created_by: profile.id,
     })
     .select("id")
@@ -260,11 +250,25 @@ export async function sendCampaignForApproval(
   return { success: true, data: undefined };
 }
 
+const VALID_CAMPAIGN_STATUSES = [
+  "rascunho",
+  "enviado_para_aprovacao",
+  "em_revisao",
+  "aprovado",
+  "em_producao",
+  "finalizado",
+  "arquivado",
+] as const;
+
 // ── Atualizar status manualmente ─────────────────────────────
 export async function updateCampaignStatus(
   campaignId: string,
   status: string
 ): Promise<Result> {
+  if (!VALID_CAMPAIGN_STATUSES.includes(status as typeof VALID_CAMPAIGN_STATUSES[number])) {
+    return { success: false, error: "Status inválido" };
+  }
+
   const profile = await requireAdmin();
 
   if (!profile) {
@@ -321,7 +325,7 @@ export async function regenerateApprovalToken(
     .from("campaigns")
     .update({
       approval_token: approvalToken,
-      token_expires_at: createTokenExpirationDate(),
+      token_expires_at: createTokenExpiry(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId)

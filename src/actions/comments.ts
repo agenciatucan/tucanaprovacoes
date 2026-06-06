@@ -39,6 +39,9 @@ export async function addInternalComment(
   if (!message?.trim() || message.trim().length < 3) {
     return { success: false, error: "Mensagem muito curta" };
   }
+  if (message.trim().length > 2000) {
+    return { success: false, error: "Mensagem muito longa (máximo 2000 caracteres)" };
+  }
 
   const supabase = await getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();

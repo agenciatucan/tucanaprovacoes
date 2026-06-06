@@ -4,17 +4,17 @@ import path from "path";
 const isProd = process.env.NODE_ENV === "production";
 const SUPABASE_HOSTNAME = "*.supabase.co";
 
-// CSP aplicada APENAS em produção.
-// Em desenvolvimento o Next.js/Turbopack usa HTTP, blob: URLs e WebSockets
-// que são bloqueados por uma CSP restrita — aplicar em prod evita quebrar o dev.
+// CSP de fallback para rotas estáticas (_next/static, etc.) não cobertas pelo middleware.
+// O middleware (src/middleware.ts) injeta CSP com nonce por request em produção,
+// eliminando 'unsafe-inline' para scripts. Esta versão estática é o backstop.
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://${SUPABASE_HOSTNAME}`,
   `media-src 'self' blob: https://${SUPABASE_HOSTNAME}`,
   `connect-src 'self' https://${SUPABASE_HOSTNAME} wss://${SUPABASE_HOSTNAME}`,
-  "font-src 'self'",
+  "font-src 'self' https://fonts.gstatic.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

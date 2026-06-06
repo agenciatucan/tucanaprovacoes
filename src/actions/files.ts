@@ -26,9 +26,16 @@ async function requireStaff(supabase: Awaited<ReturnType<typeof getSupabaseServe
 // O servidor usa a service role para criar uma URL temporária (válida 60s).
 // O browser faz o upload diretamente para essa URL — sem precisar de
 // policies de INSERT no storage.objects.
+// Padrão esperado: "<uuid-do-content-item>/<nome-do-arquivo>" sem traversal
+const SAFE_STORAGE_PATH_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^./][^/]*$/i;
+
 export async function createSignedUploadUrl(
   storagePath: string,
 ): Promise<Result<{ signedUrl: string; token: string; path: string }>> {
+  if (!storagePath || !SAFE_STORAGE_PATH_RE.test(storagePath)) {
+    return { success: false, error: "Caminho de arquivo inválido" };
+  }
+
   const supabase = await getSupabaseServerClient();
   const profile = await requireStaff(supabase);
   if (!profile) return { success: false, error: "Sem permissão" };

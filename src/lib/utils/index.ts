@@ -89,6 +89,19 @@ export function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max)}…`;
 }
 
+// ── Token de aprovação ────────────────────────────────────────
+export function createApprovalToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function createTokenExpiry(days = 30): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
 // ── Labels de formato do post ─────────────────────────────────
 export const FORMAT_LABEL: Record<string, string> = {
   reels:        "Reels",

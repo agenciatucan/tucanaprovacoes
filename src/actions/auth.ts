@@ -42,6 +42,17 @@ export async function signIn(input: unknown): Promise<Result> {
 export async function requestPasswordReset(email: string): Promise<Result> {
   if (!email?.trim()) return { success: false, error: "E-mail obrigatório" };
 
+  // Rate limit: máximo 5 solicitações por e-mail a cada 15 minutos
+  const rl = await checkRateLimit({
+    key: email.trim().toLowerCase(),
+    action: 'passwordReset',
+    limit: 5,
+    windowSeconds: 900,
+  });
+  if (!rl.allowed) {
+    return { success: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+  }
+
   const serviceClient = await getSupabaseServiceClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 

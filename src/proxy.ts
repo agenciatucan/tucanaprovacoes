@@ -1,10 +1,26 @@
-// ============================================================
-// PROXY — Substitui a antiga `middleware.ts` (nova convenção)
-// Mantém a mesma lógica: proteção de rotas no edge, valida sessão
-// ============================================================
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+
+const SUPABASE_HOSTNAME = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : '*.supabase.co';
+
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    `img-src 'self' data: blob: https://${SUPABASE_HOSTNAME}`,
+    `media-src 'self' blob: https://${SUPABASE_HOSTNAME}`,
+    `connect-src 'self' https://${SUPABASE_HOSTNAME} wss://${SUPABASE_HOSTNAME}`,
+    "font-src 'self' https://fonts.gstatic.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
 
 // Rotas que não precisam de autenticação
 const PUBLIC_ROUTES = ["/", "/login", "/acesso"];
@@ -17,7 +33,16 @@ const SAFE_REDIRECT_PREFIXES = ["/admin", "/cliente"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const response = NextResponse.next({ request });
+
+  const nonce = process.env.NODE_ENV === 'production'
+    ? Buffer.from(crypto.randomUUID()).toString('base64')
+    : undefined;
+
+  const requestHeaders = new Headers(request.headers);
+  if (nonce) requestHeaders.set('x-nonce', nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (nonce) response.headers.set('Content-Security-Policy', buildCsp(nonce));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

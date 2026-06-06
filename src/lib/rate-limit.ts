@@ -51,8 +51,8 @@ export async function checkRateLimit(opts: RateLimitOptions): Promise<RateLimitR
 
     return { allowed: true };
   } catch {
-    // Se o rate limiter falhar (ex: tabela inexistente), permitir a ação.
-    // Melhor falha aberta do que bloquear usuários legítimos.
-    return { allowed: true };
+    // Se o rate limiter falhar, bloquear a ação por precaução.
+    // Falha aberta permitiria brute-force durante janelas de instabilidade do banco.
+    return { allowed: false, retryAfterSeconds: 60 };
   }
 }
