@@ -4,6 +4,7 @@ import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import CalendarClientFilter from '@/components/admin/CalendarClientFilter';
 
 export const metadata: Metadata = { title: 'Calendário' };
 
@@ -703,23 +704,12 @@ export default async function CalendarioPage({
         </Link>
 
         <div className="calendar-filter-bar">
-          <form method="get" action="/admin/calendario" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {yearStr && <input type="hidden" name="year" value={yearStr} />}
-            {monthStr && <input type="hidden" name="month" value={monthStr} />}
-            <select
-              name="cliente"
-              defaultValue={clientFilter ?? ''}
-              className="calendar-filter-select"
-              onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
-            >
-              <option value="">Todos os clientes</option>
-              {(clientsForFilter ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.company_name ?? c.name}
-                </option>
-              ))}
-            </select>
-          </form>
+          <CalendarClientFilter
+            clients={clientsForFilter ?? []}
+            currentYear={yearStr}
+            currentMonth={monthStr}
+            currentClient={clientFilter}
+          />
         </div>
 
         <div className="calendar-legend">
