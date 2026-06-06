@@ -273,7 +273,7 @@ export default async function AtividadesPage({
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href={'/admin/kanban?tipo=atividade' as Route} className="btn btn-ghost" style={{ fontSize: 13 }}>
-            <Icon name="grid" size={15} /> Kanban
+            <Icon name="grid" size={15} /> Pipeline
           </Link>
           <Link href={'/admin/atividades/nova' as Route} className="btn btn-primary">
             <Icon name="plus" size={15} /> Nova atividade

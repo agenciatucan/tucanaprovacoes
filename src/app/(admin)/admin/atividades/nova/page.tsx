@@ -42,7 +42,7 @@ export default async function NovaAtividadePage() {
           <div className="eyebrow">Tucan · Interno</div>
           <h1 className="h1" style={{ marginTop: 6 }}>Nova atividade</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-            Crie uma tarefa interna que aparecerá no Kanban.
+            Crie uma tarefa interna que aparecerá no Pipeline.
           </p>
         </div>
         <Link href={'/admin/atividades' as Route} className="btn btn-ghost btn-sm">
