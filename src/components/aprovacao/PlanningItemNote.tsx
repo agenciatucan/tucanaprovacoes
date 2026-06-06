@@ -105,7 +105,7 @@ export default function PlanningItemNote({ token, itemId, initialNote }: Props) 
       }}
       onClick={() => { setDraft(''); setEditing(true); }}
     >
-      <Icon name="chat" size={13} color="#c2410c" /> Solicitar ajuste neste tema
+      <Icon name="chat" size={13} color="#c2410c" /> Sugerir alteração
     </button>
   );
 }
