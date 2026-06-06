@@ -503,6 +503,7 @@ export default async function AdminPostPage({
               script: post.script,
               reference_url: post.reference_url,
               internal_notes: post.internal_notes,
+              scheduled_date: post.scheduled_date,
               theme_status: post.theme_status,
               caption_status: post.caption_status,
               artwork_status: post.artwork_status,

@@ -105,6 +105,7 @@ export const contentItemSchema = z.object({
     .or(z.literal(""))
     .transform(v => v || null),
   internal_notes:   OPTIONAL_TEXT(1000),
+  scheduled_date:   DATE_STR.nullish().or(z.literal("")).transform(v => v || null),
 }).refine(
   (data) => !(data.format === "reels" && !data.script),
   { message: "Roteiro é obrigatório para posts do tipo Reels", path: ["script"] }

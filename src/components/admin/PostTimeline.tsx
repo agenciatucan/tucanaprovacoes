@@ -38,6 +38,7 @@ interface PostData {
   script: string | null;
   reference_url: string | null;
   internal_notes: string | null;
+  scheduled_date: string | null;
   theme_status: string;
   caption_status: string;
   artwork_status: string;
@@ -296,6 +297,7 @@ export default function PostTimeline({
               script:           post.script,
               reference_url:    post.reference_url,
               internal_notes:   post.internal_notes,
+              scheduled_date:   post.scheduled_date,
             }}
           />
         </div>

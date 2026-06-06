@@ -41,6 +41,7 @@ interface PostFormProps {
     script?: string | null;
     reference_url?: string | null;
     internal_notes?: string | null;
+    scheduled_date?: string | null;
   };
 }
 
@@ -69,6 +70,7 @@ export default function PostForm({
     script: initial?.script ?? '',
     reference_url: initial?.reference_url ?? '',
     internal_notes: initial?.internal_notes ?? '',
+    scheduled_date: initial?.scheduled_date ?? '',
   });
 
   function set(key: keyof typeof form, value: string | number) {
@@ -98,6 +100,7 @@ export default function PostForm({
       script: form.script,
       reference_url: form.reference_url,
       internal_notes: form.internal_notes,
+      scheduled_date: form.scheduled_date || null,
     };
 
     if (isEdit && initial) {
@@ -409,7 +412,7 @@ export default function PostForm({
           Referências e notas internas
         </div>
 
-        <div className="admin-post-form-grid-2">
+        <div className="admin-post-form-grid-3">
           <div className="field">
             <label className="field-label" htmlFor="reference_url">
               URL de referência{' '}
@@ -443,6 +446,24 @@ export default function PostForm({
               placeholder="Observações para a equipe…"
               value={form.internal_notes}
               onChange={(event) => set('internal_notes', event.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="scheduled_date">
+              Data de publicação{' '}
+              <span className="muted" style={{ fontWeight: 400 }}>
+                (somente equipe)
+              </span>
+            </label>
+
+            <input
+              id="scheduled_date"
+              type="date"
+              className="input"
+              value={form.scheduled_date}
+              onChange={(event) => set('scheduled_date', event.target.value)}
               disabled={loading}
             />
           </div>

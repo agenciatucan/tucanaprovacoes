@@ -46,6 +46,7 @@ type CalendarCampaign = {
   status: string;
   start_date: string;
   end_date: string | null;
+  client_id: string;
   clients:
     | {
         name: string | null;
@@ -62,6 +63,25 @@ type CalendarCampaign = {
         general_status: string;
       }[]
     | null;
+};
+
+type ScheduledPost = {
+  id: string;
+  title: string;
+  format: string;
+  general_status: string;
+  scheduled_date: string;
+  client_id: string;
+  campaign_id: string;
+  client_name: string;
+};
+
+const POST_FORMAT_SHORT: Record<string, string> = {
+  reels:        'Reels',
+  carrossel:    'Carrossel',
+  post_estatico:'Post',
+  story:        'Story',
+  outro:        'Outro',
 };
 
 function getClientName(client: CalendarCampaign['clients']) {
@@ -109,9 +129,9 @@ function getProgress(items: CalendarCampaign['content_items']) {
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; cliente?: string }>;
 }) {
-  const { year: yearStr, month: monthStr } = await searchParams;
+  const { year: yearStr, month: monthStr, cliente: clientFilter } = await searchParams;
 
   const today = new Date();
 
@@ -134,31 +154,67 @@ export default async function CalendarioPage({
 
   const supabase = await getSupabaseServerClient();
 
-  const { data: campaigns } = await supabase
-    .from('campaigns')
-    .select(
-      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
-    )
-    .gte('start_date', firstStr)
-    .lte('start_date', lastStr)
-    .neq('status', 'arquivado')
-    .order('start_date', { ascending: true });
+  const [
+    { data: campaigns },
+    { data: ongoingCampaigns },
+    { data: scheduledPostsRaw },
+    { data: clientsForFilter },
+  ] = await Promise.all([
+    supabase
+      .from('campaigns')
+      .select('id, name, status, start_date, end_date, client_id, clients(name, company_name), content_items(id, general_status)')
+      .gte('start_date', firstStr)
+      .lte('start_date', lastStr)
+      .neq('status', 'arquivado')
+      .order('start_date', { ascending: true }),
 
-  const { data: ongoingCampaigns } = await supabase
-    .from('campaigns')
-    .select(
-      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
-    )
-    .lt('start_date', firstStr)
-    .is('end_date', null)
-    .neq('status', 'arquivado')
-    .neq('status', 'finalizado')
-    .order('start_date', { ascending: true });
+    supabase
+      .from('campaigns')
+      .select('id, name, status, start_date, end_date, client_id, clients(name, company_name), content_items(id, general_status)')
+      .lt('start_date', firstStr)
+      .is('end_date', null)
+      .neq('status', 'arquivado')
+      .neq('status', 'finalizado')
+      .order('start_date', { ascending: true }),
 
-  const allCampaigns = [
+    supabase
+      .from('content_items')
+      .select('id, title, format, general_status, scheduled_date, client_id, campaign_id, clients(name, company_name)')
+      .gte('scheduled_date', firstStr)
+      .lte('scheduled_date', lastStr)
+      .not('scheduled_date', 'is', null),
+
+    supabase
+      .from('clients')
+      .select('id, name, company_name')
+      .eq('status', 'ativo')
+      .order('company_name', { ascending: true }),
+  ]);
+
+  const allCampaignsRaw = [
     ...((campaigns ?? []) as CalendarCampaign[]),
     ...((ongoingCampaigns ?? []) as CalendarCampaign[]),
   ];
+
+  const allCampaigns = clientFilter
+    ? allCampaignsRaw.filter((c) => c.client_id === clientFilter)
+    : allCampaignsRaw;
+
+  const scheduledPosts: ScheduledPost[] = (scheduledPostsRaw ?? [])
+    .filter((p) => !clientFilter || p.client_id === clientFilter)
+    .map((p) => {
+      const c = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+      return {
+        id: p.id,
+        title: p.title,
+        format: p.format,
+        general_status: p.general_status,
+        scheduled_date: p.scheduled_date as string,
+        client_id: p.client_id,
+        campaign_id: p.campaign_id,
+        client_name: c?.company_name ?? c?.name ?? 'Cliente',
+      };
+    });
 
   const byDay: Record<number, CalendarCampaign[]> = {};
 
@@ -175,6 +231,13 @@ export default async function CalendarioPage({
     }
 
     byDay[day].push(campaign);
+  });
+
+  const byDayPosts: Record<number, ScheduledPost[]> = {};
+  scheduledPosts.forEach((post) => {
+    const d = new Date(`${post.scheduled_date}T00:00:00`).getDate();
+    if (!byDayPosts[d]) byDayPosts[d] = [];
+    byDayPosts[d].push(post);
   });
 
   const cells: { day: number; muted: boolean; isoDate: string }[] = [];
@@ -419,6 +482,42 @@ export default async function CalendarioPage({
             text-overflow: ellipsis;
           }
 
+          .calendar-post-pill {
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.3;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            color: #1e40af;
+          }
+
+          .calendar-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+          }
+
+          .calendar-filter-select {
+            height: 36px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--ink);
+            min-width: 160px;
+          }
+
           /* ── mobile agenda (list cards) ── */
           .calendar-mobile-agenda { display: none; }
 
@@ -525,7 +624,9 @@ export default async function CalendarioPage({
 
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
             {allCampaigns.length} cronograma
-            {allCampaigns.length !== 1 ? 's' : ''} em{' '}
+            {allCampaigns.length !== 1 ? 's' : ''} · {scheduledPosts.length} post
+            {scheduledPosts.length !== 1 ? 's' : ''} agendado
+            {scheduledPosts.length !== 1 ? 's' : ''} em{' '}
             {monthTitle.split(' ')[0]}
             {pendingCount > 0 && (
               <>
@@ -601,6 +702,26 @@ export default async function CalendarioPage({
           Hoje
         </Link>
 
+        <div className="calendar-filter-bar">
+          <form method="get" action="/admin/calendario" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {yearStr && <input type="hidden" name="year" value={yearStr} />}
+            {monthStr && <input type="hidden" name="month" value={monthStr} />}
+            <select
+              name="cliente"
+              defaultValue={clientFilter ?? ''}
+              className="calendar-filter-select"
+              onChange={(e) => (e.target.form as HTMLFormElement)?.submit()}
+            >
+              <option value="">Todos os clientes</option>
+              {(clientsForFilter ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.company_name ?? c.name}
+                </option>
+              ))}
+            </select>
+          </form>
+        </div>
+
         <div className="calendar-legend">
           <StatusBadge kind="rascunho" />
           <StatusBadge kind="aguardando" />
@@ -624,6 +745,8 @@ export default async function CalendarioPage({
           {cells.map((cell, index) => {
             const isToday = !cell.muted && cell.isoDate === todayIso;
             const dayItems = !cell.muted ? byDay[cell.day] ?? [] : [];
+            const dayPosts = !cell.muted ? byDayPosts[cell.day] ?? [] : [];
+            const totalItems = dayItems.length + dayPosts.length;
             const isLastRow = index >= cells.length - 7;
             const isLastCol = (index + 1) % 7 === 0;
 
@@ -663,7 +786,7 @@ export default async function CalendarioPage({
                     {cell.day}
                   </div>
 
-                  {dayItems.length > 2 && (
+                  {totalItems > 2 && (
                     <span
                       style={{
                         fontSize: 10,
@@ -671,12 +794,12 @@ export default async function CalendarioPage({
                         color: 'var(--muted)',
                       }}
                     >
-                      {dayItems.length} camp.
+                      {totalItems} itens
                     </span>
                   )}
                 </div>
 
-                {dayItems.slice(0, 2).map((campaign) => {
+                {dayItems.slice(0, Math.max(0, 2 - dayPosts.length)).map((campaign) => {
                   const kind = STATUS_KIND[campaign.status] ?? 'rascunho';
                   const borderColor =
                     STATUS_BORDER[kind] ?? 'var(--muted-2)';
@@ -717,7 +840,22 @@ export default async function CalendarioPage({
                   );
                 })}
 
-                {dayItems.length > 2 && (
+                {dayPosts.slice(0, 2).map((post) => (
+                  <Link
+                    key={post.id}
+                    href={`/admin/posts/${post.id}` as Route}
+                    className="calendar-post-pill"
+                  >
+                    <span style={{ flexShrink: 0, opacity: 0.7 }}>
+                      {POST_FORMAT_SHORT[post.format] ?? post.format}
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {post.title}
+                    </span>
+                  </Link>
+                ))}
+
+                {totalItems > 2 && (
                   <div
                     style={{
                       fontSize: 11,
@@ -726,7 +864,7 @@ export default async function CalendarioPage({
                       paddingLeft: 4,
                     }}
                   >
-                    +{dayItems.length - 2} mais
+                    +{totalItems - 2} mais
                   </div>
                 )}
               </div>
