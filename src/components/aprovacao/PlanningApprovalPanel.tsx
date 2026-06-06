@@ -93,7 +93,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
               disabled={loading}
               onClick={() => setMode('adjusting')}
             >
-              <Icon name="chat" size={16} /> Solicitar ajuste
+              <Icon name="chat" size={16} /> Adicionar sugestões
             </button>
           </div>
         )}
