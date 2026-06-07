@@ -552,6 +552,7 @@ export default async function CalendarioPage({
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
+            text-decoration: none;
             display: flex;
             align-items: center;
             gap: 4px;
@@ -630,6 +631,8 @@ export default async function CalendarioPage({
           .cal-mob-dot-aprovado  { background: var(--st-aprovado-fg); }
           .cal-mob-dot-agendado  { background: var(--st-agendado-fg); }
           .cal-mob-dot-publicado { background: var(--st-publicado-fg); }
+          .cal-mob-dot-post      { background: #3b82f6; }
+          .cal-mob-dot-event     { background: #7c3aed; }
           .cal-mob-more          { font-size: 8px; font-weight: 900; color: var(--muted); line-height: 5px; }
 
           .cal-mob-list-head {
@@ -701,7 +704,7 @@ export default async function CalendarioPage({
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <a href="#agenda-interna" className="btn btn-ghost">
+          <a href="#agenda-interna-novo" className="btn btn-ghost">
             <Icon name="calendar" size={16} />
             Evento interno
           </a>
@@ -784,6 +787,8 @@ export default async function CalendarioPage({
           <StatusBadge kind="revisao" />
           <StatusBadge kind="aprovado" />
           <StatusBadge kind="publicado" />
+          <span className="status" style={{ background: '#eff6ff', color: '#1e40af' }}>Post agendado</span>
+          <span className="status" style={{ background: '#f5f3ff', color: '#5b21b6' }}>Evento interno</span>
         </div>
       </div>
 
@@ -921,14 +926,22 @@ export default async function CalendarioPage({
                 ))}
 
                 {eventsToShow.map((event) => (
-                  <div key={event.id} className="calendar-event-pill" title={event.title}>
+                  <a
+                    key={event.id}
+                    href={`#agenda-interna-${event.id}`}
+                    className="calendar-event-pill"
+                    title={event.title}
+                  >
                     <span style={{ flexShrink: 0, opacity: 0.7 }}>
                       {event.start_time ? event.start_time.slice(0, 5) : 'Interno'}
                     </span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {event.title}
                     </span>
-                  </div>
+                    {event.google_event_id && (
+                      <span style={{ flexShrink: 0, opacity: 0.6, fontSize: 9 }} aria-hidden="true">🔗</span>
+                    )}
+                  </a>
                 ))}
 
                 {totalItems > 2 && (
@@ -979,26 +992,34 @@ export default async function CalendarioPage({
             {cells.map((cell) => {
               const isToday = !cell.muted && cell.isoDate === todayIso;
               const dayItems = !cell.muted ? (byDay[cell.day] ?? []) : [];
+              const dayPostsM = !cell.muted ? (byDayPosts[cell.day] ?? []) : [];
+              const dayEventsM = !cell.muted ? (byDayEvents[cell.day] ?? []) : [];
+
+              const dotKinds = [
+                ...dayItems.map((c) => STATUS_KIND[c.status] ?? 'rascunho'),
+                ...dayPostsM.map(() => 'post'),
+                ...dayEventsM.map(() => 'event'),
+              ];
+
               return (
                 <div
                   key={cell.isoDate}
                   className={[
                     'cal-mob-cell',
                     cell.muted ? 'cal-mob-cell-muted' : '',
-                    !cell.muted && dayItems.length > 0 ? 'cal-mob-cell-has' : '',
+                    !cell.muted && dotKinds.length > 0 ? 'cal-mob-cell-has' : '',
                   ].join(' ')}
                 >
                   <span className={`cal-mob-num${isToday ? ' cal-mob-today' : ''}`}>
                     {cell.day}
                   </span>
-                  {dayItems.length > 0 && (
+                  {dotKinds.length > 0 && (
                     <div className="cal-mob-dots">
-                      {dayItems.slice(0, 3).map((c, i) => {
-                        const k = STATUS_KIND[c.status] ?? 'rascunho';
-                        return <span key={i} className={`cal-mob-dot cal-mob-dot-${k}`} />;
-                      })}
-                      {dayItems.length > 3 && (
-                        <span className="cal-mob-more">+{dayItems.length - 3}</span>
+                      {dotKinds.slice(0, 3).map((k, i) => (
+                        <span key={i} className={`cal-mob-dot cal-mob-dot-${k}`} />
+                      ))}
+                      {dotKinds.length > 3 && (
+                        <span className="cal-mob-more">+{dotKinds.length - 3}</span>
                       )}
                     </div>
                   )}
@@ -1014,6 +1035,8 @@ export default async function CalendarioPage({
               ['revisao',    'Em revisão'],
               ['aprovado',   'Aprovado'],
               ['publicado',  'Publicado'],
+              ['post',       'Post agendado'],
+              ['event',      'Evento interno'],
             ] as [string, string][]).map(([k, l]) => (
               <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' }}>
                 <span className={`cal-mob-dot cal-mob-dot-${k}`} />

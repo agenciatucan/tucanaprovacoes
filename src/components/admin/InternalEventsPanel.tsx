@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/Icon';
 import {
@@ -67,6 +67,37 @@ export default function InternalEventsPanel({ events, monthLabel, defaultDate, g
     setForm(EMPTY_FORM);
   }
 
+  // Permite que pills do calendário (#agenda-interna-novo / #agenda-interna-<id>)
+  // abram o formulário certo direto, sem precisar clicar em "Novo evento" de novo.
+  useEffect(() => {
+    function applyHash() {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (!hash.startsWith('agenda-interna-')) return;
+      const target = hash.slice('agenda-interna-'.length);
+
+      if (target === 'novo') {
+        openCreate();
+        requestAnimationFrame(() => {
+          document.getElementById('agenda-interna-novo')?.scrollIntoView({ block: 'start' });
+        });
+        return;
+      }
+
+      const event = events.find((e) => e.id === target);
+      if (event) {
+        openEdit(event);
+        requestAnimationFrame(() => {
+          document.getElementById(`agenda-interna-${event.id}`)?.scrollIntoView({ block: 'center' });
+        });
+      }
+    }
+
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title?.trim() || !form.event_date) return;
@@ -102,6 +133,8 @@ export default function InternalEventsPanel({ events, monthLabel, defaultDate, g
 
   return (
     <div className="card">
+      <span id="agenda-interna-novo" style={{ display: 'block', scrollMarginTop: 90 }} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">Agenda interna</div>
@@ -195,10 +228,12 @@ export default function InternalEventsPanel({ events, monthLabel, defaultDate, g
           {events.map((event) => (
             <div
               key={event.id}
+              id={`agenda-interna-${event.id}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 12px', borderRadius: 10,
                 background: 'var(--bg)', border: '1px solid var(--line-soft)',
+                scrollMarginTop: 90,
               }}
             >
               <div
