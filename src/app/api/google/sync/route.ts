@@ -4,9 +4,11 @@ import { getActiveGoogleConnection, type ActiveGoogleConnection } from '@/lib/go
 import {
   listEvents,
   insertEvent,
+  updateEvent,
   toGoogleEvent,
   fromGoogleEvent,
   type GoogleCalendarEvent,
+  type InternalEventRecord,
 } from '@/lib/google/calendar';
 import { logger } from '@/lib/logger';
 
@@ -116,12 +118,14 @@ async function pullFromGoogle(supabase: ServiceClient, connection: ActiveGoogleC
   return { nextSyncToken: page.nextSyncToken ?? null, total: page.events.length, ...stats };
 }
 
-/** Empurra para o Google eventos criados localmente cujo push inicial falhou (best-effort). */
+/** Empurra para o Google eventos criados/editados localmente (best-effort). */
 async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGoogleConnection) {
+  // Busca eventos que ainda não foram sincronizados (novos)
   const { data: pending } = await supabase
     .from('internal_events')
-    .select('id, title, description, location, event_date, start_time, end_time')
-    .is('google_event_id', null);
+    .select('id, title, description, location, event_date, start_time, end_time, google_event_id, updated_at, google_updated_at')
+    .is('google_event_id', null)
+    .order('created_at', { ascending: false });
 
   let pushed = 0;
   for (const event of pending ?? []) {
@@ -137,7 +141,36 @@ async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGo
     }
   }
 
-  return pushed;
+  // Também sincroniza eventos que foram editados localmente mas já têm google_event_id
+  const { data: needsUpdate } = await supabase
+    .from('internal_events')
+    .select('id, title, description, location, event_date, start_time, end_time, google_event_id, updated_at, google_updated_at')
+    .not('google_event_id', 'is', null);
+
+  let updated_count = 0;
+  for (const event of needsUpdate ?? []) {
+    if (!event.google_event_id) continue;
+    
+    // Verifica se o evento foi editado após a última sincronização
+    const localUpdated = new Date(event.updated_at as string);
+    const googleUpdated = event.google_updated_at ? new Date(event.google_updated_at as string) : null;
+    
+    if (!googleUpdated || localUpdated > googleUpdated) {
+      try {
+        const eventData = event as unknown as InternalEventRecord & { google_event_id: string | null };
+        const result = await updateEvent(connection.accessToken, connection.calendarId, event.google_event_id, toGoogleEvent(eventData));
+        await supabase
+          .from('internal_events')
+          .update({ google_updated_at: result.updated ?? null })
+          .eq('id', event.id as string);
+        updated_count++;
+      } catch (err) {
+        logger.error('googleCalendarSyncPushUpdated', err instanceof Error ? err.message : 'Erro desconhecido');
+      }
+    }
+  }
+
+  return { pushed, updated: updated_count };
 }
 
 export async function GET(request: Request) {
