@@ -54,7 +54,23 @@ export async function signInFormAction(formData: FormData): Promise<void> {
     redirect(`/login?error=${encodeURIComponent(result.error)}`);
   }
 
-  redirect("/");
+  // Após login bem-sucedido, redireciona para a rota apropriada baseado na role
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (profile && ['admin', 'equipe'].includes(profile.role)) {
+      redirect('/admin');
+    }
+  }
+  
+  redirect('/cliente');
 }
 
 // Recuperação de senha via service role (sem PKCE — funciona em qualquer browser)
