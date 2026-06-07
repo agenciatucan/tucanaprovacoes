@@ -38,6 +38,25 @@ export async function signIn(input: unknown): Promise<Result> {
   return { success: true, data: undefined };
 }
 
+// Action ligada diretamente ao `action` do <form> de login (além do onSubmit
+// client-side). Isso garante que, se o usuário tocar em "Entrar" antes do React
+// hidratar no celular (conexão lenta + autopreenchimento de senha), o navegador
+// faça um POST de verdade para esta action — em vez do submit nativo padrão
+// (GET para a própria URL com email/senha como query string, expondo a senha
+// na barra de endereço e recarregando a página com o formulário vazio).
+export async function signInFormAction(formData: FormData): Promise<void> {
+  const result = await signIn({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!result.success) {
+    redirect(`/login?error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect("/");
+}
+
 // Recuperação de senha via service role (sem PKCE — funciona em qualquer browser)
 export async function requestPasswordReset(email: string): Promise<Result> {
   if (!email?.trim()) return { success: false, error: "E-mail obrigatório" };

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from '@/actions/auth';
+import { signIn, signInFormAction } from '@/actions/auth';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
@@ -10,6 +10,8 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Cancela o submit nativo (que iria para a action de fallback abaixo) e
+    // assume o fluxo client-side, com loading/toast/redirect mais amigáveis.
     e.preventDefault();
     setLoading(true);
     const form = new FormData(e.currentTarget);
@@ -36,7 +38,7 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <form action={signInFormAction} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="field">
         <label className="field-label" htmlFor="email">E-mail</label>
         <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="seu@email.com.br" />

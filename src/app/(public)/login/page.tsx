@@ -4,7 +4,13 @@ import LoginForm from '@/components/auth/LoginForm';
 
 export const metadata: Metadata = { title: 'Entrar' };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
       {/* Left — brand panel */}
@@ -40,6 +46,11 @@ export default function LoginPage() {
               Use o e-mail cadastrado pela equipe Tucan.
             </p>
           </div>
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 13, fontWeight: 600 }}>
+              {error}
+            </div>
+          )}
           <LoginForm />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
             <div className="divider" style={{ flex: 1 }} />
