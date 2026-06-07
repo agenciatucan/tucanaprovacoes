@@ -145,7 +145,7 @@ export default async function KanbanPage({
   // ── Query: posts de cronograma ────────────────────────────────
   let postsQuery = supabase
     .from('content_items')
-    .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name, clients(name, company_name, status))')
+    .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name, status, clients(name, company_name, status))')
     .order('order_index');
 
   if (filterClient) postsQuery = postsQuery.eq('client_id', filterClient);
@@ -184,7 +184,7 @@ export default async function KanbanPage({
     .filter((item: any) => {
       const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
       const client   = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
-      return client?.status === 'ativo';
+      return client?.status === 'ativo' && !['finalizado', 'arquivado'].includes(campaign?.status);
     })
     .map((item: any) => {
     const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
