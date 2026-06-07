@@ -227,7 +227,10 @@ export default async function AdminDashboard() {
   const postsPerDay: Record<number, number> = {};
   for (const p of monthPostsRaw ?? []) {
     if (p.updated_at) {
-      const d = new Date(p.updated_at as string).getDate();
+      const d = parseInt(
+        new Date(p.updated_at as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: 'numeric' }),
+        10
+      );
       postsPerDay[d] = (postsPerDay[d] ?? 0) + 1;
     }
   }
@@ -598,7 +601,7 @@ export default async function AdminDashboard() {
                       </div>
                       <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
                         <span>{getClientName(client)}</span>
-                        <span>{new Date(comment.created_at as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+                        <span>{new Date(comment.created_at as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'America/Sao_Paulo' })}</span>
                       </div>
                     </Link>
                   );
