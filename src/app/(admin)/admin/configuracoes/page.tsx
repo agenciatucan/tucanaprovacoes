@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import TeamMemberRow from '@/components/admin/TeamMemberRow';
 import TeamInviteForm from '@/components/admin/TeamInviteForm';
+import GoogleCalendarConnectionCard from '@/components/admin/GoogleCalendarConnectionCard';
 import { Icon } from '@/components/ui/Icon';
 
 export const metadata: Metadata = { title: 'Configurações' };
@@ -28,6 +29,7 @@ export default async function ConfiguracoesPage() {
     { count: totalCampaigns },
     { count: totalPosts },
     { count: totalFiles },
+    { data: googleConnectionRow },
   ] = await Promise.all([
     supabase
       .from('user_profiles')
@@ -41,7 +43,16 @@ export default async function ConfiguracoesPage() {
       .from('content_items')
       .select('*', { count: 'exact', head: true }),
     supabase.from('files').select('*', { count: 'exact', head: true }),
+    supabase
+      .from('google_calendar_connections')
+      .select('google_account_email, last_synced_at')
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  const googleConnection = googleConnectionRow
+    ? { email: googleConnectionRow.google_account_email as string, lastSyncedAt: googleConnectionRow.last_synced_at as string | null }
+    : null;
 
   const adminsCount =
     teamMembers?.filter((member) => member.role === 'admin').length ?? 0;
@@ -372,6 +383,23 @@ export default async function ConfiguracoesPage() {
             ))
           )}
         </div>
+      </section>
+
+      {/* Integrações */}
+      <section style={{ marginBottom: 28 }}>
+        <div className="settings-section-head">
+          <div>
+            <h2 className="h2" style={{ fontSize: 20 }}>
+              Integrações
+            </h2>
+
+            <p className="muted tiny" style={{ marginTop: 5, lineHeight: 1.5 }}>
+              Conecte ferramentas externas para sincronizar a agenda interna da Tucan.
+            </p>
+          </div>
+        </div>
+
+        <GoogleCalendarConnectionCard connection={googleConnection} />
       </section>
 
       {/* Zona de acesso — legenda de roles */}
