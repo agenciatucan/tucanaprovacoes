@@ -14,12 +14,22 @@ import { logger } from '@/lib/logger';
 
 type ServiceClient = Awaited<ReturnType<typeof getSupabaseServiceClient>>;
 
-// Sem syncToken (primeira carga ou token expirado), buscamos eventos a partir
-// desta janela — cobre reuniões recentes sem precisar paginar o histórico todo.
+// Sem syncToken (primeira carga ou token expirado), buscamos eventos numa janela
+// limitada — cobre reuniões recentes e futuras sem expandir recorrências por décadas
+// (ex.: aniversários anuais), o que estourava o tempo de execução da rota (504).
 const FULL_SYNC_LOOKBACK_DAYS = 30;
+const FULL_SYNC_LOOKAHEAD_DAYS = 180;
 
 function lookbackTimeMin() {
   return new Date(Date.now() - FULL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function lookaheadTimeMax() {
+  return new Date(Date.now() + FULL_SYNC_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function lookbackDateOnly() {
+  return lookbackTimeMin().slice(0, 10);
 }
 
 function sameInstant(a: string | null, b: string | null | undefined) {
@@ -29,7 +39,7 @@ function sameInstant(a: string | null, b: string | null | undefined) {
 
 async function fetchAllEvents(
   connection: ActiveGoogleConnection,
-  baseOpts: { syncToken?: string; timeMin?: string }
+  baseOpts: { syncToken?: string; timeMin?: string; timeMax?: string }
 ) {
   const events: GoogleCalendarEvent[] = [];
   let pageToken: string | undefined;
@@ -100,14 +110,16 @@ async function applyGoogleEvent(supabase: ServiceClient, googleEvent: GoogleCale
 
 /** Puxa mudanças do Google Agenda (sync incremental via syncToken, com fallback para full resync). */
 async function pullFromGoogle(supabase: ServiceClient, connection: ActiveGoogleConnection) {
+  const fullSyncOpts = { timeMin: lookbackTimeMin(), timeMax: lookaheadTimeMax() };
+
   let page;
   try {
     page = connection.syncToken
       ? await fetchAllEvents(connection, { syncToken: connection.syncToken })
-      : await fetchAllEvents(connection, { timeMin: lookbackTimeMin() });
+      : await fetchAllEvents(connection, fullSyncOpts);
   } catch (err) {
     if (!(err instanceof Error) || err.name !== 'SyncTokenExpiredError') throw err;
-    page = await fetchAllEvents(connection, { timeMin: lookbackTimeMin() });
+    page = await fetchAllEvents(connection, fullSyncOpts);
   }
 
   const stats: PullStats = { created: 0, updated: 0, removed: 0, skipped: 0 };
@@ -141,11 +153,14 @@ async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGo
     }
   }
 
-  // Também sincroniza eventos que foram editados localmente mas já têm google_event_id
+  // Também sincroniza eventos editados localmente que já têm google_event_id —
+  // limitado à mesma janela do full resync (eventos antigos não são editados e
+  // ficariam escaneados a cada execução à toa, com a tabela só crescendo).
   const { data: needsUpdate } = await supabase
     .from('internal_events')
     .select('id, title, description, location, event_date, start_time, end_time, google_event_id, updated_at, google_updated_at')
-    .not('google_event_id', 'is', null);
+    .not('google_event_id', 'is', null)
+    .gte('event_date', lookbackDateOnly());
 
   let updated_count = 0;
   for (const event of needsUpdate ?? []) {
@@ -172,6 +187,10 @@ async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGo
 
   return { pushed, updated: updated_count };
 }
+
+// Limite de execução da função — a sincronização pode envolver muitas chamadas
+// sequenciais (Google Calendar API + Supabase) e o padrão da Vercel é curto demais.
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');

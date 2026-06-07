@@ -104,11 +104,12 @@ export async function fetchGoogleAccountEmail(accessToken: string): Promise<stri
 export async function listEvents(
   accessToken: string,
   calendarId: string,
-  opts: { syncToken?: string; timeMin?: string; pageToken?: string } = {}
+  opts: { syncToken?: string; timeMin?: string; timeMax?: string; pageToken?: string } = {}
 ): Promise<ListEventsResult> {
   const params = new URLSearchParams({ singleEvents: 'true', showDeleted: 'true' });
   if (opts.syncToken) params.set('syncToken', opts.syncToken);
   if (opts.timeMin) params.set('timeMin', opts.timeMin);
+  if (opts.timeMax) params.set('timeMax', opts.timeMax);
   if (opts.pageToken) params.set('pageToken', opts.pageToken);
 
   const res = await googleFetch(
