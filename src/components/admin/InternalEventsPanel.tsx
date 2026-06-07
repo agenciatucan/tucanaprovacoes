@@ -252,10 +252,16 @@ export default function InternalEventsPanel({ events, monthLabel, defaultDate, g
                 <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {event.title}
                 </div>
-                <div className="muted tiny" style={{ marginTop: 2 }}>
-                  {event.start_time ? `${event.start_time.slice(0, 5)}${event.end_time ? `–${event.end_time.slice(0, 5)}` : ''}` : 'Dia inteiro'}
-                  {event.location ? ` · ${event.location}` : ''}
-                  {event.google_event_id ? ' · 🔗 Google Agenda' : ''}
+                <div className="muted tiny" style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <span>
+                    {event.start_time ? `${event.start_time.slice(0, 5)}${event.end_time ? `–${event.end_time.slice(0, 5)}` : ''}` : 'Dia inteiro'}
+                    {event.location ? ` · ${event.location}` : ''}
+                  </span>
+                  {event.google_event_id && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      · <Icon name="link" size={11} /> Google Agenda
+                    </span>
+                  )}
                 </div>
               </div>
 

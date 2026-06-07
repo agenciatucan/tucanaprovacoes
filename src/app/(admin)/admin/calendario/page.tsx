@@ -939,7 +939,9 @@ export default async function CalendarioPage({
                       {event.title}
                     </span>
                     {event.google_event_id && (
-                      <span style={{ flexShrink: 0, opacity: 0.6, fontSize: 9 }} aria-hidden="true">🔗</span>
+                      <span style={{ flexShrink: 0, opacity: 0.6, display: 'inline-flex' }} aria-hidden="true">
+                        <Icon name="link" size={10} />
+                      </span>
                     )}
                   </a>
                 ))}
