@@ -93,6 +93,32 @@ export async function updatePlanningSchedule(
   return { success: true, data: undefined };
 }
 
+export async function archivePlanningSchedule(id: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { data: schedule } = await supabase
+    .from("planning_schedules")
+    .select("client_id, status")
+    .eq("id", id)
+    .single();
+
+  if (!schedule) return { success: false, error: "Planejamento não encontrado" };
+  if (schedule.status === "arquivado") return { success: false, error: "Planejamento já está arquivado" };
+
+  const { error } = await supabase
+    .from("planning_schedules")
+    .update({ status: "arquivado" })
+    .eq("id", id);
+
+  if (error) return { success: false, error: "Erro ao arquivar planejamento" };
+
+  revalidatePath("/admin/planejamento");
+  revalidatePath(`/admin/clientes/${schedule.client_id}`);
+  return { success: true, data: undefined };
+}
+
 export async function deletePlanningSchedule(id: string): Promise<Result> {
   const supabase = await getSupabaseServerClient();
   const profile = await requireStaff(supabase);

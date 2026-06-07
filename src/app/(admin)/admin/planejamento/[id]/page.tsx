@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import PlanningItemsEditor from '@/components/admin/PlanningItemsEditor';
 import SendPlanningButton from '@/components/admin/SendPlanningButton';
 import DeletePlanningButton from '@/components/admin/DeletePlanningButton';
+import ArchivePlanningButton from '@/components/admin/ArchivePlanningButton';
 import CopyLinkButton from '@/components/admin/CopyLinkButton';
 
 export const metadata: Metadata = { title: 'Planejamento' };
@@ -209,6 +210,9 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
             )}
             {isEditable && (
               <DeletePlanningButton scheduleId={id} />
+            )}
+            {schedule.status !== 'arquivado' && (
+              <ArchivePlanningButton scheduleId={id} />
             )}
           </div>
         </div>
