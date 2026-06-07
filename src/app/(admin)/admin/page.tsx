@@ -500,7 +500,7 @@ export default async function AdminDashboard() {
                     {/* Avatar */}
                     <div className="dash-crono-avatar" style={{ width: 40, height: 40, borderRadius: 11, background: client?.logo_url ? 'var(--bg)' : color, border: client?.logo_url ? '1px solid var(--line)' : 'none', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
                       {client?.logo_url
-                        ? <img src={client.logo_url} alt={clientName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        ? <img src={client.logo_url} alt={clientName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} />
                         : initials}
                     </div>
                     {/* Info */}
