@@ -35,6 +35,7 @@ export default async function PlanejamentoPage() {
   const { data: schedules } = await supabase
     .from('planning_schedules')
     .select('*, clients(id, name, company_name, logo_url)')
+    .neq('status', 'arquivado')
     .order('created_at', { ascending: false });
 
   return (
