@@ -134,10 +134,17 @@ export default async function CalendarioPage({
 }) {
   const { year: yearStr, month: monthStr, cliente: clientFilter } = await searchParams;
 
-  const today = new Date();
+  // Vercel roda em UTC — calcula "hoje" no horário de Brasília para evitar
+  // que a virada do dia em UTC (21h em BRT) adiante o calendário em 1 dia.
+  const now = new Date();
+  const brLocale = (opts: Intl.DateTimeFormatOptions) =>
+    now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', ...opts });
+  const todayYear  = parseInt(brLocale({ year: 'numeric' }), 10);
+  const todayMonth = parseInt(brLocale({ month: 'numeric' }), 10); // 1-indexado
+  const todayDay   = parseInt(brLocale({ day: 'numeric' }), 10);
 
-  const year = yearStr ? parseInt(yearStr) : today.getFullYear();
-  const month = monthStr ? parseInt(monthStr) - 1 : today.getMonth();
+  const year = yearStr ? parseInt(yearStr) : todayYear;
+  const month = monthStr ? parseInt(monthStr) - 1 : todayMonth - 1;
 
   const firstOfMonth = new Date(year, month, 1);
   const lastOfMonth = new Date(year, month + 1, 0);
@@ -288,9 +295,7 @@ export default async function CalendarioPage({
     nextMonthDay++;
   }
 
-  const todayIso = `${today.getFullYear()}-${String(
-    today.getMonth() + 1
-  ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayIso = `${todayYear}-${String(todayMonth).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
 
   const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', {
     month: 'long',
