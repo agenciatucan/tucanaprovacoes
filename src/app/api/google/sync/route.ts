@@ -4,11 +4,9 @@ import { getActiveGoogleConnection, type ActiveGoogleConnection } from '@/lib/go
 import {
   listEvents,
   insertEvent,
-  updateEvent,
   toGoogleEvent,
   fromGoogleEvent,
   type GoogleCalendarEvent,
-  type InternalEventRecord,
 } from '@/lib/google/calendar';
 import { logger } from '@/lib/logger';
 
@@ -26,10 +24,6 @@ function lookbackTimeMin() {
 
 function lookaheadTimeMax() {
   return new Date(Date.now() + FULL_SYNC_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
-}
-
-function lookbackDateOnly() {
-  return lookbackTimeMin().slice(0, 10);
 }
 
 function sameInstant(a: string | null, b: string | null | undefined) {
@@ -130,14 +124,23 @@ async function pullFromGoogle(supabase: ServiceClient, connection: ActiveGoogleC
   return { nextSyncToken: page.nextSyncToken ?? null, total: page.events.length, ...stats };
 }
 
-/** Empurra para o Google eventos criados/editados localmente (best-effort). */
+/**
+ * Empurra para o Google eventos criados localmente que ainda não têm google_event_id.
+ *
+ * OBS: a sincronização de *edições* locais (eventos que já têm google_event_id)
+ * foi removida — não dá pra distinguir "editado por um humano" de "tocado pelo
+ * próprio pull" comparando `updated_at` (mexe a cada escrita, inclusive pulls)
+ * com `google_updated_at` (só muda quando o Google reporta mudança). Isso fazia
+ * a rota marcar milhares de eventos recém-puxados como "precisam de push de volta",
+ * disparando uma chamada à API do Google por evento e estourando o tempo de
+ * execução (504). Reativar essa funcionalidade exige uma coluna dedicada (ex.:
+ * `synced_at`) gravada pelo próprio fluxo de sync, para servir de referência.
+ */
 async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGoogleConnection) {
-  // Busca eventos que ainda não foram sincronizados (novos)
   const { data: pending } = await supabase
     .from('internal_events')
-    .select('id, title, description, location, event_date, start_time, end_time, google_event_id, updated_at, google_updated_at')
-    .is('google_event_id', null)
-    .order('created_at', { ascending: false });
+    .select('id, title, description, location, event_date, start_time, end_time')
+    .is('google_event_id', null);
 
   let pushed = 0;
   for (const event of pending ?? []) {
@@ -153,39 +156,7 @@ async function pushPendingToGoogle(supabase: ServiceClient, connection: ActiveGo
     }
   }
 
-  // Também sincroniza eventos editados localmente que já têm google_event_id —
-  // limitado à mesma janela do full resync (eventos antigos não são editados e
-  // ficariam escaneados a cada execução à toa, com a tabela só crescendo).
-  const { data: needsUpdate } = await supabase
-    .from('internal_events')
-    .select('id, title, description, location, event_date, start_time, end_time, google_event_id, updated_at, google_updated_at')
-    .not('google_event_id', 'is', null)
-    .gte('event_date', lookbackDateOnly());
-
-  let updated_count = 0;
-  for (const event of needsUpdate ?? []) {
-    if (!event.google_event_id) continue;
-    
-    // Verifica se o evento foi editado após a última sincronização
-    const localUpdated = new Date(event.updated_at as string);
-    const googleUpdated = event.google_updated_at ? new Date(event.google_updated_at as string) : null;
-    
-    if (!googleUpdated || localUpdated > googleUpdated) {
-      try {
-        const eventData = event as unknown as InternalEventRecord & { google_event_id: string | null };
-        const result = await updateEvent(connection.accessToken, connection.calendarId, event.google_event_id, toGoogleEvent(eventData));
-        await supabase
-          .from('internal_events')
-          .update({ google_updated_at: result.updated ?? null })
-          .eq('id', event.id as string);
-        updated_count++;
-      } catch (err) {
-        logger.error('googleCalendarSyncPushUpdated', err instanceof Error ? err.message : 'Erro desconhecido');
-      }
-    }
-  }
-
-  return { pushed, updated: updated_count };
+  return { pushed };
 }
 
 // Limite de execução da função — a sincronização pode envolver muitas chamadas
