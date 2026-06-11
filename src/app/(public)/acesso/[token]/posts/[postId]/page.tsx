@@ -168,18 +168,6 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
             ) : null}
 
             <div className="space-y-5">
-              {post.description ? (
-                <div>
-                  <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                    Descrição
-                  </h2>
-
-                  <p className="whitespace-pre-line text-sm leading-6 text-zinc-700">
-                    {post.description}
-                  </p>
-                </div>
-              ) : null}
-
               {post.caption ? (
                 <div>
                   <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
@@ -192,15 +180,13 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
                     </p>
                   </div>
                 </div>
-              ) : null}
-
-              {!post.description && !post.caption ? (
+              ) : (
                 <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
                   <p className="text-sm text-zinc-500">
-                    Este post ainda não possui descrição ou legenda cadastrada.
+                    Este post ainda não possui legenda cadastrada.
                   </p>
                 </div>
-              ) : null}
+              )}
             </div>
           </section>
 
