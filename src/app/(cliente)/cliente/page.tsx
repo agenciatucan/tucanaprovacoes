@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
+import { timeAgo } from '@/lib/utils';
 import {
   CAMPAIGN_STATUS_KIND,
   CLIENT_VISIBLE_CAMPAIGN_STATUSES,
@@ -100,6 +101,18 @@ export default async function ClienteDashboard() {
           .eq('general_status', 'pendente')
           .order('order_index')
           .limit(8)
+      : { data: [] };
+
+  const { data: recentActivity } =
+    campaignIds.length > 0
+      ? await supabase
+          .from('comments_history')
+          .select('id, message, created_at, content_item_id, content_items(title)')
+          .in('campaign_id', campaignIds)
+          .eq('status', 'aberta')
+          .neq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+          .limit(5)
       : { data: [] };
 
   const pendingTotal =
@@ -252,6 +265,12 @@ export default async function ClienteDashboard() {
             grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
             gap: 22px;
             align-items: start;
+          }
+
+          .cliente-side-column {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
           }
 
           .cliente-section-head {
@@ -682,22 +701,23 @@ export default async function ClienteDashboard() {
           )}
         </section>
 
-        {/* Planejamentos */}
-        <section>
-          {planningSchedules && planningSchedules.length > 0 && (
-            <>
-              <div className="cliente-section-head">
-                <div>
-                  <h2 className="h2" style={{ fontSize: 18 }}>
-                    Planejamentos de temas
-                  </h2>
-                  <p className="muted tiny" style={{ marginTop: 4 }}>
-                    Aprove os temas antes da produção dos posts.
-                  </p>
+        <div className="cliente-side-column">
+          {/* Planejamentos */}
+          <section>
+            {planningSchedules && planningSchedules.length > 0 && (
+              <>
+                <div className="cliente-section-head">
+                  <div>
+                    <h2 className="h2" style={{ fontSize: 18 }}>
+                      Planejamentos de temas
+                    </h2>
+                    <p className="muted tiny" style={{ marginTop: 4 }}>
+                      Aprove os temas antes da produção dos posts.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
-                {planningSchedules.map((p) => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {planningSchedules.map((p) => {
                   const isPending = p.status === 'enviado_para_aprovacao';
                   const isRevision = p.status === 'em_revisao';
                   const isApproved = p.status === 'aprovado';
@@ -745,85 +765,146 @@ export default async function ClienteDashboard() {
                       </div>
                     </a>
                   );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Atividade recente */}
+          {recentActivity && recentActivity.length > 0 && (
+            <section>
+              <div className="cliente-section-head">
+                <div>
+                  <h2 className="h2" style={{ fontSize: 18 }}>
+                    Atividade recente
+                  </h2>
+
+                  <p className="muted tiny" style={{ marginTop: 4 }}>
+                    Novidades da equipe sobre seus posts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="cliente-pending-list">
+                {recentActivity.map((activity) => {
+                  const post = Array.isArray(activity.content_items)
+                    ? activity.content_items[0]
+                    : activity.content_items;
+
+                  return (
+                    <Link
+                      key={activity.id}
+                      href={`/cliente/posts/${activity.content_item_id}` as Route}
+                      className="cliente-pending-card"
+                    >
+                      <div className="cliente-format-box">
+                        <Icon name="message-circle" size={18} stroke={1.8} />
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        <div className="muted tiny">
+                          {timeAgo(activity.created_at)} · {post?.title ?? 'Post'}
+                        </div>
+
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 13,
+                            marginTop: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}
+                        >
+                          {activity.message}
+                        </div>
+                      </div>
+
+                      <Icon name="arrow" size={14} color="var(--muted-2)" />
+                    </Link>
+                  );
                 })}
               </div>
-            </>
+            </section>
           )}
-        </section>
 
-        {/* Pendências */}
-        <section>
-          <div className="cliente-section-head">
-            <div>
-              <h2 className="h2" style={{ fontSize: 18 }}>
-                Pendências
-              </h2>
+          {/* Pendências */}
+          <section>
+            <div className="cliente-section-head">
+              <div>
+                <h2 className="h2" style={{ fontSize: 18 }}>
+                  Pendências
+                </h2>
 
-              <p className="muted tiny" style={{ marginTop: 4 }}>
-                Posts esperando sua aprovação.
-              </p>
+                <p className="muted tiny" style={{ marginTop: 4 }}>
+                  Posts esperando sua aprovação.
+                </p>
+              </div>
             </div>
-          </div>
 
-          {!pendingItems || pendingItems.length === 0 ? (
-            <div className="cliente-empty-card">
-              <p className="muted" style={{ margin: 0 }}>
-                Nenhuma pendência no momento.
-              </p>
+            {!pendingItems || pendingItems.length === 0 ? (
+              <div className="cliente-empty-card">
+                <p className="muted" style={{ margin: 0 }}>
+                  Nenhuma pendência no momento.
+                </p>
 
-              <p className="muted tiny" style={{ margin: '6px 0 0' }}>
-                Quando houver posts aguardando aprovação, eles aparecerão aqui.
-              </p>
-            </div>
-          ) : (
-            <div className="cliente-pending-list">
-              {pendingItems.map((item) => {
-                const campaign = Array.isArray(item.campaigns)
-                  ? item.campaigns[0]
-                  : item.campaigns;
+                <p className="muted tiny" style={{ margin: '6px 0 0' }}>
+                  Quando houver posts aguardando aprovação, eles aparecerão aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="cliente-pending-list">
+                {pendingItems.map((item) => {
+                  const campaign = Array.isArray(item.campaigns)
+                    ? item.campaigns[0]
+                    : item.campaigns;
 
-                const format = item.format ?? 'outro';
+                  const format = item.format ?? 'outro';
 
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/cliente/posts/${item.id}` as Route}
-                    className="cliente-pending-card"
-                  >
-                    <div className="cliente-format-box">
-                      {FMT_LABEL[format]?.charAt(0) ?? 'P'}
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <div className="muted tiny">
-                        {item.week_label} · {FMT_LABEL[format] ?? format}
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/cliente/posts/${item.id}` as Route}
+                      className="cliente-pending-card"
+                    >
+                      <div className="cliente-format-box">
+                        {FMT_LABEL[format]?.charAt(0) ?? 'P'}
                       </div>
 
-                      <div
-                        style={{
-                          fontWeight: 800,
-                          fontSize: 14,
-                          marginTop: 2,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {item.title}
+                      <div style={{ minWidth: 0 }}>
+                        <div className="muted tiny">
+                          {item.week_label} · {FMT_LABEL[format] ?? format}
+                        </div>
+
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            fontSize: 14,
+                            marginTop: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.title}
+                        </div>
+
+                        <div className="muted tiny" style={{ marginTop: 4 }}>
+                          {campaign?.name ?? 'Cronograma'}
+                        </div>
                       </div>
 
-                      <div className="muted tiny" style={{ marginTop: 4 }}>
-                        {campaign?.name ?? 'Cronograma'}
-                      </div>
-                    </div>
-
-                    <Icon name="arrow" size={14} color="var(--muted-2)" />
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                      <Icon name="arrow" size={14} color="var(--muted-2)" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
