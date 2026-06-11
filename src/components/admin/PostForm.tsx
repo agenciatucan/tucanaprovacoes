@@ -389,12 +389,11 @@ export default function PostForm({
         {isReels && (
           <div className="field">
             <label className="field-label" htmlFor="script">
-              Roteiro <span style={{ color: 'var(--orange)' }}>*</span>
+              Roteiro
             </label>
 
             <textarea
               id="script"
-              required
               rows={6}
               className="input"
               placeholder="Roteiro completo para o Reels, com cenas, falas e referências visuais…"
