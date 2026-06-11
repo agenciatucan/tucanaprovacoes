@@ -132,7 +132,7 @@ export default async function PostDetailPage({ params }: Props) {
   const { data: post } = await supabase
     .from('content_items')
     .select(
-      '*, campaigns(id, name, status, client_id, is_locked, clients(name, company_name))'
+      '*, campaigns(id, name, status, client_id, is_locked, clients(name, company_name, logo_url))'
     )
     .eq('id', id)
     .single();
@@ -144,6 +144,13 @@ export default async function PostDetailPage({ params }: Props) {
     : post.campaigns;
 
   if (!campaign) notFound();
+
+  const client = Array.isArray(campaign.clients)
+    ? campaign.clients[0]
+    : campaign.clients;
+
+  const clientName = client?.company_name || client?.name || null;
+  const clientLogoUrl = client?.logo_url || null;
 
   if (!isCampaignVisibleToClient(campaign.status)) {
     notFound();
@@ -353,6 +360,10 @@ export default async function PostDetailPage({ params }: Props) {
           files={files ?? []}
           postTitle={postTitle}
           postFormat={fmtLabel}
+          format={postFormat}
+          caption={post.caption}
+          clientName={clientName}
+          clientLogoUrl={clientLogoUrl}
         />
 
         <div className="client-post-content-stack">

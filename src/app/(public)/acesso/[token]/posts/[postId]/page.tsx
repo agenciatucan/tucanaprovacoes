@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getPublicPostForApproval } from '@/actions/public-approvals';
 import { getPublicSession } from '@/actions/public-access';
 import PublicApprovalPanel from '@/components/aprovacao/PublicApprovalPanel';
+import MediaGallery from '@/components/cliente/MediaGallery';
 
 type PublicPostPageProps = {
   params: Promise<{
@@ -54,13 +55,6 @@ function getPostType(post: {
   return raw ? (FORMAT_LABEL[raw] ?? raw) : 'Post';
 }
 
-function getPostMedia(post: {
-  image_url?: string | null;
-  media_url?: string | null;
-}) {
-  return post.image_url || post.media_url || null;
-}
-
 export default async function PublicPostPage({ params }: PublicPostPageProps) {
   const { token, postId } = await params;
 
@@ -103,14 +97,19 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
     );
   }
 
-  const { campaign, post } = result.data;
+  const { campaign, post, files } = result.data;
 
   const session = await getPublicSession(campaign.id);
   const visitorName = session?.visitor_name ?? null;
 
+  const client = Array.isArray(campaign.clients)
+    ? campaign.clients[0]
+    : campaign.clients;
+  const clientName = client?.company_name || client?.name || null;
+  const clientLogoUrl = client?.logo_url || null;
+
   const postDate = getPostDate(post);
   const postType = getPostType(post);
-  const postMedia = getPostMedia(post);
 
   return (
     <main className="min-h-screen bg-[#f6f6f6] px-4 py-8">
@@ -154,13 +153,16 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
               </div>
             </div>
 
-            {postMedia ? (
-              <div className="mb-5 overflow-hidden rounded-2xl border border-zinc-100 bg-zinc-50">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={postMedia}
-                  alt={post.title || 'Imagem do post'}
-                  className="h-auto w-full object-cover"
+            {files.length > 0 ? (
+              <div className="mb-5">
+                <MediaGallery
+                  files={files}
+                  postTitle={post.title || 'Post sem título'}
+                  postFormat={postType}
+                  format={post.format}
+                  caption={post.caption}
+                  clientName={clientName}
+                  clientLogoUrl={clientLogoUrl}
                 />
               </div>
             ) : null}

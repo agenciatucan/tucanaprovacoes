@@ -11,6 +11,13 @@ type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
 
+type ClientData = {
+  id?: string;
+  name?: string | null;
+  company_name?: string | null;
+  logo_url?: string | null;
+};
+
 type CampaignData = {
   id: string;
   client_id: string;
@@ -18,6 +25,15 @@ type CampaignData = {
   title?: string | null;
   approval_token?: string | null;
   status?: string | null;
+  clients?: ClientData | ClientData[] | null;
+};
+
+type FileData = {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size_bytes: number | null;
 };
 
 type PostData = {
@@ -51,6 +67,7 @@ type PostData = {
 type PublicPostData = {
   campaign: CampaignData;
   post: PostData;
+  files: FileData[];
 };
 
 // Todas as ações públicas usam service role (sem sessão), mas cada query
@@ -68,7 +85,7 @@ async function findCampaignByToken(token: string): Promise<{
 
   const { data, error } = await supabase
     .from('campaigns')
-    .select('id, client_id, name, status, approval_token')
+    .select('id, client_id, name, status, approval_token, clients(name, company_name, logo_url)')
     .eq('approval_token', token)
     .maybeSingle();
 
@@ -169,11 +186,19 @@ export async function getPublicPostForApproval(
       type: post.format,
     };
 
+    const { data: files } = await supabase
+      .from('files')
+      .select('id, file_name, file_url, file_type, file_size_bytes')
+      .eq('content_item_id', postId)
+      .eq('visible_to_client', true)
+      .order('created_at', { ascending: true });
+
     return {
       success: true,
       data: {
         campaign: campaignResult.data,
         post: normalizedPost,
+        files: (files as FileData[] | null) ?? [],
       },
     };
   } catch (error) {

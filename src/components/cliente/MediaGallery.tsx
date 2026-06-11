@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import InstagramCarouselPreview from '@/components/aprovacao/InstagramCarouselPreview';
 
 interface FileItem {
   id: string;
@@ -14,6 +15,10 @@ interface Props {
   files: FileItem[];
   postTitle: string;
   postFormat: string;
+  format?: string | null;
+  caption?: string | null;
+  clientName?: string | null;
+  clientLogoUrl?: string | null;
 }
 
 const MEDIA_TYPES = ['imagem', 'video', 'capa'];
@@ -25,13 +30,57 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function MediaGallery({ files, postTitle, postFormat }: Props) {
+export default function MediaGallery({
+  files,
+  postTitle,
+  postFormat,
+  format,
+  caption,
+  clientName,
+  clientLogoUrl,
+}: Props) {
   const mediaFiles = files.filter((f) => MEDIA_TYPES.includes(f.file_type));
   const otherFiles = files.filter((f) => !MEDIA_TYPES.includes(f.file_type));
   const [current, setCurrent] = useState(0);
 
   const noFiles = files.length === 0;
   const currentFile = mediaFiles[current];
+
+  const carouselImages = mediaFiles.filter((f) => f.file_type !== 'video');
+
+  if (format === 'carrossel' && carouselImages.length > 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <InstagramCarouselPreview
+          images={carouselImages}
+          caption={caption}
+          clientName={clientName || postTitle}
+          clientLogoUrl={clientLogoUrl}
+        />
+
+        {otherFiles.length > 0 && (
+          <div>
+            <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>Arquivos adicionais</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {otherFiles.map((f) => (
+                <a
+                  key={f.id}
+                  href={f.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="chip chip-outline"
+                  style={{ textDecoration: 'none', color: 'var(--ink-2)' }}>
+                  <Icon name="file" size={12} />
+                  {f.file_name}
+                  {f.file_size_bytes ? ` · ${formatBytes(f.file_size_bytes)}` : ''}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
