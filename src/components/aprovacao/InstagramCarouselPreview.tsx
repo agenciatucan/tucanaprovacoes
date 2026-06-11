@@ -134,7 +134,7 @@ export default function InstagramCarouselPreview({
           style={{
             position: 'relative',
             width: '100%',
-            aspectRatio: '1 / 1',
+            aspectRatio: '1080 / 1350',
             background: '#000',
             overflow: 'hidden',
           }}
