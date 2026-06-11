@@ -320,6 +320,9 @@ export default async function AdminPostPage({
   const formatLabel = FORMAT_LABEL[format] ?? format;
   const formatClass = FORMAT_CLASS[format] ?? 'fmt';
 
+  const coverFiles = (postFiles ?? []).filter((f) => f.file_type === 'capa');
+  const otherFiles = (postFiles ?? []).filter((f) => f.file_type !== 'capa');
+
   return (
     <div className="page admin-post-page" style={{ maxWidth: 1280 }}>
       <style>
@@ -564,6 +567,30 @@ export default async function AdminPostPage({
             </div>
           </div>
 
+          {format === 'reels' && (
+            <div className="card admin-post-sidebar-card">
+              <div className="admin-post-sidebar-title">
+                <Icon name="image" size={15} color="var(--orange)" />
+                <div className="eyebrow">Capa do Reels</div>
+              </div>
+
+              <MediaUploader
+                contentItemId={post.id}
+                campaignId={campaign?.id ?? ''}
+                clientId={campaign?.client_id ?? ''}
+                initialFiles={coverFiles}
+                accept="image/*"
+                forcedFileType="capa"
+                maxFiles={1}
+                dropLabel="Enviar capa do Reels"
+              />
+
+              <div className="admin-post-file-note">
+                Imagem de capa exibida junto ao vídeo para o cliente aprovar.
+              </div>
+            </div>
+          )}
+
           <div className="card admin-post-sidebar-card">
             <div className="admin-post-sidebar-title">
               <Icon name="upload" size={15} color="var(--orange)" />
@@ -574,7 +601,7 @@ export default async function AdminPostPage({
               contentItemId={post.id}
               campaignId={campaign?.id ?? ''}
               clientId={campaign?.client_id ?? ''}
-              initialFiles={postFiles ?? []}
+              initialFiles={otherFiles}
             />
 
             <div className="admin-post-file-note">

@@ -18,6 +18,10 @@ interface Props {
   campaignId: string;
   clientId: string;
   initialFiles: FileRecord[];
+  accept?: string;
+  forcedFileType?: 'imagem' | 'video' | 'pdf' | 'roteiro' | 'referencia' | 'capa';
+  maxFiles?: number;
+  dropLabel?: string;
 }
 
 // MIME types explicitamente permitidos — bloqueia SVG (XSS), executáveis, etc.
@@ -60,7 +64,7 @@ function formatBytes(bytes: number): string {
 // ── Thumbnail / Preview de arquivo ───────────────────────────
 
 function FilePreview({ file }: { file: FileRecord }) {
-  const isImage = file.file_type === 'imagem';
+  const isImage = file.file_type === 'imagem' || file.file_type === 'capa';
   const isVideo = file.file_type === 'video';
   const isPdf   = file.file_type === 'pdf';
 
@@ -137,7 +141,7 @@ function AttachIcon() {
 
 // ── Componente principal ──────────────────────────────────────
 
-export default function MediaUploader({ contentItemId, campaignId, clientId, initialFiles }: Props) {
+export default function MediaUploader({ contentItemId, campaignId, clientId, initialFiles, accept, forcedFileType, maxFiles, dropLabel }: Props) {
   const [files, setFiles] = useState<FileRecord[]>(initialFiles);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -151,6 +155,11 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
     const supabase = getSupabaseBrowserClient();
 
     for (const file of Array.from(selected)) {
+      if (maxFiles && files.length >= maxFiles) {
+        toast.error(`Remova o arquivo atual antes de enviar um novo (limite de ${maxFiles}).`);
+        continue;
+      }
+
       const validationError = validateFile(file);
       if (validationError) {
         toast.error(validationError);
@@ -191,7 +200,7 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
         file_name: file.name,
         file_url: publicUrl,
         storage_path: storagePath,
-        file_type: inferFileType(file.type),
+        file_type: forcedFileType ?? inferFileType(file.type),
         file_size_bytes: file.size,
         visible_to_client: true,
       });
@@ -203,7 +212,7 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
             id: result.data.id,
             file_name: file.name,
             file_url: publicUrl,
-            file_type: inferFileType(file.type),
+            file_type: forcedFileType ?? inferFileType(file.type),
             file_size_bytes: file.size,
             visible_to_client: true,
           },
@@ -381,7 +390,7 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
           ref={inputRef}
           type="file"
           multiple
-          accept="image/*,video/*,application/pdf,application/zip,text/*"
+          accept={accept ?? 'image/*,video/*,application/pdf,application/zip,text/*'}
           style={{ display: 'none' }}
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
           disabled={isDisabled}
@@ -401,7 +410,9 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
               <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
             </svg>
             <span className="muted tiny">
-              {files.length > 0 ? 'Adicionar mais arquivos' : 'Arraste ou clique para adicionar'}
+              {files.length > 0
+                ? 'Adicionar mais arquivos'
+                : dropLabel ?? 'Arraste ou clique para adicionar'}
             </span>
           </div>
         )}

@@ -82,6 +82,88 @@ export default function MediaGallery({
     );
   }
 
+  if (format === 'reels' && mediaFiles.some((f) => f.file_type === 'capa' || f.file_type === 'video')) {
+    const capaFile = mediaFiles.find((f) => f.file_type === 'capa');
+    const videoFile = mediaFiles.find((f) => f.file_type === 'video');
+    const extraFiles = [...mediaFiles.filter((f) => f !== capaFile && f !== videoFile), ...otherFiles];
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          borderRadius: 'var(--r-lg)',
+          padding: 24,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+        }}>
+          {videoFile ? (
+            <div style={{ width: '100%', maxWidth: 320 }}>
+              <video
+                src={videoFile.file_url}
+                controls
+                style={{ width: '100%', borderRadius: 14, background: '#000', display: 'block' }}
+              />
+            </div>
+          ) : (
+            <div style={{ width: '100%', maxWidth: 320, aspectRatio: '9 / 16', borderRadius: 16, background: '#e8f0e5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
+                Vídeo do Reels ainda não enviado
+              </div>
+            </div>
+          )}
+
+          {capaFile && (
+            <div style={{ width: '100%', maxWidth: 320 }}>
+              <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8, textAlign: 'center' }}>Capa do Reels</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={capaFile.file_url}
+                alt="Capa do Reels"
+                style={{ width: '100%', borderRadius: 14, display: 'block', objectFit: 'cover', border: '1px solid var(--line)' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Download buttons */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {videoFile && (
+            <a href={videoFile.file_url} download target="_blank" rel="noreferrer" className="chip chip-outline" style={{ textDecoration: 'none', color: 'var(--ink-2)' }}>
+              <Icon name="download" size={11} /> Baixar vídeo
+            </a>
+          )}
+          {capaFile && (
+            <a href={capaFile.file_url} download target="_blank" rel="noreferrer" className="chip chip-outline" style={{ textDecoration: 'none', color: 'var(--ink-2)' }}>
+              <Icon name="download" size={11} /> Baixar capa
+            </a>
+          )}
+        </div>
+
+        {/* Other downloadable files */}
+        {extraFiles.length > 0 && (
+          <div>
+            <div className="eyebrow" style={{ fontSize: 10, marginBottom: 8 }}>Arquivos adicionais</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {extraFiles.map((f) => (
+                <a
+                  key={f.id}
+                  href={f.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="chip chip-outline"
+                  style={{ textDecoration: 'none', color: 'var(--ink-2)' }}>
+                  <Icon name="file" size={12} />
+                  {f.file_name}
+                  {f.file_size_bytes ? ` · ${formatBytes(f.file_size_bytes)}` : ''}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Main media viewer */}
