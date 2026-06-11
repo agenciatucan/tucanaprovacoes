@@ -23,12 +23,18 @@ interface Props {
   campaignId: string;
 }
 
+function hasPending(posts: Post[]) {
+  return posts.some((post) => post.general_status === 'pendente');
+}
+
 export default function CronogramaWeekTabs({
   weekKeys,
   postsByWeek,
   campaignId,
 }: Props) {
-  const [activeWeek, setActiveWeek] = useState(weekKeys[0] ?? '');
+  const [activeWeek, setActiveWeek] = useState(
+    weekKeys.find((week) => hasPending(postsByWeek[week] ?? [])) ?? weekKeys[0] ?? ''
+  );
 
   const postsToShow = postsByWeek[activeWeek] ?? [];
 
@@ -75,6 +81,7 @@ export default function CronogramaWeekTabs({
           }
 
           .client-week-tab-button {
+            position: relative;
             height: 38px;
             padding: 0 15px;
             border: none;
@@ -85,6 +92,17 @@ export default function CronogramaWeekTabs({
             transition: background .15s, color .15s;
             font-family: inherit;
             white-space: nowrap;
+          }
+
+          .client-week-tab-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--orange);
+            border: 2px solid var(--surface);
           }
 
           .client-week-section-title {
@@ -154,6 +172,7 @@ export default function CronogramaWeekTabs({
             {weekKeys.map((week) => {
               const count = postsByWeek[week]?.length ?? 0;
               const isActive = week === activeWeek;
+              const weekHasPending = hasPending(postsByWeek[week] ?? []);
 
               return (
                 <button
@@ -166,6 +185,7 @@ export default function CronogramaWeekTabs({
                     color: isActive ? '#fff' : 'var(--ink-2)',
                   }}
                 >
+                  {weekHasPending && <span className="client-week-tab-dot" />}
                   {week}
                   <span
                     style={{
