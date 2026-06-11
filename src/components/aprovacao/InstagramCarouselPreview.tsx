@@ -141,12 +141,25 @@ export default function InstagramCarouselPreview({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={activeImage.file_url}
-            alt={`Slide ${current + 1} de ${total}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+          <div
+            style={{
+              display: 'flex',
+              width: '100%',
+              height: '100%',
+              transform: `translateX(-${current * 100}%)`,
+              transition: 'transform 0.35s ease-out',
+            }}
+          >
+            {images.map((img, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={img.id}
+                src={img.file_url}
+                alt={`Slide ${i + 1} de ${total}`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', flexShrink: 0 }}
+              />
+            ))}
+          </div>
 
           {total > 1 && (
             <>
