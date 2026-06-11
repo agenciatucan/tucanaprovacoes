@@ -1,8 +1,29 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Icon } from '@/components/ui/Icon';
+import { redirect } from 'next/navigation';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Se já está autenticado, redireciona para o dashboard apropriado
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (profile) {
+      if (['admin', 'equipe'].includes(profile.role)) {
+        redirect('/admin');
+      } else {
+        redirect('/cliente');
+      }
+    }
+  }
   const features = [
     { icon: 'check',    label: 'Aprovação em um clique' },
     { icon: 'calendar', label: 'Cronogramas por semana' },

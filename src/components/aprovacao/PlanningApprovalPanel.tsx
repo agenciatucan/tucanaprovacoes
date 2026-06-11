@@ -43,6 +43,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
       return;
     }
     toast.success('Planejamento aprovado! O cronograma foi criado.');
+    setLoading(false);
     router.refresh();
   }
 
@@ -59,6 +60,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
       return;
     }
     toast.success('Solicitação de ajuste enviada!');
+    setLoading(false);
     router.refresh();
   }
 
@@ -93,7 +95,7 @@ export default function PlanningApprovalPanel({ token, isEditable, items = [] }:
               disabled={loading}
               onClick={() => setMode('adjusting')}
             >
-              <Icon name="chat" size={16} /> Solicitar ajuste
+              <Icon name="chat" size={16} /> Adicionar sugestões
             </button>
           </div>
         )}

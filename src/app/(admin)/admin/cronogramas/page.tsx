@@ -71,6 +71,7 @@ function formatDate(value?: string | null) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('pt-BR', {
     day: '2-digit', month: 'short', year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
   });
 }
 

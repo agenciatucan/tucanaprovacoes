@@ -4,6 +4,8 @@ import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import CalendarClientFilter from '@/components/admin/CalendarClientFilter';
+import InternalEventsPanel from '@/components/admin/InternalEventsPanel';
 
 export const metadata: Metadata = { title: 'Calendário' };
 
@@ -46,6 +48,7 @@ type CalendarCampaign = {
   status: string;
   start_date: string;
   end_date: string | null;
+  client_id: string;
   clients:
     | {
         name: string | null;
@@ -62,6 +65,36 @@ type CalendarCampaign = {
         general_status: string;
       }[]
     | null;
+};
+
+type ScheduledPost = {
+  id: string;
+  title: string;
+  format: string;
+  general_status: string;
+  scheduled_date: string;
+  client_id: string;
+  campaign_id: string;
+  client_name: string;
+};
+
+type InternalEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  google_event_id: string | null;
+};
+
+const POST_FORMAT_SHORT: Record<string, string> = {
+  reels:        'Reels',
+  carrossel:    'Carrossel',
+  post_estatico:'Post',
+  story:        'Story',
+  outro:        'Outro',
 };
 
 function getClientName(client: CalendarCampaign['clients']) {
@@ -109,14 +142,21 @@ function getProgress(items: CalendarCampaign['content_items']) {
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; cliente?: string }>;
 }) {
-  const { year: yearStr, month: monthStr } = await searchParams;
+  const { year: yearStr, month: monthStr, cliente: clientFilter } = await searchParams;
 
-  const today = new Date();
+  // Vercel roda em UTC — calcula "hoje" no horário de Brasília para evitar
+  // que a virada do dia em UTC (21h em BRT) adiante o calendário em 1 dia.
+  const now = new Date();
+  const brLocale = (opts: Intl.DateTimeFormatOptions) =>
+    now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', ...opts });
+  const todayYear  = parseInt(brLocale({ year: 'numeric' }), 10);
+  const todayMonth = parseInt(brLocale({ month: 'numeric' }), 10); // 1-indexado
+  const todayDay   = parseInt(brLocale({ day: 'numeric' }), 10);
 
-  const year = yearStr ? parseInt(yearStr) : today.getFullYear();
-  const month = monthStr ? parseInt(monthStr) - 1 : today.getMonth();
+  const year = yearStr ? parseInt(yearStr) : todayYear;
+  const month = monthStr ? parseInt(monthStr) - 1 : todayMonth - 1;
 
   const firstOfMonth = new Date(year, month, 1);
   const lastOfMonth = new Date(year, month + 1, 0);
@@ -134,31 +174,83 @@ export default async function CalendarioPage({
 
   const supabase = await getSupabaseServerClient();
 
-  const { data: campaigns } = await supabase
-    .from('campaigns')
-    .select(
-      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
-    )
-    .gte('start_date', firstStr)
-    .lte('start_date', lastStr)
-    .neq('status', 'arquivado')
-    .order('start_date', { ascending: true });
+  const [
+    { data: campaigns },
+    { data: ongoingCampaigns },
+    { data: scheduledPostsRaw },
+    { data: clientsForFilter },
+    { data: internalEventsRaw },
+    { data: googleConnectionRow },
+  ] = await Promise.all([
+    supabase
+      .from('campaigns')
+      .select('id, name, status, start_date, end_date, client_id, clients(name, company_name), content_items(id, general_status)')
+      .gte('start_date', firstStr)
+      .lte('start_date', lastStr)
+      .neq('status', 'arquivado')
+      .order('start_date', { ascending: true }),
 
-  const { data: ongoingCampaigns } = await supabase
-    .from('campaigns')
-    .select(
-      'id, name, status, start_date, end_date, clients(name, company_name), content_items(id, general_status)'
-    )
-    .lt('start_date', firstStr)
-    .is('end_date', null)
-    .neq('status', 'arquivado')
-    .neq('status', 'finalizado')
-    .order('start_date', { ascending: true });
+    supabase
+      .from('campaigns')
+      .select('id, name, status, start_date, end_date, client_id, clients(name, company_name), content_items(id, general_status)')
+      .lt('start_date', firstStr)
+      .is('end_date', null)
+      .neq('status', 'arquivado')
+      .neq('status', 'finalizado')
+      .order('start_date', { ascending: true }),
 
-  const allCampaigns = [
+    supabase
+      .from('content_items')
+      .select('id, title, format, general_status, scheduled_date, client_id, campaign_id, clients(name, company_name)')
+      .gte('scheduled_date', firstStr)
+      .lte('scheduled_date', lastStr)
+      .not('scheduled_date', 'is', null),
+
+    supabase
+      .from('clients')
+      .select('id, name, company_name')
+      .eq('status', 'ativo')
+      .order('company_name', { ascending: true }),
+
+    supabase
+      .from('internal_events')
+      .select('id, title, description, location, event_date, start_time, end_time, google_event_id')
+      .gte('event_date', firstStr)
+      .lte('event_date', lastStr)
+      .order('event_date', { ascending: true })
+      .order('start_time', { ascending: true }),
+
+    supabase
+      .from('google_calendar_connections')
+      .select('id')
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const allCampaignsRaw = [
     ...((campaigns ?? []) as CalendarCampaign[]),
     ...((ongoingCampaigns ?? []) as CalendarCampaign[]),
   ];
+
+  const allCampaigns = clientFilter
+    ? allCampaignsRaw.filter((c) => c.client_id === clientFilter)
+    : allCampaignsRaw;
+
+  const scheduledPosts: ScheduledPost[] = (scheduledPostsRaw ?? [])
+    .filter((p) => !clientFilter || p.client_id === clientFilter)
+    .map((p) => {
+      const c = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+      return {
+        id: p.id,
+        title: p.title,
+        format: p.format,
+        general_status: p.general_status,
+        scheduled_date: p.scheduled_date as string,
+        client_id: p.client_id,
+        campaign_id: p.campaign_id,
+        client_name: c?.company_name ?? c?.name ?? 'Cliente',
+      };
+    });
 
   const byDay: Record<number, CalendarCampaign[]> = {};
 
@@ -175,6 +267,22 @@ export default async function CalendarioPage({
     }
 
     byDay[day].push(campaign);
+  });
+
+  const byDayPosts: Record<number, ScheduledPost[]> = {};
+  scheduledPosts.forEach((post) => {
+    const d = new Date(`${post.scheduled_date}T00:00:00`).getDate();
+    if (!byDayPosts[d]) byDayPosts[d] = [];
+    byDayPosts[d].push(post);
+  });
+
+  const internalEvents: InternalEvent[] = (internalEventsRaw ?? []) as InternalEvent[];
+
+  const byDayEvents: Record<number, InternalEvent[]> = {};
+  internalEvents.forEach((event) => {
+    const d = new Date(`${event.event_date}T00:00:00`).getDate();
+    if (!byDayEvents[d]) byDayEvents[d] = [];
+    byDayEvents[d].push(event);
   });
 
   const cells: { day: number; muted: boolean; isoDate: string }[] = [];
@@ -224,9 +332,7 @@ export default async function CalendarioPage({
     nextMonthDay++;
   }
 
-  const todayIso = `${today.getFullYear()}-${String(
-    today.getMonth() + 1
-  ).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayIso = `${todayYear}-${String(todayMonth).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
 
   const monthLabel = firstOfMonth.toLocaleDateString('pt-BR', {
     month: 'long',
@@ -419,6 +525,60 @@ export default async function CalendarioPage({
             text-overflow: ellipsis;
           }
 
+          .calendar-post-pill {
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.3;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            color: #1e40af;
+          }
+
+          .calendar-event-pill {
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.3;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f5f3ff;
+            border-left: 3px solid #7c3aed;
+            color: #5b21b6;
+          }
+
+          .calendar-filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+          }
+
+          .calendar-filter-select {
+            height: 36px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            font-size: 13px;
+            background: #fff;
+            color: var(--ink);
+            min-width: 160px;
+          }
+
           /* ── mobile agenda (list cards) ── */
           .calendar-mobile-agenda { display: none; }
 
@@ -471,6 +631,8 @@ export default async function CalendarioPage({
           .cal-mob-dot-aprovado  { background: var(--st-aprovado-fg); }
           .cal-mob-dot-agendado  { background: var(--st-agendado-fg); }
           .cal-mob-dot-publicado { background: var(--st-publicado-fg); }
+          .cal-mob-dot-post      { background: #3b82f6; }
+          .cal-mob-dot-event     { background: #7c3aed; }
           .cal-mob-more          { font-size: 8px; font-weight: 900; color: var(--muted); line-height: 5px; }
 
           .cal-mob-list-head {
@@ -525,7 +687,9 @@ export default async function CalendarioPage({
 
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
             {allCampaigns.length} cronograma
-            {allCampaigns.length !== 1 ? 's' : ''} em{' '}
+            {allCampaigns.length !== 1 ? 's' : ''} · {scheduledPosts.length} post
+            {scheduledPosts.length !== 1 ? 's' : ''} agendado
+            {scheduledPosts.length !== 1 ? 's' : ''} em{' '}
             {monthTitle.split(' ')[0]}
             {pendingCount > 0 && (
               <>
@@ -539,10 +703,17 @@ export default async function CalendarioPage({
           </p>
         </div>
 
-        <Link href="/admin/cronogramas/novo" className="btn btn-primary">
-          <Icon name="plus" size={16} />
-          Novo cronograma
-        </Link>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <a href="#agenda-interna-novo" className="btn btn-ghost">
+            <Icon name="calendar" size={16} />
+            Evento interno
+          </a>
+
+          <Link href="/admin/cronogramas/novo" className="btn btn-primary">
+            <Icon name="plus" size={16} />
+            Novo cronograma
+          </Link>
+        </div>
       </div>
 
       {/* Summary */}
@@ -601,12 +772,23 @@ export default async function CalendarioPage({
           Hoje
         </Link>
 
+        <div className="calendar-filter-bar">
+          <CalendarClientFilter
+            clients={clientsForFilter ?? []}
+            currentYear={yearStr}
+            currentMonth={monthStr}
+            currentClient={clientFilter}
+          />
+        </div>
+
         <div className="calendar-legend">
           <StatusBadge kind="rascunho" />
           <StatusBadge kind="aguardando" />
           <StatusBadge kind="revisao" />
           <StatusBadge kind="aprovado" />
           <StatusBadge kind="publicado" />
+          <span className="status" style={{ background: '#eff6ff', color: '#1e40af' }}>Post agendado</span>
+          <span className="status" style={{ background: '#f5f3ff', color: '#5b21b6' }}>Evento interno</span>
         </div>
       </div>
 
@@ -624,8 +806,19 @@ export default async function CalendarioPage({
           {cells.map((cell, index) => {
             const isToday = !cell.muted && cell.isoDate === todayIso;
             const dayItems = !cell.muted ? byDay[cell.day] ?? [] : [];
+            const dayPosts = !cell.muted ? byDayPosts[cell.day] ?? [] : [];
+            const dayEvents = !cell.muted ? byDayEvents[cell.day] ?? [] : [];
+            const totalItems = dayItems.length + dayPosts.length + dayEvents.length;
             const isLastRow = index >= cells.length - 7;
             const isLastCol = (index + 1) % 7 === 0;
+
+            // Orçamento de até 2 pills visíveis por célula: posts têm prioridade
+            // reservada (como antes), depois eventos internos, depois cronogramas.
+            const postsToShow = dayPosts.slice(0, 2);
+            const eventsBudget = Math.max(0, 2 - postsToShow.length);
+            const eventsToShow = dayEvents.slice(0, eventsBudget);
+            const itemsBudget = Math.max(0, eventsBudget - eventsToShow.length);
+            const itemsToShow = dayItems.slice(0, itemsBudget);
 
             return (
               <div
@@ -663,7 +856,7 @@ export default async function CalendarioPage({
                     {cell.day}
                   </div>
 
-                  {dayItems.length > 2 && (
+                  {totalItems > 2 && (
                     <span
                       style={{
                         fontSize: 10,
@@ -671,12 +864,12 @@ export default async function CalendarioPage({
                         color: 'var(--muted)',
                       }}
                     >
-                      {dayItems.length} camp.
+                      {totalItems} itens
                     </span>
                   )}
                 </div>
 
-                {dayItems.slice(0, 2).map((campaign) => {
+                {itemsToShow.map((campaign) => {
                   const kind = STATUS_KIND[campaign.status] ?? 'rascunho';
                   const borderColor =
                     STATUS_BORDER[kind] ?? 'var(--muted-2)';
@@ -717,7 +910,43 @@ export default async function CalendarioPage({
                   );
                 })}
 
-                {dayItems.length > 2 && (
+                {postsToShow.map((post) => (
+                  <Link
+                    key={post.id}
+                    href={`/admin/posts/${post.id}` as Route}
+                    className="calendar-post-pill"
+                  >
+                    <span style={{ flexShrink: 0, opacity: 0.7 }}>
+                      {POST_FORMAT_SHORT[post.format] ?? post.format}
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {post.title}
+                    </span>
+                  </Link>
+                ))}
+
+                {eventsToShow.map((event) => (
+                  <a
+                    key={event.id}
+                    href={`#agenda-interna-${event.id}`}
+                    className="calendar-event-pill"
+                    title={event.title}
+                  >
+                    <span style={{ flexShrink: 0, opacity: 0.7 }}>
+                      {event.start_time ? event.start_time.slice(0, 5) : 'Interno'}
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {event.title}
+                    </span>
+                    {event.google_event_id && (
+                      <span style={{ flexShrink: 0, opacity: 0.6, display: 'inline-flex' }} aria-hidden="true">
+                        <Icon name="link" size={10} />
+                      </span>
+                    )}
+                  </a>
+                ))}
+
+                {totalItems > 2 && (
                   <div
                     style={{
                       fontSize: 11,
@@ -726,7 +955,7 @@ export default async function CalendarioPage({
                       paddingLeft: 4,
                     }}
                   >
-                    +{dayItems.length - 2} mais
+                    +{totalItems - 2} mais
                   </div>
                 )}
               </div>
@@ -765,26 +994,34 @@ export default async function CalendarioPage({
             {cells.map((cell) => {
               const isToday = !cell.muted && cell.isoDate === todayIso;
               const dayItems = !cell.muted ? (byDay[cell.day] ?? []) : [];
+              const dayPostsM = !cell.muted ? (byDayPosts[cell.day] ?? []) : [];
+              const dayEventsM = !cell.muted ? (byDayEvents[cell.day] ?? []) : [];
+
+              const dotKinds = [
+                ...dayItems.map((c) => STATUS_KIND[c.status] ?? 'rascunho'),
+                ...dayPostsM.map(() => 'post'),
+                ...dayEventsM.map(() => 'event'),
+              ];
+
               return (
                 <div
                   key={cell.isoDate}
                   className={[
                     'cal-mob-cell',
                     cell.muted ? 'cal-mob-cell-muted' : '',
-                    !cell.muted && dayItems.length > 0 ? 'cal-mob-cell-has' : '',
+                    !cell.muted && dotKinds.length > 0 ? 'cal-mob-cell-has' : '',
                   ].join(' ')}
                 >
                   <span className={`cal-mob-num${isToday ? ' cal-mob-today' : ''}`}>
                     {cell.day}
                   </span>
-                  {dayItems.length > 0 && (
+                  {dotKinds.length > 0 && (
                     <div className="cal-mob-dots">
-                      {dayItems.slice(0, 3).map((c, i) => {
-                        const k = STATUS_KIND[c.status] ?? 'rascunho';
-                        return <span key={i} className={`cal-mob-dot cal-mob-dot-${k}`} />;
-                      })}
-                      {dayItems.length > 3 && (
-                        <span className="cal-mob-more">+{dayItems.length - 3}</span>
+                      {dotKinds.slice(0, 3).map((k, i) => (
+                        <span key={i} className={`cal-mob-dot cal-mob-dot-${k}`} />
+                      ))}
+                      {dotKinds.length > 3 && (
+                        <span className="cal-mob-more">+{dotKinds.length - 3}</span>
                       )}
                     </div>
                   )}
@@ -800,6 +1037,8 @@ export default async function CalendarioPage({
               ['revisao',    'Em revisão'],
               ['aprovado',   'Aprovado'],
               ['publicado',  'Publicado'],
+              ['post',       'Post agendado'],
+              ['event',      'Evento interno'],
             ] as [string, string][]).map(([k, l]) => (
               <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' }}>
                 <span className={`cal-mob-dot cal-mob-dot-${k}`} />
@@ -859,6 +1098,16 @@ export default async function CalendarioPage({
           )}
         </div>
       </div>
+
+      {/* Agenda interna (eventos da agência, sincronizados com o Google Agenda) */}
+      <section id="agenda-interna" style={{ marginTop: 24, scrollMarginTop: 90 }}>
+        <InternalEventsPanel
+          events={internalEvents}
+          monthLabel={monthTitle}
+          defaultDate={todayIso}
+          googleConnected={!!googleConnectionRow}
+        />
+      </section>
 
       {/* Empty desktop state */}
       {allCampaigns.length === 0 && (

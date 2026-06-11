@@ -38,9 +38,55 @@ export async function signIn(input: unknown): Promise<Result> {
   return { success: true, data: undefined };
 }
 
+// Action ligada diretamente ao `action` do <form> de login (além do onSubmit
+// client-side). Isso garante que, se o usuário tocar em "Entrar" antes do React
+// hidratar no celular (conexão lenta + autopreenchimento de senha), o navegador
+// faça um POST de verdade para esta action — em vez do submit nativo padrão
+// (GET para a própria URL com email/senha como query string, expondo a senha
+// na barra de endereço e recarregando a página com o formulário vazio).
+export async function signInFormAction(formData: FormData): Promise<void> {
+  const result = await signIn({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!result.success) {
+    redirect(`/login?error=${encodeURIComponent(result.error)}`);
+  }
+
+  // Após login bem-sucedido, redireciona para a rota apropriada baseado na role
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    if (profile && ['admin', 'equipe'].includes(profile.role)) {
+      redirect('/admin');
+    }
+  }
+  
+  redirect('/cliente');
+}
+
 // Recuperação de senha via service role (sem PKCE — funciona em qualquer browser)
 export async function requestPasswordReset(email: string): Promise<Result> {
   if (!email?.trim()) return { success: false, error: "E-mail obrigatório" };
+
+  // Rate limit: máximo 5 solicitações por e-mail a cada 15 minutos
+  const rl = await checkRateLimit({
+    key: email.trim().toLowerCase(),
+    action: 'passwordReset',
+    limit: 5,
+    windowSeconds: 900,
+  });
+  if (!rl.allowed) {
+    return { success: false, error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+  }
 
   const serviceClient = await getSupabaseServiceClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

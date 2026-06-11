@@ -518,7 +518,7 @@ export default async function AdminClientesPage({
                       style={{ background: client.logo_url ? 'var(--bg)' : accentColor, border: client.logo_url ? '1px solid var(--line)' : 'none', overflow: 'hidden' }}
                     >
                       {client.logo_url
-                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} />
                         : initials}
                     </div>
 
@@ -610,7 +610,7 @@ export default async function AdminClientesPage({
                       }}
                     >
                       {client.logo_url
-                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        ? <img src={client.logo_url} alt={client.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} />
                         : initials}
                     </div>
 

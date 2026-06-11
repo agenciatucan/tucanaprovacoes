@@ -6,7 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_STATUS_LABEL } from '@/lib/validations/schemas';
 import { markPostAsScheduled } from '@/actions/content-items';
 
-export const metadata: Metadata = { title: 'Kanban' };
+export const metadata: Metadata = { title: 'Pipeline' };
 
 // ── Colunas do novo fluxo da agência ─────────────────────────
 const COLUMNS = [
@@ -193,7 +193,7 @@ export default async function KanbanPage({
     .filter((item: any) => {
       const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
       const client   = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
-      return client?.status === 'ativo';
+      return client?.status === 'ativo' && !['finalizado', 'arquivado'].includes(campaign?.status);
     })
     .map((item: any) => {
     const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
@@ -323,7 +323,7 @@ export default async function KanbanPage({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div className="eyebrow">Tucan · Interno</div>
-          <h1 className="h1" style={{ marginTop: 6 }}>Kanban</h1>
+          <h1 className="h1" style={{ marginTop: 6 }}>Pipeline</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
             Entrada → Em análise → Atribuído → Em produção → Em aprovação → Ajustes → Aprovado → Programado → Concluído
           </p>

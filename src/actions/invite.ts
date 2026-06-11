@@ -205,7 +205,8 @@ export async function removeClientAccess(
   const { error } = await serviceClient
     .from("client_users")
     .delete()
-    .eq("id", clientUserId);
+    .eq("id", clientUserId)
+    .eq("client_id", clientId);
 
   if (error) {
     return { success: false, error: "Erro ao remover acesso" };

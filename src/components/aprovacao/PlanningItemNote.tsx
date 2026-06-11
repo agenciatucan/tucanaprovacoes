@@ -23,7 +23,7 @@ export default function PlanningItemNote({ token, itemId, initialNote }: Props) 
     if (!result.success) { toast.error(result.error); return; }
     setSavedNote(draft.trim());
     setEditing(false);
-    toast.success(draft.trim() ? 'Observação salva!' : 'Observação removida');
+    toast.success(draft.trim() ? 'Solicitação salva!' : 'Solicitação removida');
   }
 
   if (editing) {
@@ -31,9 +31,9 @@ export default function PlanningItemNote({ token, itemId, initialNote }: Props) 
       <div style={{ marginTop: 8, paddingLeft: 4 }}>
         <textarea
           autoFocus
-          rows={2}
+          rows={3}
           className="input"
-          placeholder="Ex.: Gostaria de mudar o foco deste tema para…"
+          placeholder="Descreva o que gostaria de ajustar neste tema…"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           style={{ width: '100%', marginBottom: 8, fontSize: 13 }}
@@ -49,10 +49,10 @@ export default function PlanningItemNote({ token, itemId, initialNote }: Props) 
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={saving}
+            disabled={saving || draft.trim().length < 3}
             onClick={handleSave}
           >
-            {saving ? 'Salvando…' : 'Salvar'}
+            {saving ? 'Salvando…' : 'Confirmar solicitação'}
           </button>
           {savedNote && (
             <button
@@ -97,14 +97,15 @@ export default function PlanningItemNote({ token, itemId, initialNote }: Props) 
     <button
       type="button"
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6,
-        padding: '4px 10px', borderRadius: 8, fontFamily: 'inherit',
-        background: 'transparent', border: '1px dashed var(--line)',
-        cursor: 'pointer', fontSize: 12, color: 'var(--muted)',
+        display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
+        padding: '7px 14px', borderRadius: 8, fontFamily: 'inherit',
+        background: '#fff7ed', border: '1px solid #fed7aa',
+        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        color: '#c2410c',
       }}
       onClick={() => { setDraft(''); setEditing(true); }}
     >
-      <Icon name="chat" size={12} /> Adicionar observação
+      <Icon name="chat" size={13} color="#c2410c" /> Sugerir alteração
     </button>
   );
 }

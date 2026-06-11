@@ -31,6 +31,12 @@ function getClientName(client: { name?: string | null; company_name?: string | n
   return client?.company_name ?? client?.name ?? 'Cliente';
 }
 
+function formatMonthYear(value: string) {
+  const [year, month] = value.split('-');
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
 const HEAT_COLORS = ['#efece2', '#dfe6cf', '#bcd09a', '#8fb462', '#5b9e3f', '#34431f'];
 const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
@@ -185,10 +191,11 @@ export default async function AdminDashboard() {
     .eq('status', 'ativo');
   const activeClientIds = (activeClientRows ?? []).map((c: any) => c.id as string);
 
+  // Pré-busca IDs de campanhas ativas (exclui finalizado/arquivado)
   const { data: activeCampaignRows } = await supabase
     .from('campaigns')
     .select('id')
-    .not('status', 'eq', 'arquivado');
+    .not('status', 'in', '(finalizado,arquivado)');
   const activeCampaignIds = (activeCampaignRows ?? []).map((c: any) => c.id as string);
 
   const applyActiveCampaignsFilter = (query: any) =>
@@ -205,46 +212,32 @@ export default async function AdminDashboard() {
     { count: adjustPosts },
     { count: openComments },
     { count: activeCampaigns },
-    { data: pendingCampaigns },
+    { data: pendingPlannings },
     { data: monthPostsRaw },
     { data: openCommentsData },
     { data: upcomingPostsRaw },
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
-    supabase.from('campaigns').select('*', { count: 'exact', head: true }).in('status', ['enviado_para_aprovacao', 'em_revisao']),
+    supabase.from('planning_schedules').select('*', { count: 'exact', head: true }).in('status', ['enviado_para_aprovacao', 'em_revisao']),
     applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds)),
     applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']).in('client_id', activeClientIds)),
     applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds)),
-    supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta'),
+    supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta').in('client_id', activeClientIds),
     Promise.resolve({ count: activeCampaignIds.length }),
-    supabase.from('campaigns').select('id, name, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
+    supabase.from('planning_schedules').select('id, title, month_year, status, clients(id, name, company_name, logo_url)').in('status', ['enviado_para_aprovacao', 'em_revisao']).order('updated_at', { ascending: false }).limit(6),
     applyActiveCampaignsFilter(supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).in('client_id', activeClientIds).limit(500)),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
     applyActiveCampaignsFilter(supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4)),
   ]);
 
-  // Progress bars: post counts per pending campaign
-  const campaignIds = (pendingCampaigns ?? []).map((c: any) => c.id as string);
-  const { data: campaignPostsRaw } = campaignIds.length > 0
-    ? await supabase.from('content_items').select('campaign_id, general_status').in('campaign_id', campaignIds)
-    : { data: [] as { campaign_id: string; general_status: string }[] };
-
-  const progressMap: Record<string, { total: number; done: number }> = {};
-  for (const p of campaignPostsRaw ?? []) {
-    const key = p.campaign_id;
-    if (!progressMap[key]) progressMap[key] = { total: 0, done: 0 };
-    const entry = progressMap[key];
-    if (entry) {
-      entry.total++;
-      if (['aprovado', 'finalizado', 'programado'].includes(p.general_status)) entry.done++;
-    }
-  }
-
   // Heatmap: posts per day this month
   const postsPerDay: Record<number, number> = {};
   for (const p of monthPostsRaw ?? []) {
     if (p.updated_at) {
-      const d = new Date(p.updated_at as string).getDate();
+      const d = parseInt(
+        new Date(p.updated_at as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: 'numeric' }),
+        10
+      );
       postsPerDay[d] = (postsPerDay[d] ?? 0) + 1;
     }
   }
@@ -266,7 +259,7 @@ export default async function AdminDashboard() {
   const kpis = [
     { label: 'Clientes ativos',        value: activeClients ?? 0,          color: '#1f2515', soft: '#f0f0eb', icon: 'users',           href: '/admin/clientes' as Route,                              delta: null,              spark: [1, 2, 2, 2, 3, activeClients ?? 0] },
     { label: 'Cronogramas ativos',     value: totalActiveCampaigns ?? 0,   color: '#0f766e', soft: '#e0f2f1', icon: 'calendar',        href: '/admin/cronogramas' as Route,                          delta: 'ativos',          spark: [2, 3, 2, 3, 4, totalActiveCampaigns ?? 0] },
-    { label: 'Aguardando aprovação',   value: pendingApprovalCount ?? 0,   color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/cronogramas?status=enviado_para_aprovacao' as Route, delta: 'cronogramas',  spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
+    { label: 'Aguardando aprovação',   value: pendingApprovalCount ?? 0,   color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/planejamento' as Route,                              delta: 'planejamentos', spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
     { label: 'Posts pendentes',        value: pendingPosts ?? 0,           color: '#9aa15f', soft: '#ecedda', icon: 'flag',            href: '/admin/kanban' as Route,                                delta: 'para produzir',   spark: [9, 8, 8, 7, 7, pendingPosts ?? 0] },
     { label: 'Posts aprovados',        value: approvedPosts ?? 0,          color: '#5b9e3f', soft: '#e6efdd', icon: 'check',           href: '/admin/kanban' as Route,                                delta: 'este mês',        spark: [0, 1, 2, 3, 4, approvedPosts ?? 0] },
     { label: 'Com ajuste solicitado',  value: adjustPosts ?? 0,            color: '#e6a52e', soft: '#fbeed1', icon: 'edit',            href: '/admin/observacoes' as Route,                           delta: null,              spark: [0, 1, 2, 1, 1, adjustPosts ?? 0] },
@@ -378,7 +371,7 @@ export default async function AdminDashboard() {
           <h1 className="dash-hero-title">{greeting}, {userName} 👋</h1>
           <p className="dash-hero-sub">
             Você tem{' '}
-            <b style={{ color: '#fff' }}>{pendingApprovalCount ?? 0} cronograma{pendingApprovalCount !== 1 ? 's' : ''}</b>{' '}
+            <b style={{ color: '#fff' }}>{pendingApprovalCount ?? 0} planejamento{pendingApprovalCount !== 1 ? 's' : ''}</b>{' '}
             aguardando o cliente,{' '}
             <b style={{ color: '#fff' }}>{totalActiveCampaigns ?? 0} cronograma{totalActiveCampaigns !== 1 ? 's' : ''}</b>{' '}
             ativo{totalActiveCampaigns !== 1 ? 's' : ''}, e{' '}
@@ -490,57 +483,48 @@ export default async function AdminDashboard() {
       {/* ── MAIN GRID ────────────────────────────────────────────── */}
       <div className="dash-main">
 
-        {/* Cronogramas em aprovação */}
+        {/* Planejamentos em aprovação */}
         <div className="card" style={{ padding: 24 }}>
           <div className="dash-card-head">
             <div>
-              <div className="dash-card-title">Cronogramas em aprovação</div>
-              <div className="dash-card-sub">Acompanhe o que está esperando o cliente ou voltou com ajuste.</div>
+              <div className="dash-card-title">Planejamentos em aprovação</div>
+              <div className="dash-card-sub">Planejamentos enviados ao cliente aguardando resposta.</div>
             </div>
-            <Link href={'/admin/cronogramas' as Route} className="dash-card-action">
+            <Link href={'/admin/planejamento' as Route} className="dash-card-action">
               Ver todos <Icon name="arrow" size={14} />
             </Link>
           </div>
-          {(pendingCampaigns ?? []).length === 0 ? (
+          {(pendingPlannings ?? []).length === 0 ? (
             <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
-              Nenhum cronograma aguardando aprovação.
+              Nenhum planejamento aguardando aprovação.
             </div>
           ) : (
             <div>
-              {(pendingCampaigns ?? []).map((c: any) => {
-                const client     = Array.isArray(c.clients) ? c.clients[0] : c.clients;
+              {(pendingPlannings ?? []).map((p: any) => {
+                const client     = Array.isArray(p.clients) ? p.clients[0] : p.clients;
                 const clientName = getClientName(client);
                 const color      = clientColor(client?.id);
                 const initials   = getInitials(clientName);
-                const progress   = progressMap[c.id] ?? { total: 0, done: 0 };
-                const pct        = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-                const isAdjust   = c.status === 'em_revisao';
+                const isAdjust   = p.status === 'em_revisao';
                 return (
-                  <Link key={c.id} href={`/admin/cronogramas/${c.id}` as Route} className="dash-crono-row">
+                  <Link key={p.id} href={`/admin/planejamento/${p.id}` as Route} className="dash-crono-row">
                     {/* Avatar */}
                     <div className="dash-crono-avatar" style={{ width: 40, height: 40, borderRadius: 11, background: client?.logo_url ? 'var(--bg)' : color, border: client?.logo_url ? '1px solid var(--line)' : 'none', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
                       {client?.logo_url
-                        ? <img src={client.logo_url} alt={clientName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+                        ? <img src={client.logo_url} alt={clientName} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} />
                         : initials}
                     </div>
-                    {/* Info + progress */}
+                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="dash-crono-namerow" style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'nowrap' }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                          {c.name}
+                          {p.title}
                         </span>
                         <span className="dash-crono-client" style={{ fontSize: 12.5, color: 'var(--muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {clientName}</span>
                       </div>
-                      {progress.total > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 7 }}>
-                          <div style={{ flex: 1, height: 6, borderRadius: 999, background: '#efece4', overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
-                          </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>
-                            {progress.done}/{progress.total}
-                          </span>
-                        </div>
-                      )}
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                        {formatMonthYear(p.month_year)}
+                      </div>
                     </div>
                     {/* Status badge */}
                     <span className="dash-crono-badge" style={{
@@ -628,7 +612,7 @@ export default async function AdminDashboard() {
                       </div>
                       <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
                         <span>{getClientName(client)}</span>
-                        <span>{new Date(comment.created_at as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+                        <span>{new Date(comment.created_at as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'America/Sao_Paulo' })}</span>
                       </div>
                     </Link>
                   );

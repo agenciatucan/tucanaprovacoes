@@ -10,6 +10,8 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Cancela o submit nativo (que iria para a action de fallback abaixo) e
+    // assume o fluxo client-side, com loading/toast/redirect mais amigáveis.
     e.preventDefault();
     setLoading(true);
     const form = new FormData(e.currentTarget);
@@ -21,22 +23,16 @@ export default function LoginForm() {
       return;
     }
 
-    // Redireciona para a rota passada na URL ou deixa o middleware decidir
-    const searchParams = new URLSearchParams(window.location.search);
-    const redirect = searchParams.get('redirect');
-
-    // Força reload completo para o middleware calcular a rota correta por role
-    if (redirect && redirect.startsWith('/')) {
-      window.location.href = redirect;
-    } else {
-      // Rota genérica — middleware vai redirecionar para /admin ou /cliente
-      router.refresh();
-      router.push('/');
-    }
+    // Redireciona para o dashboard — como não sabemos a role aqui,
+    // deixamos a página landing fazer o redirecionamento baseado na autenticação
+    toast.success('Login realizado! Redirecionando...');
+    
+    // Usa window.location para força refresh completo e atualizar a sessão
+    window.location.href = '/';
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <form action="/api/auth/callback" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="field">
         <label className="field-label" htmlFor="email">E-mail</label>
         <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="seu@email.com.br" />

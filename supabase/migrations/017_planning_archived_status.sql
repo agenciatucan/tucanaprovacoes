@@ -1,5 +1,5 @@
 -- ============================================================
--- MIGRAÇÃO 014 — Suporte a arquivamento de planejamentos
+-- MIGRAÇÃO 017 — Suporte a arquivamento de planejamentos
 -- ============================================================
 
 ALTER TABLE planning_schedules

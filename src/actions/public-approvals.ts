@@ -53,12 +53,11 @@ type PublicPostData = {
   post: PostData;
 };
 
+// Todas as ações públicas usam service role (sem sessão), mas cada query
+// é obrigatoriamente escopada por client_id derivado do token validado,
+// impedindo acesso a dados de outros clientes mesmo com a chave de serviço.
 async function getPublicSupabaseClient() {
-  try {
-    return await getSupabaseServiceClient();
-  } catch {
-    return await getSupabaseServerClient();
-  }
+  return getSupabaseServiceClient();
 }
 
 async function findCampaignByToken(token: string): Promise<{
@@ -145,6 +144,7 @@ export async function getPublicPostForApproval(
       )
       .eq('id', postId)
       .eq('campaign_id', campaignResult.data.id)
+      .eq('client_id', campaignResult.data.client_id)
       .maybeSingle();
 
     if (postError) {
@@ -235,7 +235,8 @@ export async function approvePublicPost(params: {
         general_status: 'aprovado',
       })
       .eq('id', postId)
-      .eq('campaign_id', campaign.id);
+      .eq('campaign_id', campaign.id)
+      .eq('client_id', campaign.client_id);
 
     if (error) {
       return {
@@ -323,7 +324,8 @@ export async function requestPublicPostAdjustment(params: {
         general_status: 'em_revisao',
       })
       .eq('id', postId)
-      .eq('campaign_id', campaign.id);
+      .eq('campaign_id', campaign.id)
+      .eq('client_id', campaign.client_id);
 
     if (error) {
       return {

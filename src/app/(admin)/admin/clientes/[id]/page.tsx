@@ -135,7 +135,7 @@ export default async function ClienteDetailPage({ params }: Props) {
               { label: 'E-mail', value: client.email },
               { label: 'WhatsApp', value: client.whatsapp ?? '—' },
               { label: 'Responsável interno', value: owner?.name ?? '—' },
-              { label: 'Desde', value: new Date(client.created_at).toLocaleDateString('pt-BR') },
+              { label: 'Desde', value: new Date(client.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) },
             ].map((row) => (
               <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line-soft)' }}>
                 <span className="muted tiny">{row.label}</span>

@@ -37,7 +37,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/admin/kanban",
-    label: "Kanban",
+    label: "Pipeline",
     icon: Kanban,
     roles: ["admin", "equipe"],
   },
