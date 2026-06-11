@@ -106,10 +106,7 @@ export const contentItemSchema = z.object({
     .transform(v => v || null),
   internal_notes:   OPTIONAL_TEXT(1000),
   scheduled_date:   DATE_STR.nullish().or(z.literal("")).transform(v => v || null),
-}).refine(
-  (data) => !(data.format === "reels" && !data.script),
-  { message: "Roteiro é obrigatório para posts do tipo Reels", path: ["script"] }
-);
+});
 export type ContentItemInput = z.infer<typeof contentItemSchema>;
 
 // ── Aprovação por campo (PDF seção 11) ────────────────────────
