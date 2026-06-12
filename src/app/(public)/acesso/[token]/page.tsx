@@ -33,6 +33,10 @@ const POST_STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']
   finalizado: 'publicado',
 };
 
+const POST_STATUS_LABEL: Record<string, string> = {
+  em_producao: 'Em produção',
+};
+
 function getClientName(client: any) {
   if (!client) return 'Cliente';
 
@@ -434,7 +438,10 @@ export default async function PublicCampaignPage({ params }: Props) {
                     justifyContent: 'flex-end',
                   }}
                 >
-                  <StatusBadge kind={statusKind} />
+                  <StatusBadge
+                    kind={statusKind}
+                    label={POST_STATUS_LABEL[post.general_status ?? '']}
+                  />
                   <Icon name="chevron" size={15} color="var(--muted-2)" />
                 </div>
               </Link>

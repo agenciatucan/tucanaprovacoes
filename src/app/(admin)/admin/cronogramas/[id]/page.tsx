@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import CampaignActions from '@/components/admin/CampaignActions';
 import WeekSection from '@/components/admin/WeekSection';
+import PostProductionToggle from '@/components/admin/PostProductionToggle';
 
 export const metadata: Metadata = { title: 'Gerenciar cronograma' };
 
@@ -922,6 +923,13 @@ export default async function GerenciarCronogramaPage({
                     </div>
 
                     <div className="campaign-post-actions">
+                      {canManagePosts && (
+                        <PostProductionToggle
+                          id={post.id}
+                          generalStatus={post.general_status ?? 'pendente'}
+                        />
+                      )}
+
                       <Link
                         href={`/admin/posts/${post.id}` as Route}
                         className="btn btn-ghost btn-sm"

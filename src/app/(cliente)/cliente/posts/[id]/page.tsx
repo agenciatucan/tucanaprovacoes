@@ -11,6 +11,7 @@ import CopyButton from '@/components/cliente/CopyButton';
 import {
   isCampaignVisibleToClient,
   POST_STATUS_KIND,
+  POST_STATUS_LABEL,
 } from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Post' };
@@ -334,7 +335,10 @@ export default async function PostDetailPage({ params }: Props) {
           <div className="client-post-meta-row">
             <span className="chip">{post.week_label ?? 'Sem semana'}</span>
             <span className={fmtClass}>{fmtLabel}</span>
-            <StatusBadge kind={statusKind as any} />
+            <StatusBadge
+              kind={statusKind as any}
+              label={POST_STATUS_LABEL[post.general_status as string]}
+            />
           </div>
 
           <h1 className="h1 client-post-title">{postTitle}</h1>

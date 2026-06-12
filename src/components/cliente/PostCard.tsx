@@ -38,6 +38,10 @@ const STATUS_KIND: Record<string, string> = {
   finalizado: 'publicado',
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  em_producao: 'Em produção',
+};
+
 const FIELD_STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string }
@@ -141,6 +145,7 @@ export default function PostCard({
   const fmtClass = FMT_CLASS[format] ?? 'fmt';
   const statusKind = (STATUS_KIND[post.general_status ?? 'pendente'] ??
     'rascunho') as any;
+  const statusLabel = STATUS_LABEL[post.general_status ?? ''];
 
   return (
     <Link
@@ -317,7 +322,7 @@ export default function PostCard({
         <div className="client-post-card-body">
           <div className="client-post-card-top">
             <span className={fmtClass}>{FMT_LABEL[format] ?? format}</span>
-            <StatusBadge kind={statusKind} />
+            <StatusBadge kind={statusKind} label={statusLabel} />
           </div>
 
           <div className="client-post-card-title">{title}</div>
