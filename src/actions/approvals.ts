@@ -3,8 +3,10 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabas
 import {
   approvalSchema,
   approveCampaignSchema,
+  approveAllPendingSchema,
   type ApprovalInput,
   type ApproveCampaignInput,
+  type ApproveAllPendingInput,
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
@@ -267,6 +269,138 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
   revalidatePath(`/admin/posts/${parsed.data.content_item_id}`);
   revalidatePath(`/admin/cronogramas/${parsed.data.campaign_id}`);
   return { success: true, data: undefined };
+}
+
+// Aprovação em massa de todos os posts pendentes de um cronograma
+export async function approveAllPending(
+  input: ApproveAllPendingInput
+): Promise<Result<{ approvedIds: string[] }>> {
+  const parsed = approveAllPendingSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Não autorizado" };
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("id, role")
+    .eq("auth_user_id", user.id)
+    .single();
+  if (!profile) return { success: false, error: "Perfil não encontrado" };
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("client_id, is_locked, name")
+    .eq("id", parsed.data.campaign_id)
+    .single();
+
+  if (!campaign) return { success: false, error: "Cronograma não encontrado" };
+  if (campaign.is_locked) return { success: false, error: "Este cronograma está bloqueado" };
+
+  if (profile.role === "cliente") {
+    const { data: clientUser } = await supabase
+      .from("client_users")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("client_id", campaign.client_id)
+      .maybeSingle();
+
+    if (!clientUser) return { success: false, error: "Sem permissão para este cronograma" };
+  }
+
+  const serviceClient = await getSupabaseServiceClient();
+
+  const { data: pendingItems, error: pendingError } = await serviceClient
+    .from("content_items")
+    .select("id")
+    .eq("campaign_id", parsed.data.campaign_id)
+    .eq("general_status", "pendente");
+
+  if (pendingError) {
+    logger.error("approveAllPending/fetch", pendingError.message);
+    return { success: false, error: "Erro ao buscar posts pendentes" };
+  }
+
+  const ids = (pendingItems ?? []).map((item) => item.id);
+
+  if (ids.length === 0) {
+    return { success: false, error: "Nenhum post pendente neste cronograma" };
+  }
+
+  const { error: updateError } = await serviceClient
+    .from("content_items")
+    .update({
+      theme_status: "aprovado",
+      caption_status: "aprovado",
+      artwork_status: "aprovado",
+      general_status: "aprovado",
+    })
+    .in("id", ids);
+
+  if (updateError) {
+    logger.error("approveAllPending/update", updateError.message);
+    return { success: false, error: "Erro ao aprovar os posts" };
+  }
+
+  const { error: approvalError } = await serviceClient.from("approvals").insert(
+    ids.map((contentItemId) => ({
+      content_item_id: contentItemId,
+      campaign_id: parsed.data.campaign_id,
+      client_id: campaign.client_id,
+      approval_type: "post_completo",
+      status: "aprovado",
+      note: null,
+      approved_by: profile.id,
+    }))
+  );
+
+  if (approvalError) {
+    logger.error("approveAllPending/insert", approvalError.message);
+  }
+
+  // Notificação consolidada para a equipe (best-effort)
+  if (profile.role === "cliente") {
+    try {
+      const { data: clientProfile } = await serviceClient
+        .from("user_profiles")
+        .select("name")
+        .eq("id", profile.id)
+        .single();
+
+      const { data: staffProfiles } = await serviceClient
+        .from("user_profiles")
+        .select("id")
+        .in("role", ["admin", "equipe"]);
+
+      if (staffProfiles && staffProfiles.length > 0) {
+        const clientName = clientProfile?.name ?? "Cliente";
+
+        await serviceClient.from("notifications").insert(
+          staffProfiles.map((s) => ({
+            user_id: s.id,
+            client_id: campaign.client_id,
+            campaign_id: parsed.data.campaign_id,
+            content_item_id: null,
+            type: "post_aprovado",
+            title: "Posts aprovados ✓",
+            message: `${clientName} aprovou ${ids.length} post(s) do cronograma "${campaign.name}"`,
+          }))
+        );
+      }
+    } catch (e) {
+      logger.warn("approveAllPending/notification", e);
+    }
+  }
+
+  revalidatePath("/cliente");
+  revalidatePath(`/cliente/cronogramas/${parsed.data.campaign_id}`);
+  revalidatePath(`/admin/cronogramas/${parsed.data.campaign_id}`);
+  revalidatePath("/admin/cronogramas");
+
+  return { success: true, data: { approvedIds: ids } };
 }
 
 // Aprovação completa do cronograma (PDF seção 9.4)

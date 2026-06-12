@@ -6,6 +6,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import { timeAgo } from '@/lib/utils';
+import PendingSection from '@/components/cliente/PendingSection';
+import type { PendingPost } from '@/components/cliente/PendingPostRow';
 import {
   CAMPAIGN_STATUS_KIND,
   CLIENT_VISIBLE_CAMPAIGN_STATUSES,
@@ -103,6 +105,17 @@ export default async function ClienteDashboard() {
           .limit(8)
       : { data: [] };
 
+  const { data: reviewItems } =
+    campaignIds.length > 0
+      ? await supabase
+          .from('content_items')
+          .select('id, title, format, week_label, campaign_id, campaigns(name)')
+          .in('campaign_id', campaignIds)
+          .eq('general_status', 'em_revisao')
+          .order('updated_at', { ascending: false })
+          .limit(5)
+      : { data: [] };
+
   const { data: recentActivity } =
     campaignIds.length > 0
       ? await supabase
@@ -170,19 +183,51 @@ export default async function ClienteDashboard() {
 
   const latestCampaign = campaigns?.[0];
 
+  const currentCampaignId =
+    latestCampaign && latestCampaign.status !== 'finalizado'
+      ? latestCampaign.id
+      : null;
+
+  const toPendingPost = (item: {
+    id: string;
+    title: string | null;
+    format: string | null;
+    week_label: string | null;
+    campaign_id: string;
+    campaigns: { name: string } | { name: string }[] | null;
+  }): PendingPost => {
+    const campaign = Array.isArray(item.campaigns)
+      ? item.campaigns[0]
+      : item.campaigns;
+
+    return {
+      id: item.id,
+      title: item.title,
+      format: item.format,
+      week_label: item.week_label,
+      campaign_id: item.campaign_id,
+      campaign_name: campaign?.name ?? null,
+    };
+  };
+
+  const pendingPosts: PendingPost[] = (pendingItems ?? []).map(toPendingPost);
+  const reviewPosts: PendingPost[] = (reviewItems ?? []).map(toPendingPost);
+
   return (
     <div className="page">
       <style>
         {`
           .cliente-hero {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 18px;
-            align-items: end;
             margin-bottom: 24px;
           }
 
           .cliente-hero-card {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
             background: var(--green);
             border-radius: 28px;
             padding: 28px;
@@ -216,6 +261,7 @@ export default async function ClienteDashboard() {
           .cliente-hero-content {
             position: relative;
             z-index: 1;
+            min-width: 0;
           }
 
           .cliente-hero-eyebrow {
@@ -230,12 +276,28 @@ export default async function ClienteDashboard() {
             line-height: 1.05;
           }
 
-          .cliente-hero-text {
-            margin: 10px 0 0;
-            max-width: 520px;
-            color: rgba(255,255,255,.72);
-            font-size: 15px;
-            line-height: 1.55;
+          .cliente-hero-btn {
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 42px;
+            padding: 0 18px;
+            border-radius: 12px;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.22);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background .15s ease;
+          }
+
+          .cliente-hero-btn:hover {
+            background: rgba(255,255,255,.22);
           }
 
           .cliente-summary-grid {
@@ -260,9 +322,23 @@ export default async function ClienteDashboard() {
             letter-spacing: -0.04em;
           }
 
+          .stat-mini-bar {
+            margin-top: 8px;
+            height: 4px;
+            border-radius: 999px;
+            background: var(--bg-2);
+            overflow: hidden;
+          }
+
+          .stat-mini-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width .5s;
+          }
+
           .cliente-dashboard-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+            grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
             gap: 22px;
             align-items: start;
           }
@@ -339,11 +415,45 @@ export default async function ClienteDashboard() {
 
           .cliente-campaign-progress {
             margin-top: 10px;
-            display: grid;
-            grid-template-columns: minmax(110px, 1fr) auto;
-            gap: 10px;
-            align-items: center;
             max-width: 360px;
+          }
+
+          .cliente-campaign-progress-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 6px;
+          }
+
+          .cliente-pending-item {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 14px;
+            transition: box-shadow .15s ease, border-color .15s ease;
+          }
+
+          .cliente-pending-item:hover {
+            box-shadow: 0 12px 26px rgba(0,0,0,.06);
+          }
+
+          .cliente-pending-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+          }
+
+          .cliente-pending-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+          }
+
+          .cliente-pending-card-muted {
+            opacity: .8;
+            background: var(--bg);
           }
 
           .cliente-pending-card {
@@ -391,9 +501,14 @@ export default async function ClienteDashboard() {
           }
 
           @media (max-width: 980px) {
-            .cliente-hero {
-              grid-template-columns: 1fr;
-              align-items: stretch;
+            .cliente-hero-card {
+              flex-direction: column;
+              align-items: flex-start;
+            }
+
+            .cliente-hero-btn {
+              width: 100%;
+              justify-content: center;
             }
 
             .cliente-summary-grid {
@@ -413,10 +528,6 @@ export default async function ClienteDashboard() {
 
             .cliente-hero-title {
               font-size: 29px;
-            }
-
-            .cliente-hero-text {
-              font-size: 14px;
             }
 
             .cliente-summary-grid {
@@ -458,6 +569,16 @@ export default async function ClienteDashboard() {
               align-items: flex-start;
               flex-direction: column;
             }
+
+            .cliente-pending-row {
+              grid-template-columns: auto minmax(0, 1fr);
+              row-gap: 10px;
+            }
+
+            .cliente-pending-actions {
+              grid-column: 1 / -1;
+              justify-content: flex-end;
+            }
           }
 
           @media (max-width: 420px) {
@@ -471,6 +592,14 @@ export default async function ClienteDashboard() {
 
             .cliente-pending-card > svg {
               display: none;
+            }
+
+            .cliente-pending-actions {
+              width: 100%;
+            }
+
+            .cliente-pending-actions .btn {
+              flex: 1;
             }
           }
         `}
@@ -486,45 +615,57 @@ export default async function ClienteDashboard() {
 
             <h1 className="cliente-hero-title">Olá, {firstName} 👋</h1>
 
-            <p className="cliente-hero-text">
-              Acompanhe seus cronogramas, aprove posts e solicite ajustes de
-              forma simples pelo portal.
-            </p>
-
-            {pendingTotal > 0 && (
-              <div
-                style={{
-                  marginTop: 18,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  borderRadius: 999,
-                  padding: '8px 12px',
-                  background: 'rgba(235,96,19,.2)',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 800,
-                }}
-              >
-                <Icon name="bell" size={14} />
-                {pendingTotal}{' '}
-                {pendingTotal === 1
-                  ? 'post aguardando aprovação'
-                  : 'posts aguardando aprovação'}
-              </div>
-            )}
+            <div
+              style={{
+                marginTop: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                borderRadius: 999,
+                padding: '8px 12px',
+                background:
+                  pendingTotal > 0 ? 'rgba(235,96,19,.2)' : 'rgba(255,255,255,.08)',
+                color: pendingTotal > 0 ? '#fff' : 'rgba(255,255,255,.6)',
+                fontSize: 13,
+                fontWeight: 800,
+              }}
+            >
+              {pendingTotal > 0 ? (
+                <>
+                  <span
+                    className="animate-pulse"
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: '#fb923c',
+                      display: 'inline-block',
+                    }}
+                  />
+                  {pendingTotal}{' '}
+                  {pendingTotal === 1
+                    ? 'post aguardando aprovação'
+                    : 'posts aguardando aprovação'}
+                </>
+              ) : (
+                <>
+                  <Icon name="check-circle" size={14} />
+                  Nenhum post pendente
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        {latestCampaign && (
-          <Link
-            href={`/cliente/cronogramas/${latestCampaign.id}` as Route}
-            className="btn btn-dark"
-          >
-            Ver cronograma atual
-            <Icon name="arrow" size={15} />
-          </Link>
-        )}
+          {latestCampaign && (
+            <Link
+              href={`/cliente/cronogramas/${latestCampaign.id}` as Route}
+              className="cliente-hero-btn"
+            >
+              Ver cronograma atual
+              <Icon name="arrow" size={15} />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Summary */}
@@ -535,24 +676,32 @@ export default async function ClienteDashboard() {
             value: pendingTotal,
             accent: 'var(--orange)',
             sub: 'Posts pendentes',
+            barColor: 'var(--orange)',
+            barPct: totalItems > 0 ? (pendingTotal / totalItems) * 100 : 0,
           },
           {
             label: 'Em revisão',
             value: inReviewTotal,
             accent: '#92400e',
             sub: 'Aguardando equipe Tucan',
+            barColor: '#4A7FC1',
+            barPct: totalItems > 0 ? (inReviewTotal / totalItems) * 100 : 0,
           },
           {
             label: 'Aprovados',
             value: approvedTotal,
             accent: 'var(--green)',
             sub: `De ${totalItems} publicações`,
+            barColor: 'var(--green)',
+            barPct: totalItems > 0 ? (approvedTotal / totalItems) * 100 : 0,
           },
           {
             label: 'Cronogramas',
             value: campaigns?.length ?? 0,
             accent: 'var(--ink)',
             sub: 'Disponíveis para você',
+            barColor: 'var(--green)',
+            barPct: 100,
           },
         ].map((item) => (
           <div key={item.label} className="cliente-summary-card">
@@ -565,13 +714,27 @@ export default async function ClienteDashboard() {
             <div className="muted tiny" style={{ marginTop: 6 }}>
               {item.sub}
             </div>
+
+            <div className="stat-mini-bar">
+              <div
+                className="stat-mini-bar-fill"
+                style={{ width: `${item.barPct}%`, background: item.barColor }}
+              />
+            </div>
           </div>
         ))}
       </div>
 
       <div className="cliente-dashboard-grid">
-        {/* Cronogramas */}
-        <section>
+        <PendingSection
+          initialItems={pendingPosts}
+          reviewItems={reviewPosts}
+          currentCampaignId={currentCampaignId}
+        />
+
+        <div className="cliente-side-column">
+          {/* Cronogramas */}
+          <section>
           <div className="cliente-section-head">
             <div>
               <h2 className="h2" style={{ fontSize: 18 }}>
@@ -606,6 +769,11 @@ export default async function ClienteDashboard() {
                 const approved = items.filter(
                   (item: { general_status: string }) =>
                     ['aprovado', 'finalizado'].includes(item.general_status)
+                ).length;
+
+                const pendingInCampaign = items.filter(
+                  (item: { general_status: string }) =>
+                    item.general_status === 'pendente'
                 ).length;
 
                 const pct = getProgress(total, approved);
@@ -657,23 +825,30 @@ export default async function ClienteDashboard() {
 
                       {total > 0 && (
                         <div className="cliente-campaign-progress">
+                          <div className="cliente-campaign-progress-head">
+                            <span className="tiny" style={{ color: 'var(--muted)', fontWeight: 700 }}>
+                              Progresso de aprovação
+                            </span>
+
+                            <span className="tiny" style={{ color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              {approved}/{total}
+                            </span>
+                          </div>
+
                           <div className="progress">
                             <div
                               className="progress-fill"
-                              style={{ width: `${pct}%` }}
+                              style={{
+                                width: `${pct}%`,
+                                background: 'linear-gradient(90deg, var(--green), #5CB872)',
+                              }}
                             />
                           </div>
 
-                          <span
-                            className="tiny"
-                            style={{
-                              color: 'var(--muted)',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {approved}/{total} aprovados
-                          </span>
+                          <div className="tiny" style={{ marginTop: 6, color: 'var(--muted)' }}>
+                            {approved} aprovado{approved === 1 ? '' : 's'} ·{' '}
+                            {pendingInCampaign} pendente{pendingInCampaign === 1 ? '' : 's'}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -699,25 +874,23 @@ export default async function ClienteDashboard() {
               })}
             </div>
           )}
-        </section>
+          </section>
 
-        <div className="cliente-side-column">
           {/* Planejamentos */}
-          <section>
-            {planningSchedules && planningSchedules.length > 0 && (
-              <>
-                <div className="cliente-section-head">
-                  <div>
-                    <h2 className="h2" style={{ fontSize: 18 }}>
-                      Planejamentos de temas
-                    </h2>
-                    <p className="muted tiny" style={{ marginTop: 4 }}>
-                      Aprove os temas antes da produção dos posts.
-                    </p>
-                  </div>
+          {planningSchedules && planningSchedules.length > 0 && (
+            <section>
+              <div className="cliente-section-head">
+                <div>
+                  <h2 className="h2" style={{ fontSize: 18 }}>
+                    Planejamentos de temas
+                  </h2>
+                  <p className="muted tiny" style={{ marginTop: 4 }}>
+                    Aprove os temas antes da produção dos posts.
+                  </p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {planningSchedules.map((p) => {
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {planningSchedules.map((p) => {
                   const isPending = p.status === 'enviado_para_aprovacao';
                   const isRevision = p.status === 'em_revisao';
                   const isApproved = p.status === 'aprovado';
@@ -765,11 +938,10 @@ export default async function ClienteDashboard() {
                       </div>
                     </a>
                   );
-                  })}
-                </div>
-              </>
-            )}
-          </section>
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Atividade recente */}
           {recentActivity && recentActivity.length > 0 && (
@@ -830,80 +1002,6 @@ export default async function ClienteDashboard() {
               </div>
             </section>
           )}
-
-          {/* Pendências */}
-          <section>
-            <div className="cliente-section-head">
-              <div>
-                <h2 className="h2" style={{ fontSize: 18 }}>
-                  Pendências
-                </h2>
-
-                <p className="muted tiny" style={{ marginTop: 4 }}>
-                  Posts esperando sua aprovação.
-                </p>
-              </div>
-            </div>
-
-            {!pendingItems || pendingItems.length === 0 ? (
-              <div className="cliente-empty-card">
-                <p className="muted" style={{ margin: 0 }}>
-                  Nenhuma pendência no momento.
-                </p>
-
-                <p className="muted tiny" style={{ margin: '6px 0 0' }}>
-                  Quando houver posts aguardando aprovação, eles aparecerão aqui.
-                </p>
-              </div>
-            ) : (
-              <div className="cliente-pending-list">
-                {pendingItems.map((item) => {
-                  const campaign = Array.isArray(item.campaigns)
-                    ? item.campaigns[0]
-                    : item.campaigns;
-
-                  const format = item.format ?? 'outro';
-
-                  return (
-                    <Link
-                      key={item.id}
-                      href={`/cliente/posts/${item.id}` as Route}
-                      className="cliente-pending-card"
-                    >
-                      <div className="cliente-format-box">
-                        {FMT_LABEL[format]?.charAt(0) ?? 'P'}
-                      </div>
-
-                      <div style={{ minWidth: 0 }}>
-                        <div className="muted tiny">
-                          {item.week_label} · {FMT_LABEL[format] ?? format}
-                        </div>
-
-                        <div
-                          style={{
-                            fontWeight: 800,
-                            fontSize: 14,
-                            marginTop: 2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {item.title}
-                        </div>
-
-                        <div className="muted tiny" style={{ marginTop: 4 }}>
-                          {campaign?.name ?? 'Cronograma'}
-                        </div>
-                      </div>
-
-                      <Icon name="arrow" size={14} color="var(--muted-2)" />
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
         </div>
       </div>
     </div>

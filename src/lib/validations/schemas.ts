@@ -146,6 +146,12 @@ export const approvalSchema = z.object({
 );
 export type ApprovalInput = z.infer<typeof approvalSchema>;
 
+// ── Aprovação em massa (todos os posts pendentes de um cronograma) ─
+export const approveAllPendingSchema = z.object({
+  campaign_id: UUID,
+});
+export type ApproveAllPendingInput = z.infer<typeof approveAllPendingSchema>;
+
 // ── Comentário / Observação ───────────────────────────────────
 export const commentSchema = z.object({
   content_item_id: UUID,
