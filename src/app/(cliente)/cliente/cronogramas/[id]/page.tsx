@@ -6,7 +6,11 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import CronogramaWeekTabs from '@/components/cliente/CronogramaWeekTabs';
-import { isCampaignVisibleToClient } from '@/lib/constants/status';
+import {
+  isCampaignVisibleToClient,
+  CAMPAIGN_STATUS_KIND,
+  CAMPAIGN_STATUS_LABEL,
+} from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Cronograma' };
 
@@ -419,14 +423,18 @@ export default async function CronogramaPage({ params }: Props) {
               {total > 0 && (
                 <span>
                   <Icon name="image" size={13} />
-                  {total} publicação{total !== 1 ? 'ões' : ''}
+                  {total} {total === 1 ? 'publicação' : 'publicações'}
                 </span>
               )}
             </div>
           </div>
 
           <div className="client-campaign-progress-box">
-            <StatusBadge kind={campaign.status as any} size="lg" />
+            <StatusBadge
+              kind={(CAMPAIGN_STATUS_KIND[campaign.status] ?? 'aguardando') as any}
+              label={CAMPAIGN_STATUS_LABEL[campaign.status] ?? campaign.status}
+              size="lg"
+            />
 
             {total > 0 && (
               <>

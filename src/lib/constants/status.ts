@@ -30,6 +30,19 @@ export const CAMPAIGN_STATUS_KIND: Record<string, string> = {
   arquivado: 'rascunho',
 };
 
+// Labels customizados para o cliente — sobrescrevem o label padrão do
+// StatusBadge quando o "kind" (cor) não corresponde ao texto desejado
+// (ex.: em_producao usa a cor de "agendado", mas o texto é "Em produção").
+export const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
+  rascunho: 'Rascunho',
+  enviado_para_aprovacao: 'Aguardando aprovação',
+  em_revisao: 'Em revisão',
+  aprovado: 'Aprovado',
+  em_producao: 'Em produção',
+  finalizado: 'Finalizado',
+  arquivado: 'Arquivado',
+};
+
 export const POST_STATUS_KIND: Record<string, string> = {
   pendente: 'aguardando',
   em_revisao: 'revisao',

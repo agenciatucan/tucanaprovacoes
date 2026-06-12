@@ -10,6 +10,7 @@ import PendingSection from '@/components/cliente/PendingSection';
 import type { PendingPost } from '@/components/cliente/PendingPostRow';
 import {
   CAMPAIGN_STATUS_KIND,
+  CAMPAIGN_STATUS_LABEL,
   CLIENT_VISIBLE_CAMPAIGN_STATUSES,
 } from '@/lib/constants/status';
 
@@ -861,7 +862,10 @@ export default async function ClienteDashboard() {
                         gap: 10,
                       }}
                     >
-                      <StatusBadge kind={statusKind as any} />
+                      <StatusBadge
+                        kind={statusKind as any}
+                        label={CAMPAIGN_STATUS_LABEL[campaign.status] ?? campaign.status}
+                      />
 
                       <Icon
                         name="chevron"
