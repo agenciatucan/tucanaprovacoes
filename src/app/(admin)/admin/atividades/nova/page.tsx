@@ -31,24 +31,24 @@ export default async function NovaAtividadePage() {
 
   return (
     <div className="page" style={{ maxWidth: 760 }}>
-      <div className="crumb" style={{ marginBottom: 18 }}>
-        <Link href={'/admin/atividades' as Route}>Atividades</Link>
-        <span>/</span>
-        Nova atividade
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <div>
-          <div className="eyebrow">Tucan · Interno</div>
-          <h1 className="h1" style={{ marginTop: 6 }}>Nova atividade</h1>
-          <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-            Crie uma tarefa interna que aparecerá no Pipeline.
-          </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
+        <div className="crumb" style={{ marginBottom: 0 }}>
+          <Link href={'/admin/atividades' as Route}>Atividades</Link>
+          <span>/</span>
+          Nova atividade
         </div>
         <Link href={'/admin/atividades' as Route} className="btn btn-ghost btn-sm">
-          <Icon name="arrow-left" size={14} />
+          <Icon name="chevron-left" size={14} />
           Voltar
         </Link>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div className="eyebrow">Tucan · Interno</div>
+        <h1 className="h1" style={{ marginTop: 6 }}>Nova atividade</h1>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
+          Crie uma tarefa interna que aparecerá no Pipeline.
+        </p>
       </div>
 
       <ActivityForm
