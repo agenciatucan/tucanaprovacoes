@@ -7,17 +7,20 @@ import { useRouter } from 'next/navigation';
 import {
   sendCampaignForApproval,
   regenerateApprovalToken,
+  deleteCampaign,
 } from '@/actions/campaigns';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
 interface Props {
   campaignId: string;
+  campaignName: string;
   status: string;
   approvalLink: string;
   accessCode?: string | null;
   isLocked?: boolean | null;
   editHref: string;
+  isAdmin?: boolean;
 }
 
 function extractTokenFromLink(link: string) {
@@ -39,11 +42,13 @@ function extractTokenFromLink(link: string) {
 
 export default function CampaignActions({
   campaignId,
+  campaignName,
   status,
   approvalLink,
   accessCode,
   isLocked,
   editHref,
+  isAdmin,
 }: Props) {
   const router = useRouter();
 
@@ -99,6 +104,24 @@ export default function CampaignActions({
 
       toast.success('Cronograma enviado para aprovação!');
       router.refresh();
+    });
+  }
+
+  function handleDelete() {
+    const message = `Excluir o cronograma "${campaignName}" definitivamente?\n\nTodos os conteúdos, aprovações, comentários e arquivos deste cronograma serão excluídos permanentemente. Esta ação não pode ser desfeita.`;
+
+    if (!window.confirm(message)) return;
+
+    startTransition(async () => {
+      const result = await deleteCampaign(campaignId);
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success('Cronograma excluído.');
+      router.push('/admin/cronogramas');
     });
   }
 
@@ -384,6 +407,19 @@ export default function CampaignActions({
           >
             <Icon name="upload" size={14} />
             {isPending ? 'Enviando…' : 'Enviar para aprovação'}
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ color: '#b91c1c' }}
+            onClick={handleDelete}
+            disabled={isPending}
+          >
+            <Icon name="trash" size={14} />
+            Excluir
           </button>
         )}
       </div>

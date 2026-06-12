@@ -20,6 +20,20 @@ async function requireStaff(supabase: Awaited<ReturnType<typeof getSupabaseServe
   return data;
 }
 
+async function requireAdmin(supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("id, role")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (!data || data.role !== "admin") return null;
+  return data;
+}
+
 export async function uploadClientLogo(formData: FormData): Promise<Result<{ url: string }>> {
   const supabase = await getSupabaseServerClient();
   const profile = await requireStaff(supabase);
@@ -136,5 +150,31 @@ export async function reactivateClient(clientId: string): Promise<Result> {
 
   revalidatePath("/admin/clientes");
   revalidatePath(`/admin/clientes/${clientId}`);
+  return { success: true, data: undefined };
+}
+
+// ── Exclusão definitiva (apenas admin) ────────────────────────
+// Remove o cliente e, em cascata, todos os cronogramas, conteúdos,
+// aprovações, comentários, arquivos e acessos vinculados a ele.
+export async function deleteClient(clientId: string): Promise<Result> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireAdmin(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { error } = await supabase
+    .from("clients")
+    .delete()
+    .eq("id", clientId);
+
+  if (error) {
+    logger.error("deleteClient", error.message);
+    return { success: false, error: "Erro ao excluir cliente" };
+  }
+
+  revalidatePath("/admin/clientes");
+  revalidatePath("/admin");
+  revalidatePath("/admin/cronogramas");
+  revalidatePath("/admin/kanban");
+  revalidatePath("/admin/calendario");
   return { success: true, data: undefined };
 }

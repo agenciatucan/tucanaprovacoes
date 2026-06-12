@@ -202,6 +202,12 @@ export default async function GerenciarCronogramaPage({
 
   const supabase = await getSupabaseServerClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: currentProfile } = user
+    ? await supabase.from('user_profiles').select('role').eq('auth_user_id', user.id).single()
+    : { data: null };
+  const isAdmin = currentProfile?.role === 'admin';
+
   const { data: campaign } = await supabase
     .from('campaigns')
     .select('*, clients(id, name, company_name, email)')
@@ -629,11 +635,13 @@ export default async function GerenciarCronogramaPage({
         <div className="campaign-detail-actions">
           <CampaignActions
             campaignId={id}
+            campaignName={campaign.name}
             status={campaign.status}
             approvalLink={approvalLink}
             accessCode={campaign.access_code}
             isLocked={campaign.is_locked}
             editHref={`/admin/cronogramas/${id}/editar`}
+            isAdmin={isAdmin}
           />
         </div>
       </div>

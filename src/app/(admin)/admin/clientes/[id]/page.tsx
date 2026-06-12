@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import ClientForm from '@/components/admin/ClientForm';
 import InactivateClientButton from '@/components/admin/InactivateClientButton';
+import DeleteClientButton from '@/components/admin/DeleteClientButton';
 import ClientAccessPanel from '@/components/admin/ClientAccessPanel';
 
 export const metadata: Metadata = { title: 'Cliente' };
@@ -37,6 +38,12 @@ interface Props { params: Promise<{ id: string }>; }
 export default async function ClienteDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: currentProfile } = user
+    ? await supabase.from('user_profiles').select('role').eq('auth_user_id', user.id).single()
+    : { data: null };
+  const isAdmin = currentProfile?.role === 'admin';
 
   const [{ data: client }, { data: staffUsers }, { data: clientUsers }] = await Promise.all([
     supabase
@@ -236,6 +243,16 @@ export default async function ClienteDetailPage({ params }: Props) {
               currentStatus={client.status as 'ativo' | 'inativo'}
               clientName={client.name}
             />
+
+            {isAdmin && (
+              <>
+                <div style={{ borderTop: '1px solid var(--line-soft)', margin: '14px 0' }} />
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+                  Excluir o cliente remove permanentemente todos os seus cronogramas, conteúdos, aprovações e acessos. Apenas administradores podem fazer isso.
+                </p>
+                <DeleteClientButton clientId={client.id} clientName={client.name} />
+              </>
+            )}
           </div>
 
           {/* Notes */}

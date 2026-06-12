@@ -402,3 +402,35 @@ export async function archiveCampaign(campaignId: string): Promise<Result> {
 
   return { success: true, data: undefined };
 }
+
+// ── Excluir cronograma (definitivo, apenas admin) ────────────
+export async function deleteCampaign(campaignId: string): Promise<Result> {
+  const profile = await requireAdmin();
+
+  if (!profile) {
+    return {
+      success: false,
+      error: "Apenas admins podem excluir cronogramas",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("campaigns")
+    .delete()
+    .eq("id", campaignId);
+
+  if (error) {
+    logger.error("deleteCampaign", error.message);
+
+    return {
+      success: false,
+      error: "Erro ao excluir cronograma",
+    };
+  }
+
+  revalidateCampaignPaths(campaignId);
+
+  return { success: true, data: undefined };
+}
