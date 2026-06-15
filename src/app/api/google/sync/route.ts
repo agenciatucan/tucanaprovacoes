@@ -169,13 +169,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
-  const supabase = await getSupabaseServiceClient();
-  const connection = await getActiveGoogleConnection(supabase);
-  if (!connection) {
-    return NextResponse.json({ skipped: 'Nenhuma conexão com o Google Agenda ativa' });
-  }
-
   try {
+    const supabase = await getSupabaseServiceClient();
+    const connection = await getActiveGoogleConnection(supabase);
+    if (!connection) {
+      return NextResponse.json({ skipped: 'Nenhuma conexão com o Google Agenda ativa' });
+    }
+
     const pulled = await pullFromGoogle(supabase, connection);
     const pushed = await pushPendingToGoogle(supabase, connection);
 
@@ -186,7 +186,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, pulled, pushed });
   } catch (err) {
-    logger.error('googleCalendarSync', err instanceof Error ? err.message : 'Erro desconhecido');
-    return NextResponse.json({ error: 'Erro ao sincronizar com o Google Agenda' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    logger.error('googleCalendarSync', message);
+    return NextResponse.json({ error: 'Erro ao sincronizar com o Google Agenda', detail: message }, { status: 500 });
   }
 }
