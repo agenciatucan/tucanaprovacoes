@@ -20,50 +20,52 @@ export default function SetPasswordForm({ userRole }: Props) {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    // Timeout de segurança: se a verificação travar, mostra o estado de erro
     const safetyTimer = setTimeout(() => {
       setSessionReady(false);
       setCheckingSession(false);
-    }, 12000);
+    }, 10000);
 
     async function createSessionFromUrl() {
       try {
-        const supabase = getSupabaseBrowserClient();
-        const hash = window.location.hash;
+        // 1. Verifica sessão server-side primeiro (lê cookies HttpOnly do
+        //    /auth/callback Route Handler — sem chamada de rede ao Supabase).
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.hasSession) {
+            clearTimeout(safetyTimer);
+            setSessionReady(true);
+            setCheckingSession(false);
+            return;
+          }
+        }
 
+        // 2. Sem sessão server-side — tenta tokens do hash na URL (fallback
+        //    para o fluxo via /auth/confirm que passa tokens diretamente).
+        const hash = window.location.hash;
         if (hash) {
           const params = new URLSearchParams(hash.replace('#', ''));
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
 
           if (accessToken && refreshToken) {
-            // setSession faz chamada de rede para /auth/v1/user — pode travar
-            // em conexão móvel lenta. Limitamos a 8 segundos.
+            const supabase = getSupabaseBrowserClient();
             const result = await Promise.race([
               supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
               new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('timeout')), 8000)
+                setTimeout(() => reject(new Error('timeout')), 6000)
               ),
             ]).catch(() => null);
 
-            if (result && !('error' in result && result.error)) {
+            const sessionOk = result && !(result as any).error;
+            if (sessionOk) {
               window.history.replaceState(null, '', window.location.pathname);
-              clearTimeout(safetyTimer);
-              setSessionReady(true);
-              setCheckingSession(false);
-              return;
             }
+            clearTimeout(safetyTimer);
+            setSessionReady(!!sessionOk);
+            setCheckingSession(false);
+            return;
           }
-        }
-
-        // Fallback: verifica sessão server-side (cookies HttpOnly do /auth/callback)
-        const res = await fetch('/api/auth/session');
-        if (res.ok) {
-          const json = await res.json();
-          clearTimeout(safetyTimer);
-          setSessionReady(!!json.hasSession);
-          setCheckingSession(false);
-          return;
         }
 
         clearTimeout(safetyTimer);
