@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
       if (session?.access_token && session?.refresh_token) {
         const hash = `#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}`;
-        return NextResponse.redirect(`${origin}/auth/callback${hash}?next=${encodeURIComponent(next)}`);
+        return NextResponse.redirect(`${origin}/auth/callback?next=${encodeURIComponent(next)}${hash}`);
       }
 
       // Fallback: se não vierem tokens, redireciona para o next padrão.

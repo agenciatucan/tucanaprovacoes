@@ -1,8 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import type { Route } from 'next';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function CallbackCard({ msg }: { msg: string }) {
@@ -73,13 +72,21 @@ function CallbackCard({ msg }: { msg: string }) {
   );
 }
 
+function navigate(path: string) {
+  window.location.href = path;
+}
+
 function AuthCallbackContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [msg, setMsg] = useState('Confirmando acesso…');
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setMsg('A confirmação está demorando mais que o esperado. Verifique sua conexão.');
+      navigate('/login?erro=timeout');
+    }, 15000);
+
     async function handleCallback() {
       const supabase = getSupabaseBrowserClient();
 
@@ -99,8 +106,9 @@ function AuthCallbackContent() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
 
           if (!error) {
+            clearTimeout(timeout);
             setMsg('Acesso confirmado! Redirecionando…');
-            router.replace(next as Route);
+            navigate(next);
             return;
           }
         }
@@ -122,28 +130,34 @@ function AuthCallbackContent() {
           });
 
           if (!error) {
+            clearTimeout(timeout);
             setMsg('Acesso confirmado! Redirecionando…');
-            router.replace(next as Route);
+            navigate(next);
             return;
           }
         }
 
+        clearTimeout(timeout);
+
         if (errorDescription) {
           setMsg('Link inválido ou expirado. Solicite um novo acesso.');
-          router.replace('/login?erro=link_invalido' as Route);
+          navigate('/login?erro=link_invalido');
           return;
         }
 
         setMsg('Link inválido ou expirado. Solicite um novo acesso.');
-        router.replace('/login?erro=link_invalido' as Route);
+        navigate('/login?erro=link_invalido');
       } catch {
+        clearTimeout(timeout);
         setMsg('Erro ao confirmar acesso. Tente novamente.');
-        router.replace('/login?erro=callback' as Route);
+        navigate('/login?erro=callback');
       }
     }
 
     handleCallback();
-  }, [router, searchParams]);
+
+    return () => clearTimeout(timeout);
+  }, [searchParams]);
 
   return <CallbackCard msg={msg} />;
 }
