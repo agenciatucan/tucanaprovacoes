@@ -46,6 +46,7 @@ const POST_STATUS_KIND: Record<
   em_revisao: 'revisao',
   aprovado: 'aprovado',
   em_producao: 'agendado',
+  programado: 'agendado',
   finalizado: 'publicado',
 };
 
@@ -54,6 +55,7 @@ const POST_STATUS_LABEL: Record<string, string> = {
   em_revisao: 'Ajustes solicitados',
   aprovado: 'Aprovado',
   em_producao: 'Em produção',
+  programado: 'Programado',
   finalizado: 'Finalizado',
 };
 

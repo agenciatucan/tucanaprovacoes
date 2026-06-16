@@ -48,12 +48,11 @@ export const POST_STATUS_KIND: Record<string, string> = {
   em_revisao: 'revisao',
   aprovado: 'aprovado',
   em_producao: 'agendado',
+  programado: 'agendado',
   finalizado: 'publicado',
 };
 
-// Labels customizados para o cliente — sobrescrevem o label padrão do
-// StatusBadge quando o "kind" (cor) não corresponde ao texto desejado
-// (ex.: em_producao usa a cor de "agendado", mas o texto é "Em produção").
 export const POST_STATUS_LABEL: Record<string, string> = {
   em_producao: 'Em produção',
+  programado: 'Programado',
 };

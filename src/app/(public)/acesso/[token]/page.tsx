@@ -30,11 +30,13 @@ const POST_STATUS_KIND: Record<string, Parameters<typeof StatusBadge>[0]['kind']
   em_revisao: 'revisao',
   aprovado: 'aprovado',
   em_producao: 'agendado',
+  programado: 'agendado',
   finalizado: 'publicado',
 };
 
 const POST_STATUS_LABEL: Record<string, string> = {
   em_producao: 'Em produção',
+  programado: 'Programado',
 };
 
 function getClientName(client: any) {

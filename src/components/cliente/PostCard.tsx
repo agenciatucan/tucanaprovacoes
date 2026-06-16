@@ -35,11 +35,13 @@ const STATUS_KIND: Record<string, string> = {
   em_revisao: 'revisao',
   aprovado: 'aprovado',
   em_producao: 'agendado',
+  programado: 'agendado',
   finalizado: 'publicado',
 };
 
 const STATUS_LABEL: Record<string, string> = {
   em_producao: 'Em produção',
+  programado: 'Programado',
 };
 
 const FIELD_STATUS_CONFIG: Record<

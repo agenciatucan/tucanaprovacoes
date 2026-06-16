@@ -24,7 +24,7 @@ export type ApprovalStatus =
   | "substituir_tema"  // apenas para tema
   | "nao_se_aplica";   // apenas para arte/prévia
 
-export type PostStatus      = "pendente" | "em_revisao" | "aprovado" | "em_producao" | "finalizado";
+export type PostStatus      = "pendente" | "em_revisao" | "aprovado" | "em_producao" | "programado" | "finalizado";
 export type CommentStatus   = "aberta" | "resolvida";
 export type FileType        = "imagem" | "video" | "pdf" | "roteiro" | "referencia" | "capa";
 export type ApprovalType    = "tema" | "legenda" | "arte" | "post_completo" | "cronograma" | "planejamento";
