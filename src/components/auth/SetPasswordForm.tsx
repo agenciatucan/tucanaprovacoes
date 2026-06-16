@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { updatePassword } from '@/actions/auth';
 import { toast } from 'sonner';
 
@@ -18,6 +17,8 @@ export default function SetPasswordForm({ userRole }: Props) {
   const [showPass, setShowPass] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  // Token do hash da URL — passado para a server action em vez de chamar setSession
+  const accessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     const safetyTimer = setTimeout(() => {
@@ -25,23 +26,11 @@ export default function SetPasswordForm({ userRole }: Props) {
       setCheckingSession(false);
     }, 10000);
 
-    async function createSessionFromUrl() {
+    async function checkSession() {
       try {
-        // 1. Verifica sessão server-side primeiro (lê cookies HttpOnly do
-        //    /auth/callback Route Handler — sem chamada de rede ao Supabase).
-        const res = await fetch('/api/auth/session');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.hasSession) {
-            clearTimeout(safetyTimer);
-            setSessionReady(true);
-            setCheckingSession(false);
-            return;
-          }
-        }
-
-        // 2. Sem sessão server-side — tenta tokens do hash na URL (fallback
-        //    para o fluxo via /auth/confirm que passa tokens diretamente).
+        // 1. Tokens no hash da URL (presentes quando /auth/callback ou /auth/confirm
+        //    redirecionam aqui). Leitura local, sem chamada de rede — habilita o
+        //    formulário imediatamente. O token é verificado só no submit.
         const hash = window.location.hash;
         if (hash) {
           const params = new URLSearchParams(hash.replace('#', ''));
@@ -49,20 +38,23 @@ export default function SetPasswordForm({ userRole }: Props) {
           const refreshToken = params.get('refresh_token');
 
           if (accessToken && refreshToken) {
-            const supabase = getSupabaseBrowserClient();
-            const result = await Promise.race([
-              supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('timeout')), 6000)
-              ),
-            ]).catch(() => null);
-
-            const sessionOk = result && !(result as any).error;
-            if (sessionOk) {
-              window.history.replaceState(null, '', window.location.pathname);
-            }
+            accessTokenRef.current = accessToken;
+            window.history.replaceState(null, '', window.location.pathname);
             clearTimeout(safetyTimer);
-            setSessionReady(!!sessionOk);
+            setSessionReady(true);
+            setCheckingSession(false);
+            return;
+          }
+        }
+
+        // 2. Sem tokens no hash — verifica sessão via cookies HttpOnly (set pelo
+        //    Route Handler /auth/callback no lado do servidor).
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.hasSession) {
+            clearTimeout(safetyTimer);
+            setSessionReady(true);
             setCheckingSession(false);
             return;
           }
@@ -78,7 +70,7 @@ export default function SetPasswordForm({ userRole }: Props) {
       }
     }
 
-    createSessionFromUrl();
+    checkSession();
 
     return () => clearTimeout(safetyTimer);
   }, []);
@@ -98,9 +90,10 @@ export default function SetPasswordForm({ userRole }: Props) {
 
     setLoading(true);
 
-    // Usa server action para atualizar a senha — funciona com sessão nos
-    // cookies HttpOnly (do /auth/callback) ou nos cookies do browser client.
-    const result = await updatePassword(password);
+    // Passa o accessToken quando disponível (fluxo via hash) — a server action
+    // verifica o token com o service client e usa admin API para atualizar a senha,
+    // sem depender de setSession ou de sessão nos cookies do browser.
+    const result = await updatePassword(password, accessTokenRef.current ?? undefined);
 
     if (!result.success) {
       toast.error(result.error);

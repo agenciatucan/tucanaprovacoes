@@ -110,14 +110,39 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
-// Atualiza a senha do usuário autenticado via sessão server-side (cookies).
-// Usado no formulário de definir senha para evitar dependência de sessão
-// no browser client, que pode falhar em webviews de apps de e-mail.
-export async function updatePassword(password: string): Promise<Result> {
+// Atualiza a senha do usuário após convite ou redefinição.
+//
+// accessToken (opcional): token JWT do hash da URL (/definir-senha#access_token=...).
+//   Quando presente, o service client verifica o token e atualiza via admin API —
+//   sem depender de setSession nem de sessão nos cookies. Isso elimina a chamada
+//   _getUser que travava em webviews de e-mail e conexões lentas.
+//
+// Sem accessToken: usa a sessão do servidor nos cookies HttpOnly (fluxo normal
+//   após autenticação completa via /auth/callback).
+export async function updatePassword(password: string, accessToken?: string): Promise<Result> {
   if (!password || password.length < 8) {
     return { success: false, error: "A senha precisa ter pelo menos 8 caracteres" };
   }
 
+  if (accessToken) {
+    const serviceClient = await getSupabaseServiceClient();
+
+    const { data: { user }, error: userError } = await serviceClient.auth.getUser(accessToken);
+    if (userError || !user) {
+      logger.error("updatePassword:getUser", userError?.message ?? "user not found");
+      return { success: false, error: "Link de acesso inválido ou expirado. Solicite um novo." };
+    }
+
+    const { error } = await serviceClient.auth.admin.updateUserById(user.id, { password });
+    if (error) {
+      logger.error("updatePassword:admin", error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: undefined };
+  }
+
+  // Fallback: sessão nos cookies HttpOnly (set pelo Route Handler /auth/callback)
   const supabase = await getSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
 
