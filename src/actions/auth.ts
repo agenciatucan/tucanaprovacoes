@@ -129,9 +129,14 @@ export async function updatePassword(password: string, accessToken?: string): Pr
 
     // Verifica o token e obtém o e-mail do usuário (necessário para o sign-in após o update)
     const { data: { user }, error: userError } = await serviceClient.auth.getUser(accessToken);
-    if (userError || !user?.email) {
+    if (userError || !user) {
       logger.error("updatePassword:getUser", userError?.message ?? "user not found");
       return { success: false, error: "Link de acesso inválido ou expirado. Solicite um novo." };
+    }
+
+    const email = user.email;
+    if (!email) {
+      return { success: false, error: "Conta sem e-mail associado. Solicite suporte." };
     }
 
     // Atualiza a senha via admin API (independe de sessão nos cookies do browser)
@@ -145,10 +150,7 @@ export async function updatePassword(password: string, accessToken?: string): Pr
     // Necessário quando o link vai direto para /definir-senha (ex: recovery flow)
     // sem passar pelo /auth/callback que normalmente cria os cookies.
     const serverClient = await getSupabaseServerClient();
-    const { error: signInError } = await serverClient.auth.signInWithPassword({
-      email: user.email,
-      password,
-    });
+    const { error: signInError } = await serverClient.auth.signInWithPassword({ email, password });
     if (signInError) {
       logger.error("updatePassword:signIn", signInError.message);
     }
