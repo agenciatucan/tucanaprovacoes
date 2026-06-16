@@ -127,16 +127,30 @@ export async function updatePassword(password: string, accessToken?: string): Pr
   if (accessToken) {
     const serviceClient = await getSupabaseServiceClient();
 
+    // Verifica o token e obtém o e-mail do usuário (necessário para o sign-in após o update)
     const { data: { user }, error: userError } = await serviceClient.auth.getUser(accessToken);
-    if (userError || !user) {
+    if (userError || !user?.email) {
       logger.error("updatePassword:getUser", userError?.message ?? "user not found");
       return { success: false, error: "Link de acesso inválido ou expirado. Solicite um novo." };
     }
 
-    const { error } = await serviceClient.auth.admin.updateUserById(user.id, { password });
-    if (error) {
-      logger.error("updatePassword:admin", error.message);
-      return { success: false, error: error.message };
+    // Atualiza a senha via admin API (independe de sessão nos cookies do browser)
+    const { error: updateError } = await serviceClient.auth.admin.updateUserById(user.id, { password });
+    if (updateError) {
+      logger.error("updatePassword:admin", updateError.message);
+      return { success: false, error: updateError.message };
+    }
+
+    // Faz sign-in com as novas credenciais para criar sessão nos cookies HttpOnly.
+    // Necessário quando o link vai direto para /definir-senha (ex: recovery flow)
+    // sem passar pelo /auth/callback que normalmente cria os cookies.
+    const serverClient = await getSupabaseServerClient();
+    const { error: signInError } = await serverClient.auth.signInWithPassword({
+      email: user.email,
+      password,
+    });
+    if (signInError) {
+      logger.error("updatePassword:signIn", signInError.message);
     }
 
     return { success: true, data: undefined };
