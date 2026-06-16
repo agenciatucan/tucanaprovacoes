@@ -2,6 +2,11 @@ import { Metadata } from 'next';
 import SetPasswordForm from '@/components/auth/SetPasswordForm';
 import Image from 'next/image';
 
+// Force dynamic so the middleware can inject the CSP nonce into <script> tags.
+// Static pages don't get per-request nonces, causing 'strict-dynamic' CSP to
+// block all JavaScript (which freezes the form at "Validando...").
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Criar senha — Tucan' };
 
 export default function DefinirSenhaPage() {
