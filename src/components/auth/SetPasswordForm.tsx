@@ -37,7 +37,7 @@ export default function SetPasswordForm({ userRole }: Props) {
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
 
-          if (accessToken && refreshToken) {
+          if (accessToken) {
             accessTokenRef.current = accessToken;
             window.history.replaceState(null, '', window.location.pathname);
             clearTimeout(safetyTimer);
