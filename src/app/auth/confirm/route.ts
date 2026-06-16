@@ -36,18 +36,17 @@ export async function GET(request: NextRequest) {
     try {
       const result = await supabase.auth.verifyOtp({ type, token_hash });
 
-      // Quando o Supabase retornar a sessão, preferimos redirecionar para
-      // /auth/callback incluindo os tokens no fragmento (hash). Assim o
-      // código cliente (`/auth/callback`) consegue criar a sessão no
-      // browser (localStorage) e o formulário de definir senha funciona.
+      // Redireciona diretamente para o destino com os tokens no hash.
+      // O formulário client-side (SetPasswordForm) lê os tokens do hash
+      // e chama setSession() para estabelecer a sessão no browser.
       const session = (result as any)?.data?.session;
 
       if (session?.access_token && session?.refresh_token) {
         const hash = `#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}`;
-        return NextResponse.redirect(`${origin}/auth/callback?next=${encodeURIComponent(next)}${hash}`);
+        return NextResponse.redirect(`${origin}${next}${hash}`);
       }
 
-      // Fallback: se não vierem tokens, redireciona para o next padrão.
+      // Fallback: sessão já foi definida via cookies server-side — apenas redireciona.
       return NextResponse.redirect(`${origin}${next}`);
     } catch (error: any) {
       logger.error('auth/confirm', error?.message ?? String(error));
