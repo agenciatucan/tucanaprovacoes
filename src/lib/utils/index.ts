@@ -44,6 +44,7 @@ export const POST_STATUS_LABEL: Record<PostStatus, string> = {
   pendente:     "Pendente",
   em_revisao:   "Em revisão",
   aprovado:     "Aprovado",
+  programado:   "Programado",
   em_producao:  "Em produção",
   finalizado:   "Finalizado",
 };
@@ -71,6 +72,7 @@ export const POST_STATUS_CLASS: Record<PostStatus, string> = {
   pendente:    "bg-gray-100   text-gray-600   border-gray-200",
   em_revisao:  "bg-blue-100   text-blue-700   border-blue-200",
   aprovado:    "bg-green-100  text-green-700  border-green-200",
+  programado:  "bg-yellow-100 text-yellow-700 border-yellow-200",
   em_producao: "bg-purple-100 text-purple-700 border-purple-200",
   finalizado:  "bg-[#25411e]/10 text-[#25411e] border-[#25411e]/20",
 };
