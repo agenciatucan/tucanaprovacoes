@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { updatePassword } from '@/actions/auth';
 import { toast } from 'sonner';
 
 interface Props {
@@ -19,60 +20,65 @@ export default function SetPasswordForm({ userRole }: Props) {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
+    // Timeout de segurança: se a verificação travar, mostra o estado de erro
+    const safetyTimer = setTimeout(() => {
+      setSessionReady(false);
+      setCheckingSession(false);
+    }, 12000);
+
     async function createSessionFromUrl() {
-      const supabase = getSupabaseBrowserClient();
-      const hash = window.location.hash;
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const hash = window.location.hash;
 
-      if (hash) {
-        const params = new URLSearchParams(hash.replace('#', ''));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+        if (hash) {
+          const params = new URLSearchParams(hash.replace('#', ''));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
 
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+          if (accessToken && refreshToken) {
+            // setSession faz chamada de rede para /auth/v1/user — pode travar
+            // em conexão móvel lenta. Limitamos a 8 segundos.
+            const result = await Promise.race([
+              supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), 8000)
+              ),
+            ]).catch(() => null);
 
-          if (error) {
-            toast.error(`Erro ao validar o link: ${error.message}`);
-            setSessionReady(false);
-            setCheckingSession(false);
-            return;
+            if (result && !('error' in result && result.error)) {
+              window.history.replaceState(null, '', window.location.pathname);
+              clearTimeout(safetyTimer);
+              setSessionReady(true);
+              setCheckingSession(false);
+              return;
+            }
           }
+        }
 
-          window.history.replaceState(null, '', window.location.pathname);
-          setSessionReady(true);
+        // Fallback: verifica sessão server-side (cookies HttpOnly do /auth/callback)
+        const res = await fetch('/api/auth/session');
+        if (res.ok) {
+          const json = await res.json();
+          clearTimeout(safetyTimer);
+          setSessionReady(!!json.hasSession);
           setCheckingSession(false);
           return;
         }
+
+        clearTimeout(safetyTimer);
+        setSessionReady(false);
+        setCheckingSession(false);
+      } catch {
+        clearTimeout(safetyTimer);
+        setSessionReady(false);
+        setCheckingSession(false);
       }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      // Se o cliente não tem sessão local, tente checar a sessão server-side
-      // via endpoint que lê os cookies HttpOnly configurados por `verifyOtp`.
-      if (!session) {
-        try {
-          const res = await fetch('/api/auth/session');
-          if (res.ok) {
-            const json = await res.json();
-            setSessionReady(!!json.hasSession);
-            setCheckingSession(false);
-            return;
-          }
-        } catch (e) {
-          // ignore and fallback
-        }
-      }
-
-      setSessionReady(!!session);
-      setCheckingSession(false);
     }
 
     createSessionFromUrl();
+
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -90,22 +96,12 @@ export default function SetPasswordForm({ userRole }: Props) {
 
     setLoading(true);
 
-    const supabase = getSupabaseBrowserClient();
+    // Usa server action para atualizar a senha — funciona com sessão nos
+    // cookies HttpOnly (do /auth/callback) ou nos cookies do browser client.
+    const result = await updatePassword(password);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      toast.error('Sessão não encontrada. Solicite um novo link de acesso.');
-      setLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ password });
-
-    if (error) {
-      toast.error(`Erro: ${error.message}`);
+    if (!result.success) {
+      toast.error(result.error);
       setLoading(false);
       return;
     }

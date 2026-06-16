@@ -110,6 +110,31 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
+// Atualiza a senha do usuário autenticado via sessão server-side (cookies).
+// Usado no formulário de definir senha para evitar dependência de sessão
+// no browser client, que pode falhar em webviews de apps de e-mail.
+export async function updatePassword(password: string): Promise<Result> {
+  if (!password || password.length < 8) {
+    return { success: false, error: "A senha precisa ter pelo menos 8 caracteres" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { success: false, error: "Sessão não encontrada. Solicite um novo link de acesso." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    logger.error("updatePassword", error.message);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data: undefined };
+}
+
 export async function verifyApprovalToken(
   token: string,
   email: string
