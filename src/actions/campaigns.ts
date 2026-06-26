@@ -10,7 +10,7 @@ import {
   type CampaignInput,
 } from "@/lib/validations/schemas";
 import { logger } from "@/lib/logger";
-import { notifyCampaignSentForApproval, notifyCampaignUpdatedForReview } from "@/lib/whatsapp-notifications";
+import { notifyCampaignSentForApproval, notifyCampaignUpdatedForReview, notifyClientReminder } from "@/lib/whatsapp-notifications";
 import { createApprovalToken, createTokenExpiry } from "@/lib/utils";
 
 type Result<T = void> =
@@ -401,6 +401,92 @@ export async function archiveCampaign(campaignId: string): Promise<Result> {
   revalidateCampaignPaths(campaignId);
 
   return { success: true, data: undefined };
+}
+
+// ── Lembrar cliente sobre aprovações pendentes ───────────────
+const REMINDER_COOLDOWN_HOURS = 4;
+
+export async function remindClientForApproval(
+  campaignId: string
+): Promise<Result<{ pendingCount: number }>> {
+  const profile = await requireStaff();
+
+  if (!profile) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const supabase = await getSupabaseServerClient();
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("id, status")
+    .eq("id", campaignId)
+    .single();
+
+  if (!campaign) {
+    return { success: false, error: "Cronograma não encontrado" };
+  }
+
+  if (campaign.status !== "enviado_para_aprovacao") {
+    return { success: false, error: "O cronograma não está aguardando aprovação" };
+  }
+
+  // Anti-spam: bloqueia se já foi enviado um lembrete dentro do cooldown
+  const cooldownCutoff = new Date(
+    Date.now() - REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data: recent } = await supabase
+    .from("client_reminders")
+    .select("id, created_at")
+    .eq("campaign_id", campaignId)
+    .gte("created_at", cooldownCutoff)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) {
+    const sentAt = new Date(recent.created_at as string);
+    const nextAllowedAt = new Date(sentAt.getTime() + REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000);
+    const minutesLeft = Math.ceil((nextAllowedAt.getTime() - Date.now()) / 60000);
+    return {
+      success: false,
+      error: `Lembrete já enviado recentemente. Aguarde ${minutesLeft} min antes de reenviar.`,
+    };
+  }
+
+  const { data: pendingItems } = await supabase
+    .from("content_items")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .in("general_status", ["pendente", "em_revisao"]);
+
+  const pendingCount = pendingItems?.length ?? 0;
+
+  if (pendingCount === 0) {
+    return { success: false, error: "Não há posts pendentes de aprovação" };
+  }
+
+  const { error: insertError } = await supabase
+    .from("client_reminders")
+    .insert({
+      campaign_id: campaignId,
+      sent_by: profile.id,
+      pending_count: pendingCount,
+    });
+
+  if (insertError) {
+    logger.error("remindClientForApproval/insert", insertError.message);
+    return { success: false, error: "Erro ao registrar lembrete" };
+  }
+
+  notifyClientReminder(campaignId, pendingCount).catch((e) =>
+    logger.error("whatsapp/reminder", String(e))
+  );
+
+  revalidatePath(`/admin/cronogramas/${campaignId}`);
+
+  return { success: true, data: { pendingCount } };
 }
 
 // ── Excluir cronograma (definitivo, apenas admin) ────────────

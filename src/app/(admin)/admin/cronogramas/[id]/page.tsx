@@ -6,6 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import CampaignActions from '@/components/admin/CampaignActions';
+import RemindClientButton from '@/components/admin/RemindClientButton';
 import WeekSection from '@/components/admin/WeekSection';
 import PostProductionToggle from '@/components/admin/PostProductionToggle';
 
@@ -250,6 +251,14 @@ export default async function GerenciarCronogramaPage({
   ).length;
 
   const pct = total ? Math.round((approved / total) * 100) : 0;
+
+  const { data: lastReminder } = await supabase
+    .from('client_reminders')
+    .select('created_at')
+    .eq('campaign_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const approvalLink = `${
     process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -635,7 +644,7 @@ export default async function GerenciarCronogramaPage({
           </div>
         </div>
 
-        <div className="campaign-detail-actions">
+        <div className="campaign-detail-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <CampaignActions
             campaignId={id}
             campaignName={campaign.name}
@@ -646,6 +655,14 @@ export default async function GerenciarCronogramaPage({
             editHref={`/admin/cronogramas/${id}/editar`}
             isAdmin={isAdmin}
           />
+
+          {campaign.status === 'enviado_para_aprovacao' && (
+            <RemindClientButton
+              campaignId={id}
+              pendingCount={pending}
+              lastReminderAt={lastReminder?.created_at ?? null}
+            />
+          )}
         </div>
       </div>
 

@@ -118,6 +118,29 @@ export async function notifyCampaignUpdatedForReview(campaignId: string) {
   }
 }
 
+// Disparado quando a equipe envia um lembrete de aprovação pendente ao cliente
+export async function notifyClientReminder(campaignId: string, pendingCount: number) {
+  try {
+    const info = await getClientWhatsApp(campaignId);
+    if (!info) return;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://tucanaprovacoes.vercel.app";
+    const link   = `${appUrl}/cliente/cronogramas/${campaignId}`;
+
+    const postWord = pendingCount === 1 ? "conteúdo" : "conteúdos";
+
+    const message =
+      `Olá, ${info.name}! 🔔\n\n` +
+      `Você ainda tem *${pendingCount} ${postWord}* aguardando sua aprovação no cronograma *${info.campaignName}*.\n\n` +
+      `Acesse o link abaixo para revisar e aprovar:\n` +
+      `${link}`;
+
+    await sendWhatsApp(info.phone, message);
+  } catch (err) {
+    logger.error("notifyClientReminder", String(err));
+  }
+}
+
 // Disparado quando o cliente solicita ajuste em um post
 export async function notifyClientRequestedAdjustment(campaignId: string, postTitle: string) {
   try {
