@@ -260,6 +260,35 @@ export async function markPostAsScheduled(id: string): Promise<void> {
   revalidatePath(`/admin/posts/${id}`);
 }
 
+// ── Marcar post como finalizado (publicado) ──────────────────
+export async function markPostAsFinished(id: string): Promise<void> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return;
+
+  const { data: item } = await supabase
+    .from('content_items')
+    .select('campaign_id, general_status')
+    .eq('id', id)
+    .single();
+
+  if (!item || item.general_status !== 'programado') return;
+
+  const { error } = await supabase
+    .from('content_items')
+    .update({ general_status: 'finalizado' })
+    .eq('id', id);
+
+  if (error) {
+    logger.error('markPostAsFinished', error.message);
+    return;
+  }
+
+  revalidatePath(`/admin/kanban`);
+  revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
+  revalidatePath(`/admin/posts/${id}`);
+}
+
 // ── Reenviar post para aprovação do cliente ──────────────────
 // Reseta os campos com ajuste_solicitado de volta para aguardando,
 // mantendo os que já foram aprovados. Recalcula o general_status.

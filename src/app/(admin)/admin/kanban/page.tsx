@@ -4,7 +4,7 @@ import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_STATUS_LABEL } from '@/lib/validations/schemas';
-import { markPostAsScheduled } from '@/actions/content-items';
+import { markPostAsScheduled, markPostAsFinished } from '@/actions/content-items';
 
 export const metadata: Metadata = { title: 'Pipeline' };
 
@@ -457,6 +457,7 @@ export default async function KanbanPage({
                   {colItems.map((card) => {
                     if (card.type === 'post') {
                       const scheduleAction = markPostAsScheduled.bind(null, card.id);
+                      const finishAction = markPostAsFinished.bind(null, card.id);
                       const cardInner = (
                         <>
                           {/* Topo: badge origem + formato */}
@@ -512,6 +513,31 @@ export default async function KanbanPage({
                                 }}
                               >
                                 Marcar como programado →
+                              </button>
+                            </form>
+                          </div>
+                        );
+                      }
+
+                      if (col.key === 'programado') {
+                        return (
+                          <div key={`post-${card.id}`} className="card kanban-card-link" style={{ padding: 12 }}>
+                            <Link
+                              href={`/admin/posts/${card.id}` as Route}
+                              style={{ textDecoration: 'none', color: 'inherit', display: 'block', marginBottom: 10 }}
+                            >
+                              {cardInner}
+                            </Link>
+                            <form action={finishAction}>
+                              <button
+                                type="submit"
+                                style={{
+                                  width: '100%', height: 28, borderRadius: 8, border: '1px solid #16a34a',
+                                  background: '#f0fdf4', color: '#16a34a', fontSize: 11, fontWeight: 700,
+                                  cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em',
+                                }}
+                              >
+                                Marcar como concluído →
                               </button>
                             </form>
                           </div>
