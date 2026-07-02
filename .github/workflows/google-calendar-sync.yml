@@ -11,6 +11,13 @@ jobs:
     steps:
       - name: Chamar rota de sincronização do portal
         run: |
-          curl --fail --silent --show-error \
+          RESPONSE=$(curl --silent --show-error --write-out "\nHTTP_STATUS:%{http_code}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://portal.agenciatucan.com.br/api/google/sync
+            https://portal.agenciatucan.com.br/api/google/sync)
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+          echo "Status HTTP: $HTTP_STATUS"
+          echo "Resposta: $BODY"
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            exit 1
+          fi
