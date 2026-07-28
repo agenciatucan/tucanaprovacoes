@@ -12,6 +12,7 @@ Portal web para gestão e aprovação de cronogramas de conteúdo entre a **Agê
 - [Instalação local](#instalação-local)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Primeiro usuário admin](#primeiro-usuário-admin)
+- [WhatsApp (Evolution API)](#whatsapp-evolution-api)
 - [Scripts disponíveis](#scripts-disponíveis)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Fluxo de aprovação](#fluxo-de-aprovação)
@@ -155,6 +156,9 @@ Acesse [http://localhost:3000](http://localhost:3000). Você verá a landing pag
 | `RESEND_FROM_EMAIL` | Não | E-mail remetente verificado no Resend |
 | `RESEND_FROM_NAME` | Não | Nome do remetente |
 | `APPROVAL_TOKEN_SECRET` | Não | Gere: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `EVOLUTION_API_URL` | Não | Endereço do servidor Evolution API — veja [docs/WHATSAPP-EVOLUTION-API.md](docs/WHATSAPP-EVOLUTION-API.md) |
+| `EVOLUTION_API_KEY` | Não | `AUTHENTICATION_API_KEY` definida no `.env` do servidor Evolution API |
+| `EVOLUTION_INSTANCE` | Não | Nome da instância do WhatsApp conectada na Evolution API |
 
 > ⚠️ **Nunca commit o `.env.local`** — ele já está no `.gitignore`.
 
@@ -190,6 +194,33 @@ UPDATE user_profiles SET role = 'admin' WHERE email = 'admin@seudominio.com';
 ```
 
 > Veja também `supabase/seed/001_admin_user.sql` para um script completo com cliente de teste.
+
+---
+
+## WhatsApp (Evolution API)
+
+Os lembretes de aprovação por WhatsApp (`src/lib/zapi.ts`, `src/lib/whatsapp-notifications.ts`) usam a
+[Evolution API](https://github.com/EvolutionAPI/evolution-api) — uma API open-source e gratuita que conecta ao
+WhatsApp via QR code (não é a API oficial da Meta, então não tem custo por mensagem).
+
+Como o Vercel não hospeda processos de longa duração, a Evolution API precisa rodar em um servidor à parte
+(ex.: uma VPS gratuita, como o Always Free do Google Cloud ou da Oracle Cloud). Resumo dos passos:
+
+1. Suba uma VM Linux Always Free com Docker instalado
+2. Rode a Evolution API + Postgres via `docker compose` (imagem `evoapicloud/evolution-api`), definindo uma `AUTHENTICATION_API_KEY`
+3. Acesse o **Manager** (`http://SEU_IP:8080/manager`), crie uma instância (canal **Baileys**) e escaneie o
+   QR code com o WhatsApp que vai enviar as mensagens
+4. Preencha no `.env.local` (e nas variáveis de ambiente da Vercel):
+   ```env
+   EVOLUTION_API_URL=http://SEU_IP:8080
+   EVOLUTION_API_KEY=a_mesma_AUTHENTICATION_API_KEY_do_servidor
+   EVOLUTION_INSTANCE=portal-tucan
+   ```
+5. Redeploy — os botões de lembrete/notificação por WhatsApp passam a funcionar
+
+> Sem essas variáveis configuradas, o app não trava: `sendWhatsApp` apenas loga o erro e segue sem enviar a mensagem.
+
+📖 **Passo a passo completo, runbook de reconexão e histórico de tentativas:** [docs/WHATSAPP-EVOLUTION-API.md](docs/WHATSAPP-EVOLUTION-API.md)
 
 ---
 
