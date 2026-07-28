@@ -289,6 +289,51 @@ export async function markPostAsFinished(id: string): Promise<void> {
   revalidatePath(`/admin/posts/${id}`);
 }
 
+// ── Edição rápida de um campo em ajuste (painel de reenvio) ──
+// Corrige só o tema ou a legenda direto no painel de ajuste, sem
+// precisar abrir o formulário completo de edição.
+const QUICK_ADJUST_FIELDS = ["theme", "caption"] as const;
+type QuickAdjustField = (typeof QUICK_ADJUST_FIELDS)[number];
+
+export async function updatePostQuickField(
+  id: string,
+  field: QuickAdjustField,
+  value: string
+): Promise<Result> {
+  if (!QUICK_ADJUST_FIELDS.includes(field)) {
+    return { success: false, error: "Campo inválido" };
+  }
+
+  const maxLength = field === "caption" ? 3000 : 500;
+  if (value.length > maxLength) {
+    return { success: false, error: `Texto muito longo (máx. ${maxLength} caracteres)` };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+
+  if (!profile) {
+    return { success: false, error: "Sem permissão" };
+  }
+
+  const { data: item, error } = await supabase
+    .from("content_items")
+    .update({ [field]: value.trim() || null })
+    .eq("id", id)
+    .select("campaign_id")
+    .single();
+
+  if (error || !item) {
+    logger.error("updatePostQuickField", { message: error?.message, code: error?.code });
+    return { success: false, error: "Erro ao salvar" };
+  }
+
+  revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
+  revalidatePath(`/admin/posts/${id}`);
+
+  return { success: true, data: undefined };
+}
+
 // ── Reenviar post para aprovação do cliente ──────────────────
 // Reseta os campos com ajuste_solicitado de volta para aguardando,
 // mantendo os que já foram aprovados. Recalcula o general_status.

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { resendForApproval } from '@/actions/content-items';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
+import QuickAdjustField from './QuickAdjustField';
 
 const FIELD_LABEL: Record<string, string> = {
   tema:    'Tema',
@@ -17,6 +18,8 @@ interface Props {
   themeStatus: string;
   captionStatus: string;
   artworkStatus: string;
+  theme: string | null;
+  caption: string | null;
   comments: {
     id: string;
     message: string;
@@ -30,6 +33,8 @@ export default function ResendApprovalPanel({
   themeStatus,
   captionStatus,
   artworkStatus,
+  theme,
+  caption,
   comments,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -118,6 +123,24 @@ export default function ResendApprovalPanel({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Edição rápida — só o(s) campo(s) marcado(s) para ajuste */}
+      {pending.some((f) => f.key === 'tema') && (
+        <QuickAdjustField postId={postId} field="theme" label="Tema" initialValue={theme} />
+      )}
+      {pending.some((f) => f.key === 'legenda') && (
+        <QuickAdjustField postId={postId} field="caption" label="Legenda" initialValue={caption} />
+      )}
+      {pending.some((f) => f.key === 'arte') && (
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #fde68a' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Corrigir arte
+          </div>
+          <p style={{ fontSize: 12, color: '#92400e', margin: 0 }}>
+            Envie o novo arquivo no painel <strong>Arquivos do post</strong>, ao lado.
+          </p>
         </div>
       )}
 

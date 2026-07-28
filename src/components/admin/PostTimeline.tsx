@@ -269,6 +269,8 @@ export default function PostTimeline({
           themeStatus={post.theme_status}
           captionStatus={post.caption_status}
           artworkStatus={post.artwork_status}
+          theme={post.theme}
+          caption={post.caption}
           comments={comments}
         />
 
@@ -281,6 +283,7 @@ export default function PostTimeline({
             Editar conteúdo
           </h2>
           <PostForm
+            key={`${post.theme ?? ''}|${post.caption ?? ''}`}
             campaignId={campaignId}
             returnHref={returnHref}
             initial={{
