@@ -5,7 +5,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_STATUS_LABEL } from '@/lib/validations/schemas';
 import { markPostAsScheduled, markPostAsFinished } from '@/actions/content-items';
-import CopyCaptionButton from '@/components/admin/CopyCaptionButton';
+import PostQuickActions from '@/components/admin/PostQuickActions';
 
 export const metadata: Metadata = { title: 'Pipeline' };
 
@@ -79,7 +79,7 @@ type PostCard = {
   client_name: string | null;
   column: KanbanColumn;
   caption: string | null;
-  file_url: string | null;
+  file_urls: string[];
 };
 
 type ActivityCard = {
@@ -218,31 +218,32 @@ export default async function KanbanPage({
     };
   });
 
-  // ── Busca o arquivo mais recente dos posts aprovados ──────────
-  // (só para a coluna "Aprovado" — é onde o botão "Baixar imagem" aparece)
+  // ── Busca TODOS os arquivos dos posts aprovados ───────────────
+  // (só para a coluna "Aprovado" — é onde o botão "Baixar" aparece;
+  // carrossel tem várias imagens, por isso guardamos uma lista, não só uma)
   const approvedPostIds = postCardsBase
     .filter((c) => c.column === 'aprovado')
     .map((c) => c.id);
 
-  const fileByContentItem = new Map<string, string>();
+  const filesByContentItem = new Map<string, string[]>();
   if (approvedPostIds.length > 0) {
     const { data: approvedFiles } = await supabase
       .from('files')
       .select('content_item_id, file_url, file_type, created_at')
       .in('content_item_id', approvedPostIds)
       .in('file_type', ['imagem', 'video', 'capa'])
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
 
     (approvedFiles ?? []).forEach((f: any) => {
-      if (!fileByContentItem.has(f.content_item_id)) {
-        fileByContentItem.set(f.content_item_id, f.file_url);
-      }
+      const list = filesByContentItem.get(f.content_item_id) ?? [];
+      list.push(f.file_url);
+      filesByContentItem.set(f.content_item_id, list);
     });
   }
 
   const postCards: PostCard[] = postCardsBase.map((card) => ({
     ...card,
-    file_url: fileByContentItem.get(card.id) ?? null,
+    file_urls: filesByContentItem.get(card.id) ?? [],
   }));
 
   // ── Normaliza atividades ──────────────────────────────────────
@@ -567,29 +568,7 @@ export default async function KanbanPage({
                               {cardInner}
                             </Link>
 
-                            {(card.caption || card.file_url) && (
-                              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                                {card.caption && <CopyCaptionButton caption={card.caption} />}
-                                {card.file_url && (
-                                  <a
-                                    href={card.file_url}
-                                    download
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{
-                                      flex: 1, height: 28, borderRadius: 8, border: '1px solid var(--line)',
-                                      background: '#fff', color: 'var(--ink)', fontSize: 11, fontWeight: 700,
-                                      cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em',
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                                      textDecoration: 'none',
-                                    }}
-                                  >
-                                    <Icon name="download" size={11} />
-                                    Baixar imagem
-                                  </a>
-                                )}
-                              </div>
-                            )}
+                            <PostQuickActions caption={card.caption} fileUrls={card.file_urls} />
 
                             <form action={scheduleAction}>
                               <button
