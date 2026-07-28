@@ -139,6 +139,12 @@ export default function PostForm({
 
   const isReels = form.format === 'reels';
 
+  // Aberto por padrão só se o post já tiver algo preenchido nesses campos —
+  // a equipe hoje usa sobretudo Título e Legenda, então fica minimizado.
+  const hasStrategyContent = Boolean(
+    initial?.theme || initial?.objective || initial?.creative_concept
+  );
+
   const weekOptions = [
     ...new Set([...(existingWeeks ?? []), ...DEFAULT_WEEKS]),
   ];
@@ -180,6 +186,31 @@ export default function PostForm({
             color: var(--ink);
             font-size: 13px;
             font-weight: 800;
+          }
+
+          .admin-post-form-details summary {
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+          }
+          .admin-post-form-details summary::-webkit-details-marker { display: none; }
+          .admin-post-form-details .admin-post-form-section-title {
+            margin-bottom: 0;
+          }
+          .admin-post-form-details-chevron {
+            margin-left: auto;
+            color: var(--muted);
+            display: flex;
+            transition: transform .2s ease;
+          }
+          .admin-post-form-details[open] .admin-post-form-details-chevron {
+            transform: rotate(90deg);
+          }
+          .admin-post-form-details-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-top: 16px;
           }
 
           .admin-post-form-actions {
@@ -309,60 +340,66 @@ export default function PostForm({
         </div>
       </div>
 
-      <div className="admin-post-form-section">
-        <div className="admin-post-form-section-title">
+      <details className="admin-post-form-details" open={hasStrategyContent || undefined}>
+        <summary className="admin-post-form-section-title">
           <Icon name="target" size={14} />
-          Estratégia e conceito
-        </div>
+          Estratégia e conceito{' '}
+          <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span>
+          <span className="admin-post-form-details-chevron">
+            <Icon name="chevron" size={16} />
+          </span>
+        </summary>
 
-        <div className="admin-post-form-grid-2">
-          <div className="field">
-            <label className="field-label" htmlFor="theme">
-              Tema
-            </label>
+        <div className="admin-post-form-details-body">
+          <div className="admin-post-form-grid-2">
+            <div className="field">
+              <label className="field-label" htmlFor="theme">
+                Tema
+              </label>
 
-            <input
-              id="theme"
-              className="input"
-              placeholder="Tema principal do post"
-              value={form.theme}
-              onChange={(event) => set('theme', event.target.value)}
-              disabled={loading}
-            />
+              <input
+                id="theme"
+                className="input"
+                placeholder="Tema principal do post"
+                value={form.theme}
+                onChange={(event) => set('theme', event.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="field">
+              <label className="field-label" htmlFor="objective">
+                Objetivo
+              </label>
+
+              <input
+                id="objective"
+                className="input"
+                placeholder="Objetivo de comunicação"
+                value={form.objective}
+                onChange={(event) => set('objective', event.target.value)}
+                disabled={loading}
+              />
+            </div>
           </div>
 
           <div className="field">
-            <label className="field-label" htmlFor="objective">
-              Objetivo
+            <label className="field-label" htmlFor="creative_concept">
+              Conceito criativo
             </label>
 
-            <input
-              id="objective"
+            <textarea
+              id="creative_concept"
+              rows={4}
               className="input"
-              placeholder="Objetivo de comunicação"
-              value={form.objective}
-              onChange={(event) => set('objective', event.target.value)}
+              placeholder="Descreva o conceito criativo e abordagem visual…"
+              value={form.creative_concept}
+              onChange={(event) => set('creative_concept', event.target.value)}
               disabled={loading}
             />
           </div>
         </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor="creative_concept">
-            Conceito criativo
-          </label>
-
-          <textarea
-            id="creative_concept"
-            rows={4}
-            className="input"
-            placeholder="Descreva o conceito criativo e abordagem visual…"
-            value={form.creative_concept}
-            onChange={(event) => set('creative_concept', event.target.value)}
-            disabled={loading}
-          />
-        </div>
-      </div>
+      </details>
 
       <div className="admin-post-form-section">
         <div className="admin-post-form-section-title">
