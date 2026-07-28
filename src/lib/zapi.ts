@@ -1,5 +1,7 @@
 import { logger } from "@/lib/logger";
 
+const WHAPI_BASE_URL = "https://gate.whapi.cloud";
+
 function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
   if (digits.length < 10) return null;
@@ -7,12 +9,10 @@ function normalizePhone(raw: string): string | null {
 }
 
 export async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
-  const baseUrl  = process.env.EVOLUTION_API_URL;
-  const apiKey   = process.env.EVOLUTION_API_KEY;
-  const instance = process.env.EVOLUTION_INSTANCE;
+  const token = process.env.WHAPI_TOKEN;
 
-  if (!baseUrl || !apiKey || !instance) {
-    logger.error("sendWhatsApp", "Variáveis EVOLUTION_API não configuradas");
+  if (!token) {
+    logger.error("sendWhatsApp", "Variável WHAPI_TOKEN não configurada");
     return false;
   }
 
@@ -23,21 +23,21 @@ export async function sendWhatsApp(phone: string, message: string): Promise<bool
   }
 
   try {
-    const res = await fetch(`${baseUrl}/message/sendText/${instance}`, {
+    const res = await fetch(`${WHAPI_BASE_URL}/messages/text`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": apiKey,
+        "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify({
-        number: normalized,
-        text: message,
+        to: normalized,
+        body: message,
       }),
     });
 
     if (!res.ok) {
       const body = await res.text();
-      logger.error("sendWhatsApp", `Erro Evolution API ${res.status}: ${body}`);
+      logger.error("sendWhatsApp", `Erro Whapi.Cloud ${res.status}: ${body}`);
       return false;
     }
 

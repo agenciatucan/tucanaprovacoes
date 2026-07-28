@@ -12,6 +12,7 @@ Portal web para gestão e aprovação de cronogramas de conteúdo entre a **Agê
 - [Instalação local](#instalação-local)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Primeiro usuário admin](#primeiro-usuário-admin)
+- [WhatsApp (Evolution API)](#whatsapp-evolution-api)
 - [Scripts disponíveis](#scripts-disponíveis)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Fluxo de aprovação](#fluxo-de-aprovação)
@@ -155,6 +156,7 @@ Acesse [http://localhost:3000](http://localhost:3000). Você verá a landing pag
 | `RESEND_FROM_EMAIL` | Não | E-mail remetente verificado no Resend |
 | `RESEND_FROM_NAME` | Não | Nome do remetente |
 | `APPROVAL_TOKEN_SECRET` | Não | Gere: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `WHAPI_TOKEN` | Não | [whapi.cloud](https://whapi.cloud) → Dashboard → conecte o número via QR → API Token |
 
 > ⚠️ **Nunca commit o `.env.local`** — ele já está no `.gitignore`.
 
@@ -190,6 +192,28 @@ UPDATE user_profiles SET role = 'admin' WHERE email = 'admin@seudominio.com';
 ```
 
 > Veja também `supabase/seed/001_admin_user.sql` para um script completo com cliente de teste.
+
+---
+
+## WhatsApp (Whapi.Cloud)
+
+Os lembretes de aprovação por WhatsApp (`src/lib/zapi.ts`, `src/lib/whatsapp-notifications.ts`) usam a
+[Whapi.Cloud](https://whapi.cloud) — um serviço hospedado (não oficial da Meta) que conecta ao WhatsApp via
+QR code, sem precisar manter servidor/VPS próprio.
+
+1. Crie uma conta em [whapi.cloud](https://whapi.cloud)
+2. No dashboard, conecte o número que vai enviar as mensagens escaneando o QR code
+3. Copie o **API Token** do canal
+4. Preencha no `.env.local` (e nas variáveis de ambiente da Vercel):
+   ```env
+   WHAPI_TOKEN=o_token_copiado_do_dashboard
+   ```
+5. Reinicie a aplicação — os botões de lembrete/notificação por WhatsApp passam a funcionar
+
+> Sem essa variável configurada, o app não trava: `sendWhatsApp` apenas loga o erro e segue sem enviar a mensagem.
+>
+> É um serviço pago (com trial), cobrado por número conectado — diferente da Evolution API (gratuita, mas
+> exige VPS própria). Veja o histórico do repositório se precisar voltar para a Evolution API.
 
 ---
 
