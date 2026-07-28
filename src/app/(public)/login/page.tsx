@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Image from 'next/image';
+import Link from 'next/link';
 import LoginForm from '@/components/auth/LoginForm';
 
 export const metadata: Metadata = { title: 'Entrar' };
@@ -57,9 +58,9 @@ export default async function LoginPage({
             <span className="tiny muted">ou</span>
             <div className="divider" style={{ flex: 1 }} />
           </div>
-          <a href="/acesso" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
+          <Link href="/acesso" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
             Acessar por link de convite
-          </a>
+          </Link>
           <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
             Problemas para entrar? Fale com seu gerente de conta na Tucan.
           </p>
