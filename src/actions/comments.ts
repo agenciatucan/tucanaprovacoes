@@ -49,7 +49,9 @@ export async function addInternalComment(
 
   const { data: profile } = await supabase
     .from("user_profiles").select("id, role").eq("auth_user_id", user.id).single();
-  if (!profile) return { success: false, error: "Perfil não encontrado" };
+  if (!profile || !["admin", "equipe"].includes(profile.role)) {
+    return { success: false, error: "Sem permissão" };
+  }
 
   const { data: campaign } = await supabase
     .from("campaigns").select("client_id").eq("id", campaignId).single();

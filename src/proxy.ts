@@ -22,8 +22,11 @@ function buildCsp(nonce: string): string {
   ].join('; ');
 }
 
-// Rotas que não precisam de autenticação
-const PUBLIC_ROUTES = ["/", "/login", "/acesso"];
+// Rotas que não precisam de autenticação.
+// "/" é caso especial: comparado por igualdade exata, não por prefixo —
+// senão TODO caminho (que sempre começa com "/") viraria "rota pública".
+const PUBLIC_EXACT_ROUTES = ["/"];
+const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso"];
 const ADMIN_ROUTES = ["/admin"];
 const CLIENT_ROUTES = ["/cliente"];
 
@@ -69,7 +72,9 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user }, error } = await supabase.auth.getUser();
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  const isPublicRoute =
+    PUBLIC_EXACT_ROUTES.includes(pathname) ||
+    PUBLIC_PREFIX_ROUTES.some((route) => pathname.startsWith(route));
   const isAdminRoute = ADMIN_ROUTES.some((route) => pathname.startsWith(route));
   const isClientRoute = CLIENT_ROUTES.some((route) => pathname.startsWith(route));
 
