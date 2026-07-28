@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Kanban,
   Calendar,
+  ListChecks,
   MessageSquare,
   Settings,
   X,
@@ -45,6 +46,12 @@ const NAV_ITEMS = [
     href: "/admin/calendario",
     label: "Calendário",
     icon: Calendar,
+    roles: ["admin", "equipe"],
+  },
+  {
+    href: "/admin/minhas-tarefas",
+    label: "Minhas tarefas",
+    icon: ListChecks,
     roles: ["admin", "equipe"],
   },
   {
