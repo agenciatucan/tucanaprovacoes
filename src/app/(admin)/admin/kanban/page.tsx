@@ -5,6 +5,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
 import { ACTIVITY_CATEGORY_LABEL, ACTIVITY_STATUS_LABEL } from '@/lib/validations/schemas';
 import { markPostAsScheduled, markPostAsFinished } from '@/actions/content-items';
+import CopyCaptionButton from '@/components/admin/CopyCaptionButton';
 
 export const metadata: Metadata = { title: 'Pipeline' };
 
@@ -77,6 +78,8 @@ type PostCard = {
   campaign_name: string | null;
   client_name: string | null;
   column: KanbanColumn;
+  caption: string | null;
+  file_url: string | null;
 };
 
 type ActivityCard = {
@@ -151,7 +154,7 @@ export default async function KanbanPage({
   // ── Query: posts de cronograma ────────────────────────────────
   let postsQuery = supabase
     .from('content_items')
-    .select('id, title, format, week_label, general_status, campaign_id, campaigns(id, name, status, clients(name, company_name, status))')
+    .select('id, title, format, week_label, general_status, caption, campaign_id, campaigns(id, name, status, clients(name, company_name, status))')
     .in('campaign_id', activeCampaignIds)
     .order('order_index');
 
@@ -189,7 +192,7 @@ export default async function KanbanPage({
   ]);
 
   // ── Normaliza posts ───────────────────────────────────────────
-  const postCards: PostCard[] = (rawPosts ?? [])
+  const postCardsBase = (rawPosts ?? [])
     .filter((item: any) => {
       const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
       const client   = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
@@ -199,7 +202,7 @@ export default async function KanbanPage({
     const campaign = Array.isArray(item.campaigns) ? item.campaigns[0] : item.campaigns;
     const client   = Array.isArray(campaign?.clients) ? campaign?.clients[0] : campaign?.clients;
     return {
-      type: 'post',
+      type: 'post' as const,
       id: item.id,
       title: item.title ?? 'Post sem título',
       format: item.format,
@@ -207,8 +210,36 @@ export default async function KanbanPage({
       campaign_name: campaign?.name ?? null,
       client_name: client?.company_name ?? client?.name ?? null,
       column: postStatusToColumn(item.general_status ?? 'pendente'),
+      caption: item.caption ?? null,
     };
   });
+
+  // ── Busca o arquivo mais recente dos posts aprovados ──────────
+  // (só para a coluna "Aprovado" — é onde o botão "Baixar imagem" aparece)
+  const approvedPostIds = postCardsBase
+    .filter((c) => c.column === 'aprovado')
+    .map((c) => c.id);
+
+  const fileByContentItem = new Map<string, string>();
+  if (approvedPostIds.length > 0) {
+    const { data: approvedFiles } = await supabase
+      .from('files')
+      .select('content_item_id, file_url, file_type, created_at')
+      .in('content_item_id', approvedPostIds)
+      .in('file_type', ['imagem', 'video', 'capa'])
+      .order('created_at', { ascending: false });
+
+    (approvedFiles ?? []).forEach((f: any) => {
+      if (!fileByContentItem.has(f.content_item_id)) {
+        fileByContentItem.set(f.content_item_id, f.file_url);
+      }
+    });
+  }
+
+  const postCards: PostCard[] = postCardsBase.map((card) => ({
+    ...card,
+    file_url: fileByContentItem.get(card.id) ?? null,
+  }));
 
   // ── Normaliza atividades ──────────────────────────────────────
   const activityCards: ActivityCard[] = (rawActivities ?? []).map((item: any) => {
@@ -503,6 +534,31 @@ export default async function KanbanPage({
                             >
                               {cardInner}
                             </Link>
+
+                            {(card.caption || card.file_url) && (
+                              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                                {card.caption && <CopyCaptionButton caption={card.caption} />}
+                                {card.file_url && (
+                                  <a
+                                    href={card.file_url}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{
+                                      flex: 1, height: 28, borderRadius: 8, border: '1px solid var(--line)',
+                                      background: '#fff', color: 'var(--ink)', fontSize: 11, fontWeight: 700,
+                                      cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                                      textDecoration: 'none',
+                                    }}
+                                  >
+                                    <Icon name="download" size={11} />
+                                    Baixar imagem
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
                             <form action={scheduleAction}>
                               <button
                                 type="submit"
