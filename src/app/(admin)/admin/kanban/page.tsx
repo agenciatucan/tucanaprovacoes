@@ -128,6 +128,7 @@ export default async function KanbanPage({
     semana?: string;
     categoria?: string;
     prioridade?: string;
+    ocultar_concluidos?: string;
   }>;
 }) {
   const {
@@ -138,7 +139,10 @@ export default async function KanbanPage({
     semana: filterWeek,
     categoria: filterCategoria,
     prioridade: filterPriority,
+    ocultar_concluidos: ocultarConcluidosParam,
   } = await searchParams;
+
+  const hideCompleted = ocultarConcluidosParam === '1';
 
   const supabase = await getSupabaseServerClient();
   const search = normalize(searchTerm);
@@ -265,6 +269,20 @@ export default async function KanbanPage({
 
   const totalAll  = postCards.length + activityCards.length;
 
+  const visibleColumns = hideCompleted ? COLUMNS.filter((c) => c.key !== 'concluido') : COLUMNS;
+
+  // ── Link para alternar "ocultar concluídos", preservando os outros filtros ──
+  const toggleCompletedParams = new URLSearchParams();
+  if (filterTipo)        toggleCompletedParams.set('tipo', filterTipo);
+  if (search)             toggleCompletedParams.set('q', search);
+  if (filterClient)       toggleCompletedParams.set('cliente', filterClient);
+  if (filterResponsavel)  toggleCompletedParams.set('responsavel', filterResponsavel);
+  if (filterWeek)         toggleCompletedParams.set('semana', filterWeek);
+  if (filterCategoria)    toggleCompletedParams.set('categoria', filterCategoria);
+  if (filterPriority)     toggleCompletedParams.set('prioridade', filterPriority);
+  if (!hideCompleted)     toggleCompletedParams.set('ocultar_concluidos', '1');
+  const toggleCompletedHref = `/admin/kanban?${toggleCompletedParams.toString()}` as Route;
+
   const weekOptions = [
     ...new Set([
       'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5',
@@ -300,6 +318,14 @@ export default async function KanbanPage({
         .kanban-board-scroll { overflow-x: auto; padding-bottom: 12px; }
         .kanban-board-scroll::-webkit-scrollbar { height: 8px; }
         .kanban-board-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 999px; }
+        .kanban-column-scroll {
+          max-height: calc(100vh - 320px);
+          min-height: 80px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        .kanban-column-scroll::-webkit-scrollbar { width: 6px; }
+        .kanban-column-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 999px; }
         .kanban-filter-input {
           height: 36px; border-radius: 9px; border: 1px solid var(--line);
           background: #fff; padding: 0 10px; font-family: inherit; font-size: 12.5px; color: var(--ink); outline: none;
@@ -359,6 +385,11 @@ export default async function KanbanPage({
             Entrada → Em análise → Atribuído → Em produção → Em aprovação → Ajustes → Aprovado → Programado → Concluído
           </p>
         </div>
+
+        <Link href={toggleCompletedHref} className="btn btn-ghost btn-sm">
+          <Icon name={hideCompleted ? 'check-circle' : 'x'} size={14} />
+          {hideCompleted ? 'Mostrar concluídos' : 'Ocultar concluídos'}
+        </Link>
       </div>
 
       {/* Summary */}
@@ -468,10 +499,10 @@ export default async function KanbanPage({
         </div>{/* kanban-filter-body */}
       </details>
 
-      {/* Board — 9 colunas */}
+      {/* Board */}
       <div className="kanban-board-scroll">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(220px, 1fr))', gap: 12, alignItems: 'start', minWidth: 2100 }}>
-          {COLUMNS.map((col) => {
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(220px, 1fr))`, gap: 12, alignItems: 'start', minWidth: visibleColumns.length * 232 }}>
+          {visibleColumns.map((col) => {
             const colItems = grouped[col.key];
 
             return (
@@ -483,8 +514,9 @@ export default async function KanbanPage({
                   <span style={{ fontSize: 12, fontWeight: 700, color: col.color, opacity: 0.75 }}>{colItems.length}</span>
                 </div>
 
-                {/* Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* Cards — altura limitada com rolagem própria, para a barra
+                    de rolagem horizontal do board não ficar lá embaixo */}
+                <div className="kanban-column-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {colItems.map((card) => {
                     if (card.type === 'post') {
                       const scheduleAction = markPostAsScheduled.bind(null, card.id);
