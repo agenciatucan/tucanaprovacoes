@@ -13,6 +13,7 @@ const taskSchema = z
     task_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
     start_time: z.string().regex(/^\d{2}:\d{2}$/, "Horário inválido").optional().nullable(),
     end_time: z.string().regex(/^\d{2}:\d{2}$/, "Horário inválido").optional().nullable(),
+    period: z.enum(["manha", "tarde", "noite"]),
   })
   .transform((v) => ({
     title: v.title,
@@ -20,6 +21,7 @@ const taskSchema = z
     task_date: v.task_date,
     start_time: v.start_time || null,
     end_time: v.end_time || null,
+    period: v.period,
   }));
 
 export type PersonalTaskInput = z.input<typeof taskSchema>;

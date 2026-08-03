@@ -73,7 +73,7 @@ export default async function MinhasTarefasPage({
 
   const { data: tasksRaw } = await supabase
     .from('personal_tasks')
-    .select('id, title, description, task_date, start_time, end_time, done')
+    .select('id, title, description, task_date, start_time, end_time, done, period')
     .eq('owner_id', profile.id)
     .gte('task_date', firstStr)
     .lte('task_date', lastStr)

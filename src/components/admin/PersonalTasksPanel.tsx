@@ -9,6 +9,8 @@ import {
   deletePersonalTask,
 } from '@/actions/personal-tasks';
 
+export type TaskPeriod = 'manha' | 'tarde' | 'noite';
+
 export interface PersonalTaskItem {
   id: string;
   title: string;
@@ -17,7 +19,14 @@ export interface PersonalTaskItem {
   start_time: string | null;
   end_time: string | null;
   done: boolean;
+  period: TaskPeriod;
 }
+
+const PERIODS: { key: TaskPeriod; label: string }[] = [
+  { key: 'manha', label: 'Manhã' },
+  { key: 'tarde', label: 'Tarde' },
+  { key: 'noite', label: 'Noite' },
+];
 
 export interface WeekDay {
   isoDate: string;
@@ -38,14 +47,19 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
   const [editDraft, setEditDraft] = useState('');
   const [hideDone, setHideDone] = useState(false);
 
-  function handleQuickAdd(dayIso: string) {
-    const title = (drafts[dayIso] ?? '').trim();
+  function draftKey(dayIso: string, period: TaskPeriod) {
+    return `${dayIso}__${period}`;
+  }
+
+  function handleQuickAdd(dayIso: string, period: TaskPeriod) {
+    const key = draftKey(dayIso, period);
+    const title = (drafts[key] ?? '').trim();
     if (!title) return;
 
-    setDrafts((d) => ({ ...d, [dayIso]: '' }));
+    setDrafts((d) => ({ ...d, [key]: '' }));
 
     startTransition(async () => {
-      const result = await createPersonalTask({ title, task_date: dayIso });
+      const result = await createPersonalTask({ title, task_date: dayIso, period });
       if (!result.success) toast.error(result.error);
     });
   }
@@ -68,6 +82,7 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
         task_date: task.task_date,
         start_time: task.start_time,
         end_time: task.end_time,
+        period: task.period,
       });
       if (!result.success) toast.error(result.error);
     });
@@ -89,11 +104,11 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
 
   const visibleTasks = hideDone ? tasks.filter((t) => !t.done) : tasks;
 
-  const byDay: Record<string, PersonalTaskItem[]> = {};
-  for (const day of weekDays) byDay[day.isoDate] = [];
+  const byDay: Record<string, Record<TaskPeriod, PersonalTaskItem[]>> = {};
+  for (const day of weekDays) byDay[day.isoDate] = { manha: [], tarde: [], noite: [] };
   for (const task of visibleTasks) {
     const bucket = byDay[task.task_date];
-    if (bucket) bucket.push(task);
+    if (bucket) bucket[task.period].push(task);
   }
 
   return (
@@ -125,6 +140,16 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
           }
           .ptasks-daynum { font-size: 18px; font-weight: 800; margin-top: 2px; }
           .ptasks-col-today .ptasks-daynum { color: var(--orange); }
+
+          .ptasks-period {
+            display: flex; flex-direction: column; gap: 2px;
+            padding: 6px 0; border-bottom: 1px dashed var(--line-soft);
+          }
+          .ptasks-period:last-child { border-bottom: none; }
+          .ptasks-period-label {
+            font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+            color: var(--muted-2); text-transform: uppercase; margin-bottom: 2px;
+          }
 
           .ptasks-item {
             display: flex; align-items: flex-start; gap: 6px;
@@ -182,7 +207,7 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
 
       <div className="ptasks-grid">
         {weekDays.map((day) => {
-          const dayTasks = byDay[day.isoDate] ?? [];
+          const dayPeriods = byDay[day.isoDate];
 
           return (
             <div key={day.isoDate} className={`ptasks-col${day.isToday ? ' ptasks-col-today' : ''}`}>
@@ -191,54 +216,65 @@ export default function PersonalTasksPanel({ tasks, weekDays }: Props) {
                 <span className="ptasks-daynum">{day.dayNumber}</span>
               </div>
 
-              {dayTasks.map((task) => (
-                <div key={task.id} className="ptasks-item">
-                  <input
-                    type="checkbox"
-                    checked={task.done}
-                    onChange={() => handleToggleDone(task)}
-                    aria-label={task.done ? 'Marcar como pendente' : 'Marcar como concluída'}
-                  />
+              {PERIODS.map(({ key: period, label }) => {
+                const periodTasks = dayPeriods?.[period] ?? [];
+                const key = draftKey(day.isoDate, period);
 
-                  {editingId === task.id ? (
-                    <input
-                      className="ptasks-item-edit-input"
-                      value={editDraft}
-                      autoFocus
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      onBlur={() => commitEdit(task)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitEdit(task); }
-                        if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className={`ptasks-item-text${task.done ? ' ptasks-item-text-done' : ''}`}
-                      onClick={() => startEdit(task)}
-                    >
-                      {task.title}
-                    </span>
-                  )}
+                return (
+                  <div key={period} className="ptasks-period">
+                    <span className="ptasks-period-label">{label}</span>
 
-                  <button onClick={() => handleDelete(task)} className="ptasks-item-del" aria-label="Excluir tarefa">
-                    <Icon name="x" size={11} />
-                  </button>
-                </div>
-              ))}
+                    {periodTasks.map((task) => (
+                      <div key={task.id} className="ptasks-item">
+                        <input
+                          type="checkbox"
+                          checked={task.done}
+                          onChange={() => handleToggleDone(task)}
+                          aria-label={task.done ? 'Marcar como pendente' : 'Marcar como concluída'}
+                        />
 
-              <div className="ptasks-additem">
-                <span style={{ color: 'var(--muted-2)', fontSize: 13, lineHeight: 1 }}>+</span>
-                <input
-                  className="ptasks-additem-input"
-                  placeholder="Adicionar"
-                  value={drafts[day.isoDate] ?? ''}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [day.isoDate]: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); handleQuickAdd(day.isoDate); }
-                  }}
-                />
-              </div>
+                        {editingId === task.id ? (
+                          <input
+                            className="ptasks-item-edit-input"
+                            value={editDraft}
+                            autoFocus
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onBlur={() => commitEdit(task)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); commitEdit(task); }
+                              if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={`ptasks-item-text${task.done ? ' ptasks-item-text-done' : ''}`}
+                            onClick={() => startEdit(task)}
+                          >
+                            {task.title}
+                          </span>
+                        )}
+
+                        <button onClick={() => handleDelete(task)} className="ptasks-item-del" aria-label="Excluir tarefa">
+                          <Icon name="x" size={11} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <div className="ptasks-additem">
+                      <span style={{ color: 'var(--muted-2)', fontSize: 13, lineHeight: 1 }}>+</span>
+                      <input
+                        className="ptasks-additem-input"
+                        placeholder="Adicionar"
+                        value={drafts[key] ?? ''}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); handleQuickAdd(day.isoDate, period); }
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
