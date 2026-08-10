@@ -656,7 +656,7 @@ export default async function GerenciarCronogramaPage({
             isAdmin={isAdmin}
           />
 
-          {campaign.status === 'enviado_para_aprovacao' && (
+          {!['rascunho', 'arquivado'].includes(campaign.status) && (
             <RemindClientButton
               campaignId={id}
               pendingCount={pending}

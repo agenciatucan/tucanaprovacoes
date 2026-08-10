@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import PostForm from '@/components/admin/PostForm';
 import MediaUploader from '@/components/admin/MediaUploader';
 import PostTimeline from '@/components/admin/PostTimeline';
+import PostGeneralStatusSelect from '@/components/admin/PostGeneralStatusSelect';
 
 export const metadata: Metadata = { title: 'Post' };
 
@@ -55,6 +56,11 @@ const STATUS_CFG: Record<string, { label: string; bg: string; fg: string }> = {
     label: 'Em produção',
     bg: '#f5f3ff',
     fg: '#6d28d9',
+  },
+  programado: {
+    label: 'Programado',
+    bg: '#eff6ff',
+    fg: '#1d4ed8',
   },
   finalizado: {
     label: 'Finalizado',
@@ -551,19 +557,10 @@ export default async function AdminPostPage({
                 Geral
               </span>
 
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  padding: '4px 9px',
-                  borderRadius: 999,
-                  background: getStatusConfig(post.general_status).bg,
-                  color: getStatusConfig(post.general_status).fg,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {getStatusConfig(post.general_status).label}
-              </span>
+              <PostGeneralStatusSelect
+                id={post.id}
+                generalStatus={post.general_status ?? 'pendente'}
+              />
             </div>
           </div>
 

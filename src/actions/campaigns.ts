@@ -427,7 +427,11 @@ export async function remindClientForApproval(
     return { success: false, error: "Cronograma não encontrado" };
   }
 
-  if (campaign.status !== "enviado_para_aprovacao") {
+  // Permite lembrar em qualquer status visível para o cliente (mesmo critério
+  // da migration 006_client_visibility_guard) — cronogramas criados a partir
+  // de um planejamento aprovado, por exemplo, já nascem em "em_producao" mas
+  // ainda podem ter posts com legenda/arte pendentes de decisão do cliente.
+  if (["rascunho", "arquivado"].includes(campaign.status)) {
     return { success: false, error: "O cronograma não está aguardando aprovação" };
   }
 

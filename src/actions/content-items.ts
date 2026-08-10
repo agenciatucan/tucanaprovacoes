@@ -227,6 +227,9 @@ export async function updateContentItemStatus(
     revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
   }
 
+  revalidatePath(`/admin/posts/${id}`);
+  revalidatePath(`/admin/kanban`);
+
   return { success: true, data: undefined };
 }
 
