@@ -8,7 +8,7 @@ import {
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
-import { notifyPlanningForApproval } from "@/lib/whatsapp-notifications";
+import { notifyPlanningForApproval, notifyPlanningReminder } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -189,6 +189,81 @@ export async function archivePlanningSchedule(id: string): Promise<Result> {
   revalidatePath(`/admin/clientes/${schedule.client_id}`);
 
   return { success: true, data: undefined };
+}
+
+// ── Lembrar cliente sobre planejamento pendente de aprovação ──
+const REMINDER_COOLDOWN_HOURS = 4;
+
+export async function remindClientForPlanningApproval(
+  scheduleId: string
+): Promise<Result<{ itemsCount: number }>> {
+  const supabase = await getSupabaseServerClient();
+  const profile = await requireStaff(supabase);
+  if (!profile) return { success: false, error: "Sem permissão" };
+
+  const { data: schedule } = await supabase
+    .from("planning_schedules")
+    .select("id, status")
+    .eq("id", scheduleId)
+    .single();
+
+  if (!schedule) return { success: false, error: "Planejamento não encontrado" };
+
+  if (!["enviado_para_aprovacao", "em_revisao"].includes(schedule.status)) {
+    return { success: false, error: "O planejamento não está aguardando aprovação" };
+  }
+
+  // Anti-spam: bloqueia se já foi enviado um lembrete dentro do cooldown
+  const cooldownCutoff = new Date(
+    Date.now() - REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data: recent } = await supabase
+    .from("client_reminders")
+    .select("id, created_at")
+    .eq("planning_id", scheduleId)
+    .gte("created_at", cooldownCutoff)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) {
+    const sentAt = new Date(recent.created_at as string);
+    const nextAllowedAt = new Date(sentAt.getTime() + REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000);
+    const minutesLeft = Math.ceil((nextAllowedAt.getTime() - Date.now()) / 60000);
+    return {
+      success: false,
+      error: `Lembrete já enviado recentemente. Aguarde ${minutesLeft} min antes de reenviar.`,
+    };
+  }
+
+  const { count } = await supabase
+    .from("planning_items")
+    .select("id", { count: "exact", head: true })
+    .eq("planning_schedule_id", scheduleId);
+
+  const itemsCount = count ?? 0;
+
+  const { error: insertError } = await supabase
+    .from("client_reminders")
+    .insert({
+      planning_id: scheduleId,
+      sent_by: profile.id,
+      pending_count: itemsCount,
+    });
+
+  if (insertError) {
+    logger.error("remindClientForPlanningApproval/insert", insertError.message);
+    return { success: false, error: "Erro ao registrar lembrete" };
+  }
+
+  notifyPlanningReminder(scheduleId).catch((e) =>
+    logger.error("whatsapp/planning-reminder", String(e))
+  );
+
+  revalidatePath(`/admin/planejamento/${scheduleId}`);
+
+  return { success: true, data: { itemsCount } };
 }
 
 // ── CRUD de itens ─────────────────────────────────────────────

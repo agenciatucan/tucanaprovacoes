@@ -141,6 +141,41 @@ export async function notifyClientReminder(campaignId: string, pendingCount: num
   }
 }
 
+// Disparado quando a equipe envia um lembrete de aprovação pendente do planejamento
+export async function notifyPlanningReminder(planningId: string) {
+  try {
+    const serviceClient = await getSupabaseServiceClient();
+
+    const { data } = await serviceClient
+      .from("planning_schedules")
+      .select("title, month_year, approval_token, clients(name, company_name, whatsapp)")
+      .eq("id", planningId)
+      .single();
+
+    if (!data) return;
+    const client = Array.isArray(data.clients) ? data.clients[0] : data.clients;
+    if (!client?.whatsapp) return;
+
+    const clientName = client.company_name ?? client.name ?? "Cliente";
+    const [year, month] = (data.month_year as string).split("-");
+    const monthLabel = new Date(Number(year), Number(month) - 1, 1)
+      .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://tucanaprovacoes.vercel.app";
+    const link   = `${appUrl}/acesso/planejamento/${data.approval_token}`;
+
+    const message =
+      `Olá, ${clientName}! 🔔\n\n` +
+      `O planejamento de temas *${data.title}* (${monthLabel}) ainda está aguardando sua aprovação.\n\n` +
+      `Acesse o link abaixo para revisar e aprovar:\n` +
+      `${link}`;
+
+    await sendWhatsApp(client.whatsapp as string, message);
+  } catch (err) {
+    logger.error("notifyPlanningReminder", String(err));
+  }
+}
+
 // Disparado quando o cliente solicita ajuste em um post
 export async function notifyClientRequestedAdjustment(campaignId: string, postTitle: string) {
   try {

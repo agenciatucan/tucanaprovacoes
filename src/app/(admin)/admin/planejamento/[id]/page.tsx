@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import PlanningItemsEditor from '@/components/admin/PlanningItemsEditor';
 import SendPlanningButton from '@/components/admin/SendPlanningButton';
+import RemindPlanningButton from '@/components/admin/RemindPlanningButton';
 import DeletePlanningButton from '@/components/admin/DeletePlanningButton';
 import ArchivePlanningButton from '@/components/admin/ArchivePlanningButton';
 import CopyLinkButton from '@/components/admin/CopyLinkButton';
@@ -41,7 +42,7 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
 
-  const [{ data: schedule }, { data: items }] = await Promise.all([
+  const [{ data: schedule }, { data: items }, { data: lastReminder }] = await Promise.all([
     supabase
       .from('planning_schedules')
       .select('*, clients(id, name, company_name, logo_url)')
@@ -52,6 +53,13 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
       .select('*')
       .eq('planning_schedule_id', id)
       .order('order_index'),
+    supabase
+      .from('client_reminders')
+      .select('created_at')
+      .eq('planning_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (!schedule) notFound();
@@ -102,6 +110,12 @@ export default async function PlanejamentoDetailPage({ params }: Props) {
           />
           {isEditable && (
             <SendPlanningButton scheduleId={id} canSend={canSend} />
+          )}
+          {schedule.status === 'enviado_para_aprovacao' && (
+            <RemindPlanningButton
+              scheduleId={id}
+              lastReminderAt={lastReminder?.created_at ?? null}
+            />
           )}
         </div>
       </div>
