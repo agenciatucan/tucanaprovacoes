@@ -25,7 +25,11 @@ function buildCsp(nonce: string): string {
 // Rotas que não precisam de autenticação.
 // "/" é caso especial: comparado por igualdade exata, não por prefixo —
 // senão TODO caminho (que sempre começa com "/") viraria "rota pública".
-const PUBLIC_EXACT_ROUTES = ["/"];
+// /api/google/sync faz sua própria autenticação (header Authorization com CRON_SECRET,
+// chamado pelo GitHub Actions sem sessão de navegador) — precisa ficar de fora do
+// redirecionamento de sessão, senão o proxy barra a chamada antes de ela chegar na rota
+// e sempre devolve 307 para /login (fazendo o workflow de sync falhar sempre).
+const PUBLIC_EXACT_ROUTES = ["/", "/api/google/sync"];
 const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso"];
 const ADMIN_ROUTES = ["/admin"];
 const CLIENT_ROUTES = ["/cliente"];
