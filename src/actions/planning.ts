@@ -244,6 +244,17 @@ export async function remindClientForPlanningApproval(
 
   const itemsCount = count ?? 0;
 
+  // Só registra o lembrete (e inicia o cooldown anti-spam) depois de confirmar
+  // que a mensagem saiu de verdade — senão uma falha no WhatsApp trava o reenvio
+  // por 4h sem o cliente ter recebido nada.
+  const sent = await notifyPlanningReminder(scheduleId);
+  if (!sent) {
+    return {
+      success: false,
+      error: "Não foi possível enviar a mensagem no WhatsApp agora. Tente novamente em instantes.",
+    };
+  }
+
   const { error: insertError } = await supabase
     .from("client_reminders")
     .insert({
@@ -256,10 +267,6 @@ export async function remindClientForPlanningApproval(
     logger.error("remindClientForPlanningApproval/insert", insertError.message);
     return { success: false, error: "Erro ao registrar lembrete" };
   }
-
-  notifyPlanningReminder(scheduleId).catch((e) =>
-    logger.error("whatsapp/planning-reminder", String(e))
-  );
 
   revalidatePath(`/admin/planejamento/${scheduleId}`);
 
