@@ -471,6 +471,17 @@ export async function remindClientForApproval(
     return { success: false, error: "Não há posts pendentes de aprovação" };
   }
 
+  // Só registra o lembrete (e inicia o cooldown anti-spam) depois de confirmar
+  // que a mensagem saiu de verdade — senão uma falha no WhatsApp trava o reenvio
+  // por 4h sem o cliente ter recebido nada.
+  const sent = await notifyClientReminder(campaignId, pendingCount);
+  if (!sent) {
+    return {
+      success: false,
+      error: "Não foi possível enviar a mensagem no WhatsApp agora. Tente novamente em instantes.",
+    };
+  }
+
   const { error: insertError } = await supabase
     .from("client_reminders")
     .insert({
@@ -483,10 +494,6 @@ export async function remindClientForApproval(
     logger.error("remindClientForApproval/insert", insertError.message);
     return { success: false, error: "Erro ao registrar lembrete" };
   }
-
-  notifyClientReminder(campaignId, pendingCount).catch((e) =>
-    logger.error("whatsapp/reminder", String(e))
-  );
 
   revalidatePath(`/admin/cronogramas/${campaignId}`);
 

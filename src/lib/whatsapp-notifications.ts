@@ -119,10 +119,12 @@ export async function notifyCampaignUpdatedForReview(campaignId: string) {
 }
 
 // Disparado quando a equipe envia um lembrete de aprovação pendente ao cliente
-export async function notifyClientReminder(campaignId: string, pendingCount: number) {
+// Retorna se a mensagem foi de fato entregue ao provedor de WhatsApp — quem
+// chama usa isso para só contar o cooldown anti-spam quando o envio realmente ocorreu.
+export async function notifyClientReminder(campaignId: string, pendingCount: number): Promise<boolean> {
   try {
     const info = await getClientWhatsApp(campaignId);
-    if (!info) return;
+    if (!info) return false;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://tucanaprovacoes.vercel.app";
     const link   = `${appUrl}/cliente/cronogramas/${campaignId}`;
@@ -135,14 +137,17 @@ export async function notifyClientReminder(campaignId: string, pendingCount: num
       `Acesse o link abaixo para revisar e aprovar:\n` +
       `${link}`;
 
-    await sendWhatsApp(info.phone, message);
+    return await sendWhatsApp(info.phone, message);
   } catch (err) {
     logger.error("notifyClientReminder", String(err));
+    return false;
   }
 }
 
 // Disparado quando a equipe envia um lembrete de aprovação pendente do planejamento
-export async function notifyPlanningReminder(planningId: string) {
+// Retorna se a mensagem foi de fato entregue ao provedor de WhatsApp — quem
+// chama usa isso para só contar o cooldown anti-spam quando o envio realmente ocorreu.
+export async function notifyPlanningReminder(planningId: string): Promise<boolean> {
   try {
     const serviceClient = await getSupabaseServiceClient();
 
@@ -152,9 +157,9 @@ export async function notifyPlanningReminder(planningId: string) {
       .eq("id", planningId)
       .single();
 
-    if (!data) return;
+    if (!data) return false;
     const client = Array.isArray(data.clients) ? data.clients[0] : data.clients;
-    if (!client?.whatsapp) return;
+    if (!client?.whatsapp) return false;
 
     const clientName = client.company_name ?? client.name ?? "Cliente";
     const [year, month] = (data.month_year as string).split("-");
@@ -170,9 +175,10 @@ export async function notifyPlanningReminder(planningId: string) {
       `Acesse o link abaixo para revisar e aprovar:\n` +
       `${link}`;
 
-    await sendWhatsApp(client.whatsapp as string, message);
+    return await sendWhatsApp(client.whatsapp as string, message);
   } catch (err) {
     logger.error("notifyPlanningReminder", String(err));
+    return false;
   }
 }
 
