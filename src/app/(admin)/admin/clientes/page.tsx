@@ -77,6 +77,25 @@ export default async function AdminClientesPage({
     .from('clients')
     .select('id, status');
 
+  const [{ count: onboardingTotalItems }, { data: onboardingRows }] = await Promise.all([
+    supabase.from('onboarding_items').select('*', { count: 'exact', head: true }),
+    supabase.from('client_onboarding_items').select('client_id, done'),
+  ]);
+
+  const onboardingTotal = onboardingTotalItems ?? 0;
+
+  const onboardingDoneByClient = new Map<string, number>();
+  for (const row of onboardingRows ?? []) {
+    if (!row.done) continue;
+    onboardingDoneByClient.set(row.client_id, (onboardingDoneByClient.get(row.client_id) ?? 0) + 1);
+  }
+
+  function onboardingPending(clientId: string): number | null {
+    if (onboardingTotal === 0) return null;
+    const done = onboardingDoneByClient.get(clientId) ?? 0;
+    return done < onboardingTotal ? done : null;
+  }
+
   const totalAll = allClients?.length ?? 0;
   const totalAtivos =
     allClients?.filter((client) => client.status === 'ativo').length ?? 0;
@@ -530,6 +549,12 @@ export default async function AdminClientesPage({
                       <div className="client-subtitle">
                         {formatCompanyName(client.company_name)}
                       </div>
+
+                      {onboardingPending(client.id) !== null && (
+                        <div className="tiny" style={{ color: 'var(--orange)', fontWeight: 700, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Icon name="flag" size={10} /> Onboarding {onboardingPending(client.id)}/{onboardingTotal}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -660,6 +685,13 @@ export default async function AdminClientesPage({
                         <Icon name="user" size={12} />
                         <span>Responsável: {owner?.name ?? '—'}</span>
                       </div>
+
+                      {onboardingPending(client.id) !== null && (
+                        <div className="client-mobile-card-row" style={{ color: 'var(--orange)', fontWeight: 700 }}>
+                          <Icon name="flag" size={12} />
+                          <span>Onboarding {onboardingPending(client.id)}/{onboardingTotal}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

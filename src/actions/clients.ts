@@ -87,6 +87,16 @@ export async function createClient(input: ClientInput): Promise<Result<{ id: str
 
   if (error || !data) return { success: false, error: "Erro ao criar cliente" };
 
+  // Semeia o checklist de onboarding a partir do catálogo atual (editável
+  // em /admin/configuracoes/onboarding) — falha aqui não deve impedir a
+  // criação do cliente, só fica sem checklist para preencher depois.
+  const { data: templateItems } = await supabase.from("onboarding_items").select("id");
+  if (templateItems && templateItems.length > 0) {
+    const onboardingRows = templateItems.map((item) => ({ client_id: data.id, item_id: item.id }));
+    const { error: seedError } = await supabase.from("client_onboarding_items").insert(onboardingRows);
+    if (seedError) logger.error("createClient:seedOnboarding", seedError.message);
+  }
+
   revalidatePath("/admin/clientes");
   return { success: true, data: { id: data.id } };
 }

@@ -21,6 +21,16 @@ interface ClientFormProps {
     internal_notes?: string | null;
     logo_url?: string | null;
     requires_planning_approval?: boolean;
+    specialty?: string | null;
+    professional_register?: string | null;
+    plan_name?: string | null;
+    monthly_value?: number | null;
+    contract_start_date?: string | null;
+    contract_end_date?: string | null;
+    main_objective?: string | null;
+    instagram_url?: string | null;
+    website_url?: string | null;
+    google_business_url?: string | null;
   };
 }
 
@@ -43,6 +53,16 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
     internal_owner_id: initial?.internal_owner_id ?? '',
     status:            initial?.status            ?? 'ativo',
     internal_notes:    initial?.internal_notes    ?? '',
+    specialty:              initial?.specialty              ?? '',
+    professional_register:  initial?.professional_register  ?? '',
+    plan_name:               initial?.plan_name               ?? '',
+    monthly_value:           initial?.monthly_value?.toString() ?? '',
+    contract_start_date:    initial?.contract_start_date    ?? '',
+    contract_end_date:      initial?.contract_end_date      ?? '',
+    main_objective:          initial?.main_objective          ?? '',
+    instagram_url:           initial?.instagram_url           ?? '',
+    website_url:             initial?.website_url             ?? '',
+    google_business_url:    initial?.google_business_url    ?? '',
   });
 
   function set(key: string, value: string) {
@@ -92,6 +112,16 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
       internal_notes:             form.internal_notes || null,
       logo_url:                   finalLogoUrl ?? null,
       requires_planning_approval: requiresPlanningApproval,
+      specialty:              form.specialty || null,
+      professional_register:  form.professional_register || null,
+      plan_name:               form.plan_name || null,
+      monthly_value:           form.monthly_value === '' ? null : Number(form.monthly_value),
+      contract_start_date:    form.contract_start_date || null,
+      contract_end_date:      form.contract_end_date || null,
+      main_objective:          form.main_objective || null,
+      instagram_url:           form.instagram_url || null,
+      website_url:             form.website_url || null,
+      google_business_url:    form.google_business_url || null,
     };
 
     const result = isEdit
@@ -248,6 +278,64 @@ export default function ClientForm({ staffUsers, initial }: ClientFormProps) {
               }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Especialidade + Registro profissional */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+        <div className="field">
+          <label className="field-label" htmlFor="specialty">Especialidade <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="specialty" className="input" placeholder="Ex.: Urologia" value={form.specialty} onChange={(e) => set('specialty', e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="professional_register">CRM / RQE <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="professional_register" className="input" placeholder="Ex.: CRM-SP 123456 · RQE 12345" value={form.professional_register} onChange={(e) => set('professional_register', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Plano + Valor mensal */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+        <div className="field">
+          <label className="field-label" htmlFor="plan_name">Plano <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="plan_name" className="input" placeholder="Ex.: Plano Essencial" value={form.plan_name} onChange={(e) => set('plan_name', e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="monthly_value">Valor mensal (R$) <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="monthly_value" type="number" min="0" step="0.01" className="input" placeholder="0,00" value={form.monthly_value} onChange={(e) => set('monthly_value', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Vigência do contrato */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+        <div className="field">
+          <label className="field-label" htmlFor="contract_start_date">Início da vigência <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="contract_start_date" type="date" className="input" value={form.contract_start_date} onChange={(e) => set('contract_start_date', e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="contract_end_date">Fim da vigência <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="contract_end_date" type="date" className="input" value={form.contract_end_date} onChange={(e) => set('contract_end_date', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Objetivo principal */}
+      <div className="field">
+        <label className="field-label" htmlFor="main_objective">Objetivo principal <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+        <input id="main_objective" className="input" placeholder="Ex.: Aumentar agendamentos de consultas" value={form.main_objective} onChange={(e) => set('main_objective', e.target.value)} />
+      </div>
+
+      {/* Perfis */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+        <div className="field">
+          <label className="field-label" htmlFor="instagram_url">Instagram <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="instagram_url" type="url" className="input" placeholder="https://instagram.com/..." value={form.instagram_url} onChange={(e) => set('instagram_url', e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="website_url">Site <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="website_url" type="url" className="input" placeholder="https://..." value={form.website_url} onChange={(e) => set('website_url', e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="google_business_url">Google Meu Negócio <span className="muted" style={{ fontWeight: 400 }}>(opcional)</span></label>
+          <input id="google_business_url" type="url" className="input" placeholder="https://..." value={form.google_business_url} onChange={(e) => set('google_business_url', e.target.value)} />
         </div>
       </div>
 

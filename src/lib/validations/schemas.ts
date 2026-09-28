@@ -28,6 +28,16 @@ export const tokenAccessSchema = z.object({
 export type TokenAccessInput = z.infer<typeof tokenAccessSchema>;
 
 // ── Clientes ──────────────────────────────────────────────────
+const OPTIONAL_URL = z.string().url("URL inválida").nullish().or(z.literal("")).transform(v => v || null);
+const OPTIONAL_DATE = DATE_STR.nullish().or(z.literal("")).transform(v => v || null);
+const OPTIONAL_MONEY = z.union([z.number(), z.string()])
+  .nullish().or(z.literal(""))
+  .transform((v) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  });
+
 export const clientSchema = z.object({
   name:              z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100),
   company_name:      z.string().min(2, "Nome da empresa obrigatório").max(150),
@@ -40,8 +50,49 @@ export const clientSchema = z.object({
   internal_notes:    OPTIONAL_TEXT(1000),
   logo_url:                  z.string().url().nullish().or(z.literal("")).transform(v => v || null),
   requires_planning_approval: z.boolean().optional().default(false),
+  // Ficha do cliente (checklist de onboarding)
+  specialty:              OPTIONAL_TEXT(150),
+  professional_register:  OPTIONAL_TEXT(100),
+  plan_name:               OPTIONAL_TEXT(100),
+  monthly_value:           OPTIONAL_MONEY,
+  contract_start_date:    OPTIONAL_DATE,
+  contract_end_date:      OPTIONAL_DATE,
+  main_objective:          OPTIONAL_TEXT(500),
+  instagram_url:           OPTIONAL_URL,
+  website_url:             OPTIONAL_URL,
+  google_business_url:    OPTIONAL_URL,
 });
 export type ClientInput = z.infer<typeof clientSchema>;
+
+// ── Checklist de onboarding — estado por cliente ──────────────
+export const onboardingItemToggleSchema = z.object({
+  client_id: UUID,
+  item_id:   UUID,
+  done:      z.boolean(),
+});
+export type OnboardingItemToggleInput = z.infer<typeof onboardingItemToggleSchema>;
+
+// ── Checklist de onboarding — catálogo (editável por admin) ───
+const SLUG_KEY = z.string()
+  .min(2, "Mínimo de 2 caracteres")
+  .max(80)
+  .regex(/^[a-z0-9_]+$/, "Use apenas letras minúsculas, números e _");
+
+export const onboardingSectionSchema = z.object({
+  key:         SLUG_KEY,
+  title:       z.string().min(2, "Título obrigatório").max(150),
+  description: OPTIONAL_TEXT(500),
+  order_index: z.number().int().min(0).default(0),
+});
+export type OnboardingSectionInput = z.infer<typeof onboardingSectionSchema>;
+
+export const onboardingTemplateItemSchema = z.object({
+  section_id:  UUID,
+  key:         SLUG_KEY,
+  label:       z.string().min(3, "Descreva o item").max(500),
+  order_index: z.number().int().min(0).default(0),
+});
+export type OnboardingTemplateItemInput = z.infer<typeof onboardingTemplateItemSchema>;
 
 // ── Planejamento mensal ───────────────────────────────────────
 export const planningScheduleSchema = z.object({

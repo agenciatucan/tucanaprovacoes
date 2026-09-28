@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import TeamMemberRow from '@/components/admin/TeamMemberRow';
@@ -30,6 +32,8 @@ export default async function ConfiguracoesPage() {
     { count: totalPosts },
     { count: totalFiles },
     { data: googleConnectionRow },
+    { count: onboardingSectionsCount },
+    { count: onboardingItemsCount },
   ] = await Promise.all([
     supabase
       .from('user_profiles')
@@ -48,6 +52,8 @@ export default async function ConfiguracoesPage() {
       .select('google_account_email, last_synced_at')
       .limit(1)
       .maybeSingle(),
+    supabase.from('onboarding_sections').select('*', { count: 'exact', head: true }),
+    supabase.from('onboarding_items').select('*', { count: 'exact', head: true }),
   ]);
 
   const googleConnection = googleConnectionRow
@@ -400,6 +406,30 @@ export default async function ConfiguracoesPage() {
         </div>
 
         <GoogleCalendarConnectionCard connection={googleConnection} />
+      </section>
+
+      {/* Checklist de onboarding */}
+      <section style={{ marginBottom: 28 }}>
+        <div className="settings-section-head">
+          <div>
+            <h2 className="h2" style={{ fontSize: 20 }}>
+              Checklist de onboarding
+            </h2>
+
+            <p className="muted tiny" style={{ marginTop: 5, lineHeight: 1.5 }}>
+              Edite as seções e itens do checklist aplicado a todo cliente novo (visível em cada cadastro de cliente).
+            </p>
+          </div>
+        </div>
+
+        <div className="settings-role-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div className="muted tiny">
+            {onboardingSectionsCount ?? 0} {(onboardingSectionsCount ?? 0) === 1 ? 'seção' : 'seções'} · {onboardingItemsCount ?? 0} {(onboardingItemsCount ?? 0) === 1 ? 'item' : 'itens'}
+          </div>
+          <Link href={"/admin/configuracoes/onboarding" as Route} className="btn btn-ghost btn-sm">
+            <Icon name="edit" size={14} /> Gerenciar checklist
+          </Link>
+        </div>
       </section>
 
       {/* Zona de acesso — legenda de roles */}

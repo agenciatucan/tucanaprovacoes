@@ -9,6 +9,7 @@ import ClientForm from '@/components/admin/ClientForm';
 import InactivateClientButton from '@/components/admin/InactivateClientButton';
 import DeleteClientButton from '@/components/admin/DeleteClientButton';
 import ClientAccessPanel from '@/components/admin/ClientAccessPanel';
+import OnboardingChecklist from '@/components/admin/OnboardingChecklist';
 
 export const metadata: Metadata = { title: 'Cliente' };
 
@@ -65,7 +66,13 @@ export default async function ClienteDetailPage({ params }: Props) {
 
   if (!client) notFound();
 
-  const [{ data: campaigns }, { data: planningSchedules }] = await Promise.all([
+  const [
+    { data: campaigns },
+    { data: planningSchedules },
+    { data: onboardingSections },
+    { data: onboardingTemplateItems },
+    { data: onboardingDoneRows },
+  ] = await Promise.all([
     supabase
       .from('campaigns')
       .select('id, name, type, status, period_label, content_items(id, general_status)')
@@ -77,7 +84,18 @@ export default async function ClienteDetailPage({ params }: Props) {
       .eq('client_id', id)
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase.from('onboarding_sections').select('*').order('order_index'),
+    supabase.from('onboarding_items').select('*').order('order_index'),
+    supabase
+      .from('client_onboarding_items')
+      .select('item_id')
+      .eq('client_id', id)
+      .eq('done', true),
   ]);
+
+  const onboardingDoneIds = (onboardingDoneRows ?? []).map((i) => i.item_id);
+  const onboardingTotal = onboardingTemplateItems?.length ?? 0;
+  const onboardingComplete = onboardingTotal > 0 && onboardingDoneIds.length >= onboardingTotal;
 
   const owner = Array.isArray(client.user_profiles) ? client.user_profiles[0] : client.user_profiles;
 
@@ -105,7 +123,19 @@ export default async function ClienteDetailPage({ params }: Props) {
               <h1 className="h1" style={{ fontSize: 24 }}>{client.name}</h1>
               <div className="muted" style={{ fontSize: 14, marginTop: 2 }}>{client.company_name}</div>
             </div>
-            <div style={{ marginLeft: 'auto' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {!onboardingComplete && onboardingTotal > 0 && (
+                <span
+                  className="tiny"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 10px', borderRadius: 999, fontWeight: 700,
+                    background: 'var(--orange-50)', color: 'var(--orange)', border: '1px solid var(--orange-100)',
+                  }}
+                >
+                  <Icon name="flag" size={11} /> Onboarding {onboardingDoneIds.length}/{onboardingTotal}
+                </span>
+              )}
               <StatusBadge kind={client.status === 'ativo' ? 'aprovado' : 'rascunho'} label={client.status === 'ativo' ? 'Ativo' : 'Inativo'} />
             </div>
           </div>
@@ -128,7 +158,38 @@ export default async function ClienteDetailPage({ params }: Props) {
                 internal_notes: client.internal_notes,
                 logo_url: client.logo_url,
                 requires_planning_approval: client.requires_planning_approval,
+                specialty: client.specialty,
+                professional_register: client.professional_register,
+                plan_name: client.plan_name,
+                monthly_value: client.monthly_value,
+                contract_start_date: client.contract_start_date,
+                contract_end_date: client.contract_end_date,
+                main_objective: client.main_objective,
+                instagram_url: client.instagram_url,
+                website_url: client.website_url,
+                google_business_url: client.google_business_url,
               }}
+            />
+          </div>
+
+          {/* Onboarding */}
+          <div className="card card-lg" style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 20 }}>
+              <div>
+                <h2 className="h2" style={{ fontSize: 16 }}>Checklist de onboarding</h2>
+                <p className="muted tiny" style={{ marginTop: 4 }}>Uso interno da agência — o cliente não vê esta etapa.</p>
+              </div>
+              {isAdmin && (
+                <Link href={"/admin/configuracoes/onboarding" as Route} className="btn-text tiny" style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <Icon name="settings" size={12} /> Editar checklist
+                </Link>
+              )}
+            </div>
+            <OnboardingChecklist
+              clientId={id}
+              sections={onboardingSections ?? []}
+              items={onboardingTemplateItems ?? []}
+              doneItemIds={onboardingDoneIds}
             />
           </div>
         </div>
@@ -142,6 +203,21 @@ export default async function ClienteDetailPage({ params }: Props) {
               { label: 'E-mail', value: client.email },
               { label: 'WhatsApp', value: client.whatsapp ?? '—' },
               { label: 'Responsável interno', value: owner?.name ?? '—' },
+              { label: 'Especialidade', value: client.specialty ?? '—' },
+              { label: 'CRM / RQE', value: client.professional_register ?? '—' },
+              {
+                label: 'Plano',
+                value: client.plan_name
+                  ? `${client.plan_name}${client.monthly_value ? ` · R$ ${Number(client.monthly_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
+                  : '—',
+              },
+              {
+                label: 'Vigência',
+                value: client.contract_start_date
+                  ? `${new Date(client.contract_start_date + 'T00:00:00').toLocaleDateString('pt-BR')}${client.contract_end_date ? ` — ${new Date(client.contract_end_date + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}`
+                  : '—',
+              },
+              { label: 'Objetivo principal', value: client.main_objective ?? '—' },
               { label: 'Desde', value: new Date(client.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) },
             ].map((row) => (
               <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line-soft)' }}>
@@ -150,6 +226,30 @@ export default async function ClienteDetailPage({ params }: Props) {
               </div>
             ))}
           </div>
+
+          {/* Perfis */}
+          {(client.instagram_url || client.website_url || client.google_business_url) && (
+            <div className="card">
+              <div className="eyebrow" style={{ marginBottom: 14 }}>Perfis</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {client.instagram_url && (
+                  <a href={client.instagram_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink-2)', textDecoration: 'none' }}>
+                    <Icon name="link" size={13} color="var(--muted-2)" /> Instagram
+                  </a>
+                )}
+                {client.website_url && (
+                  <a href={client.website_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink-2)', textDecoration: 'none' }}>
+                    <Icon name="link" size={13} color="var(--muted-2)" /> Site
+                  </a>
+                )}
+                {client.google_business_url && (
+                  <a href={client.google_business_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ink-2)', textDecoration: 'none' }}>
+                    <Icon name="link" size={13} color="var(--muted-2)" /> Google Meu Negócio
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Portal access */}
           <div className="card">

@@ -55,8 +55,48 @@ export interface Client {
   internal_notes: string | null;
   logo_url: string | null;
   requires_planning_approval: boolean;
+  specialty: string | null;
+  professional_register: string | null;
+  plan_name: string | null;
+  monthly_value: number | null;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
+  main_objective: string | null;
+  instagram_url: string | null;
+  website_url: string | null;
+  google_business_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface OnboardingSection {
+  id: string;
+  key: string;
+  title: string;
+  description: string | null;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingTemplateItem {
+  id: string;
+  section_id: string;
+  key: string;
+  label: string;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientOnboardingItem {
+  id: string;
+  client_id: string;
+  item_id: string;
+  done: boolean;
+  done_at: string | null;
+  done_by: string | null;
+  created_at: string;
 }
 
 export interface PlanningSchedule {
