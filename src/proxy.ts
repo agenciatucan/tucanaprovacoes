@@ -30,7 +30,9 @@ function buildCsp(nonce: string): string {
 // redirecionamento de sessão, senão o proxy barra a chamada antes de ela chegar na rota
 // e sempre devolve 307 para /login (fazendo o workflow de sync falhar sempre).
 const PUBLIC_EXACT_ROUTES = ["/", "/api/google/sync"];
-const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso"];
+// /auth/* (callback/confirm) e /definir-senha são acessados via link de e-mail (convite/reset),
+// quando o usuário ainda não tem sessão — precisam ser públicos para trocar o código por sessão.
+const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso", "/auth", "/definir-senha"];
 const ADMIN_ROUTES = ["/admin"];
 const CLIENT_ROUTES = ["/cliente"];
 
