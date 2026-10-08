@@ -7,6 +7,7 @@ import {
   type PlanningItemInput,
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { logger } from "@/lib/logger";
 import { notifyPlanningForApproval, notifyPlanningReminder } from "@/lib/whatsapp-notifications";
 
@@ -157,8 +158,9 @@ export async function sendPlanningForApproval(id: string): Promise<Result> {
   revalidatePath("/admin/planejamento");
   revalidatePath(`/admin/planejamento/${id}`);
 
-  // Notifica cliente via WhatsApp (fire-and-forget)
-  notifyPlanningForApproval(id).catch(() => {});
+  // Notifica cliente via WhatsApp. after() mantém a função viva até o envio
+  // terminar (fire-and-forget puro é cortado pela Vercel após a resposta).
+  after(() => notifyPlanningForApproval(id));
 
   return { success: true, data: undefined };
 }

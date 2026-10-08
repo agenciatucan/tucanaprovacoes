@@ -4,6 +4,7 @@
 // ============================================================
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   campaignSchema,
@@ -241,10 +242,11 @@ export async function sendCampaignForApproval(
   revalidateCampaignPaths(campaignId);
 
   // Notifica o cliente via WhatsApp com mensagem adequada ao contexto
+  // after() garante que o envio termine mesmo depois da resposta (Vercel)
   if (previousStatus === "em_revisao") {
-    notifyCampaignUpdatedForReview(campaignId).catch((e) => logger.error("whatsapp/updatedForReview", String(e)));
+    after(() => notifyCampaignUpdatedForReview(campaignId));
   } else {
-    notifyCampaignSentForApproval(campaignId).catch((e) => logger.error("whatsapp/sentForApproval", String(e)));
+    after(() => notifyCampaignSentForApproval(campaignId));
   }
 
   return { success: true, data: undefined };
@@ -301,7 +303,7 @@ export async function updateCampaignStatus(
 
   // Notifica o cliente se status foi manualmente mudado para enviado_para_aprovacao
   if (status === "enviado_para_aprovacao") {
-    notifyCampaignUpdatedForReview(campaignId).catch((e) => logger.error("whatsapp/manualSend", String(e)));
+    after(() => notifyCampaignUpdatedForReview(campaignId));
   }
 
   return { success: true, data: undefined };

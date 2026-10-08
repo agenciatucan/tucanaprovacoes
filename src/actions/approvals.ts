@@ -9,6 +9,7 @@ import {
   type ApproveAllPendingInput,
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { logger } from "@/lib/logger";
 import { notifyClientRequestedAdjustment } from "@/lib/whatsapp-notifications";
 
@@ -256,7 +257,7 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
         const isApproval = parsed.data.status === "aprovado";
 
         if (!isApproval) {
-          notifyClientRequestedAdjustment(parsed.data.campaign_id, postTitle).catch(() => {});
+          after(() => notifyClientRequestedAdjustment(parsed.data.campaign_id, postTitle));
         }
       } catch (e) {
         logger.warn("submitApproval/whatsapp", e);
