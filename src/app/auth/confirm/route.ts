@@ -53,5 +53,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?erro=link_invalido`);
+  const message = encodeURIComponent('Link inválido ou expirado. Solicite um novo link de acesso.');
+  return NextResponse.redirect(`${origin}/login?error=${message}`);
 }
