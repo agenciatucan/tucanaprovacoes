@@ -10,7 +10,8 @@ function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    "style-src 'self' 'unsafe-inline'",
+    // fonts.googleapis.com: folha de estilo da fonte Manrope carregada em app/layout.tsx
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: blob: https://${SUPABASE_HOSTNAME}`,
     `media-src 'self' blob: https://${SUPABASE_HOSTNAME}`,
     `connect-src 'self' https://${SUPABASE_HOSTNAME} wss://${SUPABASE_HOSTNAME}`,
