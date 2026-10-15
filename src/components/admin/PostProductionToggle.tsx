@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react';
 import { updateContentItemStatus } from '@/actions/content-items';
+import { toast } from 'sonner';
 
 interface Props {
   id: string;
@@ -23,7 +24,8 @@ export default function PostProductionToggle({ id, generalStatus }: Props) {
   function handleClick() {
     const nextStatus = isInProduction ? 'pendente' : 'em_producao';
     startTransition(async () => {
-      await updateContentItemStatus(id, 'general_status', nextStatus);
+      const result = await updateContentItemStatus(id, 'general_status', nextStatus);
+      if (!result.success) toast.error(result.error);
     });
   }
 

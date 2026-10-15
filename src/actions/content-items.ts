@@ -210,17 +210,39 @@ export async function updateContentItemStatus(
 
   const { data: item } = await supabase
     .from("content_items")
-    .select("campaign_id")
+    .select("campaign_id, theme_status, caption_status, artwork_status")
     .eq("id", id)
     .single();
 
-  const { error } = await supabase
+  const updates: Record<string, string> = { [field]: value };
+
+  // O trigger fn_auto_update_post_status força general_status = 'em_revisao'
+  // enquanto tema/legenda/arte estiverem com ajuste solicitado. Quando a equipe
+  // avança o post manualmente além da aprovação (ex.: cliente aprovou fora do
+  // portal), esses campos passam a 'aprovado' — senão o banco desfaz a mudança.
+  const PAST_APPROVAL = ["aprovado", "em_producao", "programado", "finalizado"];
+  const NEEDS_RESOLVE = ["ajuste_solicitado", "substituir_tema"];
+
+  if (field === "general_status" && item && PAST_APPROVAL.includes(value)) {
+    if (NEEDS_RESOLVE.includes(item.theme_status)) updates.theme_status = "aprovado";
+    if (NEEDS_RESOLVE.includes(item.caption_status)) updates.caption_status = "aprovado";
+    if (NEEDS_RESOLVE.includes(item.artwork_status)) updates.artwork_status = "aprovado";
+  }
+
+  const { data: saved, error } = await supabase
     .from("content_items")
-    .update({ [field]: value })
-    .eq("id", id);
+    .update(updates)
+    .eq("id", id)
+    .select(field)
+    .maybeSingle();
 
   if (error) {
     return { success: false, error: "Erro ao atualizar status" };
+  }
+
+  // Confere o valor gravado: triggers podem sobrescrever a mudança.
+  if (!saved || (saved as Record<string, string>)[field] !== value) {
+    return { success: false, error: "O status não pôde ser alterado. Atualize a página e tente novamente." };
   }
 
   if (item?.campaign_id) {

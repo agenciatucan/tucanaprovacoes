@@ -44,6 +44,19 @@ aprovação de planejamento. Requer usuários e banco de teste.
 
 ## Histórico
 
+### 2026-10-15 — Mudança manual de status do post não era gravada
+
+- Problema: ao mudar o status geral para "Concluído" (cliente aprovou fora do portal), a tela
+  mostrava "Status geral atualizado", mas o banco mantinha `em_revisao`. Causa: o trigger
+  `fn_auto_update_post_status` (migração 010) força `em_revisao` enquanto tema/legenda/arte
+  estiverem com `ajuste_solicitado`, e `updateContentItemStatus` não conferia o valor gravado.
+  Confirmado nos dados: 2 posts com `general_status = em_revisao`, última atualização 08/10.
+- Correção: ao avançar manualmente para aprovado/em produção/programado/concluído, os campos com
+  ajuste pendente passam a `aprovado`; a action confere o valor salvo e retorna erro se o banco
+  não aceitou. `PostProductionToggle` passa a exibir o erro.
+- Checagem: type-check OK, lint 0 erros, build OK, E2E 50/50. Fluxo logado verificado só pelo
+  código (testes não fazem login).
+
 ### 2026-10-15 — Card "Com ajuste solicitado" do dashboard
 
 - Problema: o card conta **posts** com `general_status = em_revisao`, mas linkava para
