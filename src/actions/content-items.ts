@@ -11,6 +11,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
 import { computePostGeneralStatus } from "@/lib/constants/status";
+import { promoteIfReadyForApproval } from "@/lib/posts/production";
 import {
   CAMPAIGN_FILES_BUCKET,
   collectCampaignFilePaths,
@@ -155,7 +156,7 @@ export async function createContentItem(
 export async function updateContentItem(
   id: string,
   input: ContentItemInput
-): Promise<Result<{ sentBackToApproval: boolean; campaignReopened: boolean }>> {
+): Promise<Result<{ sentBackToApproval: boolean; campaignReopened: boolean; leftProduction: boolean }>> {
   const parsed = contentItemSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -224,6 +225,9 @@ export async function updateContentItem(
     };
   }
 
+  // Post em produção com legenda + arquivo visível passa a aguardar aprovação.
+  const leftProduction = await promoteIfReadyForApproval(supabase, id);
+
   let campaignReopened = false;
 
   if (sentBackToApproval) {
@@ -251,7 +255,7 @@ export async function updateContentItem(
   revalidatePath(`/cliente/posts/${id}`);
   revalidatePath(`/cliente/cronogramas/${current.campaign_id}`);
 
-  return { success: true, data: { sentBackToApproval, campaignReopened } };
+  return { success: true, data: { sentBackToApproval, campaignReopened, leftProduction } };
 }
 
 export async function deleteContentItem(id: string): Promise<Result> {

@@ -497,7 +497,9 @@ export async function approvePlanning(token: string): Promise<Result> {
         theme_status:    "aprovado", // temas aprovados pelo cliente
         caption_status:  "aguardando",
         artwork_status:  "aguardando",
-        general_status:  "pendente",
+        // Equipe ainda vai produzir legenda e arte: entra em produção e passa a
+        // "aguardando aprovação" quando tiver arquivo e legenda (promoteIfReadyForApproval).
+        general_status:  "em_producao",
         is_locked:       false,
         created_by:      schedule.created_by,
       }));

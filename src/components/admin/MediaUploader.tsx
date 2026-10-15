@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { createSignedUploadUrl, saveFileRecord, deleteFile, toggleFileVisibility } from '@/actions/files';
 import { toast } from 'sonner';
@@ -147,6 +148,7 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
   const [dragOver, setDragOver] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   async function handleFiles(selected: FileList) {
     if (selected.length === 0) return;
@@ -218,6 +220,10 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
           },
         ]);
         toast.success(`${file.name} enviado!`);
+        if (result.data.leftProduction) {
+          toast.success('Post com arquivo e legenda: saiu de produção e está aguardando aprovação.');
+          router.refresh();
+        }
       } else {
         toast.error(`Arquivo enviado mas erro ao registrar: ${result.error}`);
         await supabase.storage.from('campaign-files').remove([storagePath]);
@@ -254,6 +260,8 @@ export default function MediaUploader({ contentItemId, campaignId, clientId, ini
         setFiles((prev) =>
           prev.map((f) => f.id === fileId ? { ...f, visible_to_client: !currentVisible } : f)
         );
+        // Tornar um arquivo visível pode tirar o post de produção.
+        if (!currentVisible) router.refresh();
       } else {
         toast.error(result.error);
       }

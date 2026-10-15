@@ -10,6 +10,7 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
+import { promoteIfReadyForApproval } from "@/lib/posts/production";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -65,7 +66,7 @@ export async function saveFileRecord(input: {
   file_type: "imagem" | "video" | "pdf" | "roteiro" | "referencia" | "capa";
   file_size_bytes: number;
   visible_to_client: boolean;
-}): Promise<Result<{ id: string }>> {
+}): Promise<Result<{ id: string; leftProduction: boolean }>> {
   const supabase = await getSupabaseServerClient();
   const profile = await requireStaff(supabase);
   if (!profile) return { success: false, error: "Sem permissão" };
@@ -81,8 +82,14 @@ export async function saveFileRecord(input: {
     return { success: false, error: "Erro ao salvar registro do arquivo" };
   }
 
+  // Post em produção com legenda + arquivo visível passa a aguardar aprovação.
+  const leftProduction = input.visible_to_client
+    ? await promoteIfReadyForApproval(supabase, input.content_item_id)
+    : false;
+
   revalidatePath(`/admin/posts/${input.content_item_id}`);
-  return { success: true, data: { id: data.id } };
+  revalidatePath(`/admin/cronogramas/${input.campaign_id}`);
+  return { success: true, data: { id: data.id, leftProduction } };
 }
 
 // ── Excluir arquivo (Storage + banco) ───────────────────────
@@ -136,6 +143,8 @@ export async function toggleFileVisibility(
     .eq("id", fileId);
 
   if (error) return { success: false, error: "Erro ao atualizar visibilidade" };
+
+  if (visible) await promoteIfReadyForApproval(supabase, contentItemId);
 
   revalidatePath(`/admin/posts/${contentItemId}`);
   return { success: true, data: undefined };

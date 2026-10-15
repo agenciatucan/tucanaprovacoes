@@ -9,6 +9,7 @@ import CampaignActions from '@/components/admin/CampaignActions';
 import RemindClientButton from '@/components/admin/RemindClientButton';
 import WeekSection from '@/components/admin/WeekSection';
 import PostProductionToggle from '@/components/admin/PostProductionToggle';
+import { POST_GENERAL_STATUS_LABEL } from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Gerenciar cronograma' };
 
@@ -51,14 +52,6 @@ const POST_STATUS_KIND: Record<
   finalizado: 'publicado',
 };
 
-const POST_STATUS_LABEL: Record<string, string> = {
-  pendente: 'Pendente',
-  em_revisao: 'Ajustes solicitados',
-  aprovado: 'Aprovado',
-  em_producao: 'Em produção',
-  programado: 'Programado',
-  finalizado: 'Finalizado',
-};
 
 const FIELD_STATUS_CONFIG: Record<
   string,
@@ -703,8 +696,8 @@ export default async function GerenciarCronogramaPage({
         {[
           { label: 'Total de posts', value: total, color: 'var(--ink)' },
           { label: 'Aprovados', value: approved, color: 'var(--green)' },
-          { label: 'Em revisão', value: inReview, color: 'var(--orange)' },
-          { label: 'Pendentes', value: pending, color: 'var(--muted)' },
+          { label: POST_GENERAL_STATUS_LABEL.em_revisao, value: inReview, color: 'var(--orange)' },
+          { label: POST_GENERAL_STATUS_LABEL.pendente, value: pending, color: 'var(--muted)' },
         ].map((item) => (
           <div key={item.label} className="card-flat">
             <div className="eyebrow" style={{ fontSize: 10 }}>
@@ -800,11 +793,11 @@ export default async function GerenciarCronogramaPage({
           <div className="campaign-filter-chips">
             {[
               { key: '', label: 'Todos' },
-              { key: 'pendente', label: 'Pendentes' },
-              { key: 'em_revisao', label: 'Ajustes' },
+              { key: 'pendente', label: POST_GENERAL_STATUS_LABEL.pendente },
+              { key: 'em_revisao', label: POST_GENERAL_STATUS_LABEL.em_revisao },
               { key: 'aprovado', label: 'Aprovados' },
               { key: 'em_producao', label: 'Em produção' },
-              { key: 'finalizado', label: 'Finalizados' },
+              { key: 'finalizado', label: POST_GENERAL_STATUS_LABEL.finalizado },
             ].map((filter) => {
               const active = (filterStatus ?? '') === filter.key;
 
@@ -882,7 +875,7 @@ export default async function GerenciarCronogramaPage({
                   'aguardando';
 
                 const postLabel =
-                  POST_STATUS_LABEL[post.general_status ?? 'pendente'];
+                  POST_GENERAL_STATUS_LABEL[post.general_status ?? 'pendente'];
 
                 const format = post.format ?? 'outro';
 

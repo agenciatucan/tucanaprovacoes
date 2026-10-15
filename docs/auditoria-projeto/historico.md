@@ -50,3 +50,10 @@ Verificação: type-check OK; lint 0 erros (77 warnings preexistentes); `next bu
 
 Verificação: type-check OK; lint 0 erros, 77 warnings (igual ao início do lote); `next build` OK; Playwright 50/50 (localhost). Fluxos logados e exclusões não executados (sem banco de teste; exclusão em produção não é permitida).
 - Lote 2 publicado: commit `d7f4652` (main); Playwright 50/50 contra produção após o deploy. Fluxos logados aguardam validação.
+
+### Ajustes pedidos pelo responsável (2026-10-15)
+
+- **Regra nova de produção:** posts criados pela aprovação do planejamento entram em `em_producao` (antes `pendente`); saem para `pendente` ("Aguardando aprovação") quando tiverem legenda e pelo menos um arquivo visível ao cliente — verificado ao salvar o post, ao subir arquivo e ao tornar arquivo visível. Arquivos: `src/actions/planning.ts`, `src/lib/posts/production.ts` (novo), `src/actions/files.ts`, `src/actions/content-items.ts`, `src/components/admin/MediaUploader.tsx`, `src/components/admin/PostForm.tsx`.
+- **Rótulos na tela do cronograma (admin):** tag, contadores e filtros usavam "Pendente"/"Finalizado"; passam a usar o dicionário único ("Aguardando aprovação", "Ajuste solicitado", "Concluído"). Arquivo: `src/app/(admin)/admin/cronogramas/[id]/page.tsx` (complementa AUD-008).
+- **Dados existentes:** migração opcional `032_backfill_posts_in_production.sql` passa a `em_producao` os posts `pendente` sem legenda ou sem arquivo visível (conferido somente leitura: 10 posts; os outros 8 pendentes já têm os dois). Não aplicada.
+- QA: type-check OK, lint 0 erros (77 warnings), build OK, E2E 50/50 (localhost). Fluxo logado não testado.

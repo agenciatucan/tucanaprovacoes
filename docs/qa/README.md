@@ -44,6 +44,11 @@ aprovação de planejamento. Requer usuários e banco de teste.
 
 ## Histórico
 
+### 2026-10-15 — Posts do planejamento entram em produção
+
+- Posts criados pelo planejamento entram "Em produção" e saem para "Aguardando aprovação" com legenda + arquivo visível; rótulos da tela do cronograma unificados. Migração opcional 032.
+- Checagem: type-check OK, lint 0 erros, build OK, E2E 50/50 (localhost). Fluxo logado não testado.
+
 ### 2026-10-15 — Lote 2 da auditoria (AUD-005, 008, 009, 010, 013)
 
 - Status do post com cálculo único (aprovação parcial = aguardando aprovação), rótulos únicos no dashboard/seletor, rascunhos fora de "aguardando aprovação", limpeza do Storage ao excluir.

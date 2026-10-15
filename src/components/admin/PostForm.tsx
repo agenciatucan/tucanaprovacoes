@@ -118,6 +118,10 @@ export default function PostForm({
             ? 'Um campo já aprovado foi alterado e o cronograma aprovado foi reaberto. Avise o cliente pelo cronograma.'
             : 'Um campo já aprovado foi alterado e precisa ser aprovado de novo.',
         });
+      } else if (updateResult.data.leftProduction) {
+        toast.success('Alterações salvas — saiu de produção.', {
+          description: 'O post tem arquivo e legenda e agora está aguardando aprovação do cliente.',
+        });
       } else {
         toast.success('Alterações salvas!');
       }
