@@ -27,6 +27,6 @@
 
 - **Concluído:** alterações de código e migração 029 preparadas; QA (type-check, lint, build, 50 testes E2E) passando. Detalhes em [historico.md](historico.md).
 - **Publicado:** commit `a619994` em produção; migração 029 aplicada (2 cronogramas restaurados como "Finalizado"); E2E 50/50 em produção.
-- **Revisão (definitiva):** cronograma concluído sai das telas principais do cliente e fica só no Histórico (status "Finalizado") — código pronto, migração 031 aguardando aplicação.
+- **Revisão (definitiva):** cronograma concluído sai das telas principais do cliente e fica só no Histórico (status "Finalizado") — publicado (`bcfe881`) e migração 031 aplicada.
 - **Pendente:** validar os fluxos logados pelo roteiro em [validacoes.md](validacoes.md). Até lá os itens ficam "implementado — aguarda validação".
 - **Próximo passo recomendado:** seguir o roteiro de validação com um cronograma real. Depois, lote 2: AUD-013 → AUD-005 → AUD-008 → AUD-009, e AUD-010.

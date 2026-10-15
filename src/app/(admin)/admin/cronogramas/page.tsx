@@ -159,8 +159,8 @@ export default async function AdminCronogramasPage({
       baseQuery = baseQuery.eq('status', filterStatus);
     }
   } else {
-    // "Todos" = ativos (exclui arquivado)
-    baseQuery = baseQuery.not('status', 'eq', 'arquivado');
+    // "Todos" = ativos (exclui arquivados e concluídos — estes têm abas próprias)
+    baseQuery = baseQuery.not('status', 'in', '(arquivado,finalizado)');
   }
 
   if (filterSearch?.trim()) {
@@ -182,7 +182,7 @@ export default async function AdminCronogramasPage({
   const totalPages      = Math.ceil((totalCount ?? 0) / PAGE_SIZE);
 
   // ── Contagens para cards de resumo ────────────────────────────────────────
-  const totalAtivos       = allCampaignList.filter((c) => c.status !== 'arquivado').length;
+  const totalAtivos       = allCampaignList.filter((c) => !['arquivado', 'finalizado'].includes(c.status)).length;
   const totalRascunhos    = allCampaignList.filter((c) => c.status === 'rascunho').length;
   const totalEmAprovacao  = allCampaignList.filter((c) =>
     ['enviado_para_aprovacao', 'em_revisao'].includes(c.status)
