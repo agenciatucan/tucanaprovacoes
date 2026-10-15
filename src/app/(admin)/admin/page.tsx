@@ -262,7 +262,7 @@ export default async function AdminDashboard() {
     { label: 'Aguardando aprovação',   value: pendingApprovalCount ?? 0,   color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/planejamento' as Route,                              delta: 'planejamentos', spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
     { label: 'Posts pendentes',        value: pendingPosts ?? 0,           color: '#9aa15f', soft: '#ecedda', icon: 'flag',            href: '/admin/kanban' as Route,                                delta: 'para produzir',   spark: [9, 8, 8, 7, 7, pendingPosts ?? 0] },
     { label: 'Posts aprovados',        value: approvedPosts ?? 0,          color: '#5b9e3f', soft: '#e6efdd', icon: 'check',           href: '/admin/kanban' as Route,                                delta: 'este mês',        spark: [0, 1, 2, 3, 4, approvedPosts ?? 0] },
-    { label: 'Com ajuste solicitado',  value: adjustPosts ?? 0,            color: '#e6a52e', soft: '#fbeed1', icon: 'edit',            href: '/admin/observacoes' as Route,                           delta: null,              spark: [0, 1, 2, 1, 1, adjustPosts ?? 0] },
+    { label: 'Com ajuste solicitado',  value: adjustPosts ?? 0,            color: '#e6a52e', soft: '#fbeed1', icon: 'edit',            href: '/admin/kanban' as Route,                           delta: null,              spark: [0, 1, 2, 1, 1, adjustPosts ?? 0] },
     { label: 'Observações abertas',    value: openComments ?? 0,           color: '#3a74d0', soft: '#dfe9f8', icon: 'message-circle',  href: '/admin/observacoes' as Route,                           delta: openComments === 0 ? 'tudo limpo' : null, spark: [2, 1, 1, 0, 0, openComments ?? 0] },
   ];
 
