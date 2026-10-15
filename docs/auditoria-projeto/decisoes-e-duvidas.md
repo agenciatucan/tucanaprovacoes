@@ -16,6 +16,7 @@
 | 2026-10-15 | **Q6 = (a):** edição feita pela equipe reabre o post e o cronograma volta para "em revisão"; o cliente não reabre | Resposta do responsável |
 | 2026-10-15 | **Q7 = sim:** os 2 cronogramas arquivados automaticamente voltam como "Finalizado" | Resposta do responsável |
 | 2026-10-15 | Implementação autorizada: AUD-002, 003, 004, 006, 007 | Resposta do responsável ("ok") |
+| 2026-10-15 | **Q2 revista:** cronograma concluído volta a ser **ocultado** do cliente (arquivado automaticamente), revertendo a Q2 e a Q7 | Resposta do responsável após o deploy ("fica melhor ocultar"). Migração 030. Efeito colateral: a página "Histórico" do cliente segue sem conteúdo (lista só `finalizado`) |
 
 ## Perguntas de negócio pendentes
 
