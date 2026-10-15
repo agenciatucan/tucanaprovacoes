@@ -59,6 +59,41 @@ export const POST_STATUS_KIND: Record<string, string> = {
   finalizado: 'publicado',
 };
 
+// Rótulo único do status geral do post para as telas da equipe
+// (dashboard, seletor de status). docs/auditoria-projeto, AUD-008.
+export const POST_GENERAL_STATUS_LABEL: Record<string, string> = {
+  pendente: 'Aguardando aprovação',
+  em_producao: 'Em produção',
+  em_revisao: 'Ajuste solicitado',
+  aprovado: 'Aprovado',
+  programado: 'Programado',
+  finalizado: 'Concluído',
+};
+
+const ADJUSTMENT_FIELD_STATUSES = ['ajuste_solicitado', 'substituir_tema'];
+
+// Status geral do post a partir de tema/legenda/arte (AUD-005/AUD-013).
+// Mesma regra do trigger fn_auto_update_post_status:
+//   - algum ajuste pedido          → 'em_revisao' (a equipe precisa agir)
+//   - tudo aprovado (arte pode ser 'nao_se_aplica') → 'aprovado'
+//   - caso contrário (inclui aprovação parcial) → 'pendente' (aguarda o cliente)
+export function computePostGeneralStatus(
+  themeStatus: string | null | undefined,
+  captionStatus: string | null | undefined,
+  artworkStatus: string | null | undefined
+): 'em_revisao' | 'aprovado' | 'pendente' {
+  const statuses = [themeStatus, captionStatus, artworkStatus];
+  if (statuses.some((s) => ADJUSTMENT_FIELD_STATUSES.includes(s ?? ''))) return 'em_revisao';
+  if (
+    themeStatus === 'aprovado' &&
+    captionStatus === 'aprovado' &&
+    (artworkStatus === 'aprovado' || artworkStatus === 'nao_se_aplica')
+  ) {
+    return 'aprovado';
+  }
+  return 'pendente';
+}
+
 export const POST_STATUS_LABEL: Record<string, string> = {
   em_producao: 'Em produção',
   programado: 'Programado',

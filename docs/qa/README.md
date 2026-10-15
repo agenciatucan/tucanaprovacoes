@@ -44,6 +44,11 @@ aprovação de planejamento. Requer usuários e banco de teste.
 
 ## Histórico
 
+### 2026-10-15 — Lote 2 da auditoria (AUD-005, 008, 009, 010, 013)
+
+- Status do post com cálculo único (aprovação parcial = aguardando aprovação), rótulos únicos no dashboard/seletor, rascunhos fora de "aguardando aprovação", limpeza do Storage ao excluir.
+- Checagem: type-check OK, lint 0 erros (77 warnings), build OK, E2E 50/50 (localhost). Fluxos logados e exclusões não testados.
+
 ### 2026-10-15 — Lote 1 da auditoria de produto (ver docs/auditoria-projeto)
 
 - Mudanças: AUD-002/003/004/006/007/019 (bloqueio e reabertura de cronograma, edição de conteúdo aprovado volta para aprovação, cronograma concluído vira "Finalizado", post em produção segura aprovação automática, histórico de reenvio gravado). Migração 029.

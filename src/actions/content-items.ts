@@ -10,6 +10,12 @@ import {
 } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
+import { computePostGeneralStatus } from "@/lib/constants/status";
+import {
+  CAMPAIGN_FILES_BUCKET,
+  collectCampaignFilePaths,
+  removeStorageObjects,
+} from "@/lib/storage/cleanup";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -197,13 +203,11 @@ export async function updateContentItem(
   const sentBackToApproval = editedLabels.length > 0;
 
   if (sentBackToApproval && current.general_status !== "em_producao") {
-    const nextStatuses = [
+    statusUpdates.general_status = computePostGeneralStatus(
       statusUpdates.theme_status ?? current.theme_status,
       statusUpdates.caption_status ?? current.caption_status,
-      current.artwork_status,
-    ];
-    const anyAdjust = nextStatuses.some((s) => s === "ajuste_solicitado" || s === "substituir_tema");
-    statusUpdates.general_status = anyAdjust ? "em_revisao" : "pendente";
+      current.artwork_status
+    );
   }
 
   const { error } = await supabase
@@ -265,6 +269,9 @@ export async function deleteContentItem(id: string): Promise<Result> {
     .eq("id", id)
     .single();
 
+  // Coleta os arquivos antes de excluir (o cascade apaga as linhas de `files`) — AUD-010.
+  const filePaths = await collectCampaignFilePaths("content_item_id", id);
+
   const { error } = await supabase
     .from("content_items")
     .delete()
@@ -273,6 +280,8 @@ export async function deleteContentItem(id: string): Promise<Result> {
   if (error) {
     return { success: false, error: "Erro ao excluir post" };
   }
+
+  await removeStorageObjects(CAMPAIGN_FILES_BUCKET, filePaths);
 
   if (item?.campaign_id) {
     revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
@@ -497,16 +506,8 @@ export async function resendForApproval(id: string): Promise<Result<{ campaignRe
     const newCaption = updates.caption_status ?? item.caption_status;
     const newArtwork = updates.artwork_status ?? item.artwork_status;
 
-    const statuses = [newTheme, newCaption, newArtwork];
-
-    const allApproved = statuses.every((s) => s === "aprovado");
-    const anyApproved = statuses.some((s) => s === "aprovado");
-
-    const generalStatus = allApproved
-      ? "aprovado"
-      : anyApproved
-        ? "em_revisao"
-        : "pendente";
+    // Ajustes resolvidos: volta a aguardar o cliente (AUD-005), mesmo com campos já aprovados.
+    const generalStatus = computePostGeneralStatus(newTheme, newCaption, newArtwork);
 
     const { error } = await supabase
       .from("content_items")

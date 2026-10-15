@@ -11,7 +11,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
-import { isCampaignVisibleToClient } from "@/lib/constants/status";
+import { computePostGeneralStatus, isCampaignVisibleToClient } from "@/lib/constants/status";
 import { notifyClientRequestedAdjustment } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
@@ -113,25 +113,23 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
       // Recalcular general_status com base nos três campos após a atualização
       const { data: updatedItem } = await serviceClient
         .from("content_items")
-        .select("theme_status, caption_status, artwork_status")
+        .select("theme_status, caption_status, artwork_status, general_status")
         .eq("id", parsed.data.content_item_id)
         .single();
 
       if (updatedItem) {
-        const statuses = [
+        // Aprovação parcial continua "pendente" (aguarda o cliente); "em_revisao"
+        // fica só para ajuste pedido (AUD-005). Post em produção pela equipe não
+        // sai da produção só porque o cliente aprovou parte dos campos.
+        const computed = computePostGeneralStatus(
           updatedItem.theme_status,
           updatedItem.caption_status,
-          updatedItem.artwork_status,
-        ];
-        const allApproved = statuses.every((s) => s === "aprovado");
-        const anyAdjust   = statuses.some((s) => s === "ajuste_solicitado" || s === "substituir_tema");
-        const anyApproved = statuses.some((s) => s === "aprovado");
-
-        let newGeneralStatus: string;
-        if (allApproved)      newGeneralStatus = "aprovado";
-        else if (anyAdjust)   newGeneralStatus = "em_revisao";
-        else if (anyApproved) newGeneralStatus = "em_revisao"; // em progresso
-        else                  newGeneralStatus = "pendente";
+          updatedItem.artwork_status
+        );
+        const newGeneralStatus =
+          computed === "pendente" && updatedItem.general_status === "em_producao"
+            ? "em_producao"
+            : computed;
 
         await serviceClient
           .from("content_items")

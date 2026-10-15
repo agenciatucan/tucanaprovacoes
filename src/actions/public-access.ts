@@ -6,6 +6,7 @@ import {
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from '@/lib/supabase/server';
+import { isCampaignVisibleToClient } from '@/lib/constants/status';
 
 type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -49,14 +50,6 @@ type IdentifyPublicVisitorParams = {
   visitorName: string;
   visitorEmail?: string;
 };
-
-const VISIBLE_CAMPAIGN_STATUSES = [
-  'enviado_para_aprovacao',
-  'em_revisao',
-  'aprovado',
-  'em_producao',
-  'finalizado',
-];
 
 function getSessionCookieName(campaignId: string) {
   return `tucan_public_access_${campaignId}`;
@@ -228,7 +221,7 @@ export async function getPublicAccessByToken(
       };
     }
 
-    if (!VISIBLE_CAMPAIGN_STATUSES.includes(result.data.status || '')) {
+    if (!isCampaignVisibleToClient(result.data.status)) {
       return {
         success: false,
         error: 'Este cronograma ainda não está disponível para aprovação pública.',

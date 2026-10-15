@@ -19,13 +19,13 @@ _Revisado em 2026-10-15 após as respostas Q1–Q5 (ver [decisoes-e-duvidas.md](
 
 | ID | Ação | Depende de | Status |
 |---|---|---|---|
-| AUD-005 | Aprovação parcial mantém `pendente`; `em_revisao` só para ajuste pedido (ajustar `submitApproval` e `resendForApproval`) | AUD-013 (cálculo único) recomendado antes | pendente |
+| AUD-005 | Aprovação parcial mantém `pendente`; `em_revisao` só para ajuste pedido | AUD-013 | implementado — aguarda validação logada |
 | AUD-007 | Reenvio reabre cronograma bloqueado e orienta a equipe a avisar o cliente pelo cronograma ("Enviar para aprovação" manda um WhatsApp único, em vez de um por post); `sendCampaignForApproval` confere linhas atualizadas antes de notificar | AUD-002 | implementado — aguarda validação logada |
 | AUD-006 | **Q5 = sim.** Alterar tema, legenda ou roteiro de campo já aprovado volta o campo para `aguardando`, recalcula o status do post (`pendente`, ou `em_revisao` se houver ajuste; `em_producao` é mantido), registra no histórico e reabre o cronograma bloqueado (Q6). Post `finalizado` não volta | Q6 | implementado — aguarda validação logada |
-| AUD-008 | Dicionário único de rótulos de status usado por dashboard, Kanban, cliente e seletores | AUD-005 | pendente |
-| AUD-009 | Pipeline/dashboard não tratam posts de cronograma em rascunho como "Em aprovação" | — | pendente |
-| AUD-010 | Exclusões removem objetos do Storage; `approvals` preservado (SET NULL) ou exclusão restrita a arquivar | — | pendente |
-| AUD-013 | Módulo de regras de status (visibilidade, rótulos, cálculo) e helper de autorização comum; regenerar `database.types.ts` | — | pendente |
+| AUD-008 | Rótulos únicos (dashboard e seletor); Kanban mantém colunas próprias | AUD-005 | implementado — aguarda validação logada |
+| AUD-009 | Posts de cronograma em rascunho contam como "Em produção" (dashboard e Kanban) | — | implementado — aguarda validação logada |
+| AUD-010 | Exclusões removem os objetos do Storage (feito). Preservar `approvals` depende da Q8 | Q8 | parcial — Storage implementado; `approvals` bloqueado (Q8) |
+| AUD-013 | Cálculo e rótulos de status centralizados (feito). Pendentes: helper de autorização comum e regenerar `database.types.ts` | — | parcial — implementado o principal |
 | AUD-016 | Validar e, se confirmado, condicionar aprovação de arte à existência de arquivo visível | validação com a agência | pendente |
 | AUD-019 | Registro de histórico do reenvio e da edição gravado com service role (permissão já checada) | — | implementado — aguarda validação logada |
 

@@ -23,6 +23,8 @@
 - **Principais quebras:** link público perde pedidos de ajuste (AUD-001); cronograma aprovado fica travado (AUD-002); cronograma concluído some para o cliente (AUD-003); post "em produção" libera aprovação automática (AUD-004).
 - **Decisões (2026-10-15):** Q1–Q7 respondidas; AUD-001 descartado (link público mantido, só respeita o bloqueio).
 
+**Etapa 3 — Lote 2 (2026-10-15):** AUD-005, 008, 009 implementados; AUD-010 e AUD-013 parciais (ver plano). QA OK; aguardando commit/deploy e validação logada. Nova pergunta Q8 (preservar aprovações ao excluir).
+
 **Etapa 2 — Lote 1 de implementação: código pronto em 2026-10-15** (AUD-002, 003, 004, 006, 007 e o novo AUD-019).
 
 - **Concluído:** alterações de código e migração 029 preparadas; QA (type-check, lint, build, 50 testes E2E) passando. Detalhes em [historico.md](historico.md).

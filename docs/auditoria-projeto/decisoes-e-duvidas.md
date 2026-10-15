@@ -52,3 +52,6 @@ Se sim, reenviar um post deve reabrir o cronograma (destravar e voltar para "em 
 - (a) Sim, o campo editado volta para "aguardando".
 - (b) Não, mas a edição fica registrada no histórico e o cliente é avisado.
 - (c) Não, mantém como está.
+
+**Q8 — O registro de aprovações deve sobreviver à exclusão de um cliente ou cronograma?** (AUD-010)
+Hoje excluir apaga junto todo o histórico de aprovações (a documentação chama esse registro de "imutável"). Manter exige mudar a estrutura da tabela. Alternativa simples: orientar a arquivar em vez de excluir. Não é urgente.

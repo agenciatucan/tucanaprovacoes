@@ -13,6 +13,7 @@ import {
 import { logger } from "@/lib/logger";
 import { notifyCampaignSentForApproval, notifyCampaignUpdatedForReview, notifyClientReminder } from "@/lib/whatsapp-notifications";
 import { createApprovalToken, createTokenExpiry } from "@/lib/utils";
+import { CAMPAIGN_FILES_BUCKET, collectCampaignFilePaths, removeStorageObjects } from "@/lib/storage/cleanup";
 
 type Result<T = void> =
   | { success: true; data: T }
@@ -529,6 +530,9 @@ export async function deleteCampaign(campaignId: string): Promise<Result> {
 
   const supabase = await getSupabaseServerClient();
 
+  // Coleta os arquivos antes de excluir (o cascade apaga as linhas de `files`) — AUD-010.
+  const filePaths = await collectCampaignFilePaths("campaign_id", campaignId);
+
   const { error } = await supabase
     .from("campaigns")
     .delete()
@@ -542,6 +546,8 @@ export async function deleteCampaign(campaignId: string): Promise<Result> {
       error: "Erro ao excluir cronograma",
     };
   }
+
+  await removeStorageObjects(CAMPAIGN_FILES_BUCKET, filePaths);
 
   revalidateCampaignPaths(campaignId);
 

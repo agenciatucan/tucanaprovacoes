@@ -35,3 +35,17 @@ Verificação: type-check OK; lint 0 erros (77 warnings preexistentes); `next bu
 - Decisão definitiva (Q2): concluídos saem das telas principais do cliente e aparecem no Histórico. Implementado: constante `CLIENT_ACTIVE_CAMPAIGN_STATUSES` (sem `finalizado`) usada na tela inicial e em "Aprovados" do cliente (`src/lib/constants/status.ts`, `src/app/(cliente)/cliente/page.tsx`, `src/app/(cliente)/cliente/aprovados/page.tsx`); migração `031_finished_campaigns_in_client_history.sql` (trigger marca `finalizado`; os 2 concluídos viram `finalizado`). QA: type-check OK, lint 0 erros, build OK, E2E 50/50. 031 ainda não aplicada.
 - Migração 031 aplicada pelo responsável e publicada (commit `bcfe881`, E2E 50/50 em produção). Verificado somente leitura: os 2 concluídos estão `finalizado`.
 - Responsável notou que a aba "Ativos" de `/admin/cronogramas` listava os concluídos. Causa: filtro e contador excluíam só `arquivado`. Corrigido para excluir `arquivado` e `finalizado` (os concluídos têm aba própria) em `src/app/(admin)/admin/cronogramas/page.tsx`. QA: type-check OK, lint 0 erros, build OK, E2E 50/50.
+
+### Lote 2 de implementação (2026-10-15) — iniciado
+
+- Autorizado pelo responsável ("seguir"): AUD-013, AUD-005, AUD-008, AUD-009, AUD-010.
+
+| ID | Alteração | Arquivos |
+|---|---|---|
+| AUD-013 | Fonte única para regras de status: `computePostGeneralStatus` (espelha o trigger) usada em `submitApproval`, `resendForApproval` e `updateContentItem`; `POST_GENERAL_STATUS_LABEL`; `public-access.ts` passa a usar `isCampaignVisibleToClient` em vez de cópia própria. **Não feito:** unificar os `requireStaff` copiados e regenerar `database.types.ts` (exige CLI do Supabase com acesso ao projeto) | `src/lib/constants/status.ts`, `src/actions/approvals.ts`, `src/actions/content-items.ts`, `src/actions/public-access.ts` |
+| AUD-005 | Aprovação parcial mantém `pendente`; `em_revisao` só com ajuste pedido. Post `em_producao` não sai da produção com aprovação parcial. Sem migração de dados: não havia posts `em_revisao` sem ajuste | mesmos |
+| AUD-008 | Seletor de status e funil do dashboard usam os mesmos rótulos. Funil: "Em produção" passa a contar posts em produção (antes contava os pendentes), "Aguardando aprovação" conta posts (antes contava planejamentos). Cartões renomeados: "Planejamentos aguardando", "Posts aguardando aprovação" (antes "Posts pendentes — para produzir"), "Posts aprovados — a publicar" (antes "este mês", sem filtro de mês). Lista "Posts em andamento" (antes "em produção"). Colunas do Kanban mantidas (compartilhadas com Atividades) | `src/app/(admin)/admin/page.tsx`, `src/components/admin/PostGeneralStatusSelect.tsx` |
+| AUD-009 | Posts pendentes de cronograma em rascunho contam como "Em produção" no dashboard e vão para a coluna "Em produção" no Kanban | `src/app/(admin)/admin/page.tsx`, `src/app/(admin)/admin/kanban/page.tsx` |
+| AUD-010 | Exclusão de cliente, cronograma e post remove os arquivos do bucket `campaign-files` (e o logo em `client-logos`), coletando os caminhos antes e removendo só depois da exclusão no banco. **Não feito:** preservar `approvals` após exclusão (mudança de FK/NOT NULL; decisão de negócio pendente, ver Q8) | `src/lib/storage/cleanup.ts`, `src/actions/clients.ts`, `src/actions/campaigns.ts`, `src/actions/content-items.ts` |
+
+Verificação: type-check OK; lint 0 erros, 77 warnings (igual ao início do lote); `next build` OK; Playwright 50/50 (localhost). Fluxos logados e exclusões não executados (sem banco de teste; exclusão em produção não é permitida).

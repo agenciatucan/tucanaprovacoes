@@ -4,21 +4,23 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateContentItemStatus } from '@/actions/content-items';
 import { toast } from 'sonner';
+import { POST_GENERAL_STATUS_LABEL } from '@/lib/constants/status';
 
 interface Props {
   id: string;
   generalStatus: string;
 }
 
-// Mesmos valores aceitos pela coluna content_items.general_status.
+// Mesmos valores aceitos pela coluna content_items.general_status;
+// rótulos vêm do dicionário único (AUD-008).
 const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'pendente', label: 'Aguardando aprovação' },
-  { value: 'em_revisao', label: 'Em revisão (ajuste solicitado)' },
-  { value: 'aprovado', label: 'Aprovado' },
-  { value: 'em_producao', label: 'Em produção' },
-  { value: 'programado', label: 'Programado' },
-  { value: 'finalizado', label: 'Concluído' },
-];
+  'pendente',
+  'em_revisao',
+  'aprovado',
+  'em_producao',
+  'programado',
+  'finalizado',
+].map((value) => ({ value, label: POST_GENERAL_STATUS_LABEL[value] ?? value }));
 
 // Permite ao admin/equipe corrigir manualmente o status geral do post,
 // para os casos em que o fluxo automático de aprovação não cobre

@@ -3,6 +3,13 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabas
 import { clientSchema, type ClientInput } from "@/lib/validations/schemas";
 import { revalidatePath } from "next/cache";
 import { logger } from "@/lib/logger";
+import {
+  CAMPAIGN_FILES_BUCKET,
+  CLIENT_LOGOS_BUCKET,
+  collectCampaignFilePaths,
+  removeStorageObjects,
+  storagePathFromPublicUrl,
+} from "@/lib/storage/cleanup";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
@@ -171,6 +178,14 @@ export async function deleteClient(clientId: string): Promise<Result> {
   const profile = await requireAdmin(supabase);
   if (!profile) return { success: false, error: "Sem permissão" };
 
+  // Coleta os arquivos antes de excluir (o cascade apaga as linhas de `files`) — AUD-010.
+  const { data: client } = await supabase
+    .from("clients")
+    .select("logo_url")
+    .eq("id", clientId)
+    .maybeSingle();
+  const filePaths = await collectCampaignFilePaths("client_id", clientId);
+
   const { error } = await supabase
     .from("clients")
     .delete()
@@ -180,6 +195,10 @@ export async function deleteClient(clientId: string): Promise<Result> {
     logger.error("deleteClient", error.message);
     return { success: false, error: "Erro ao excluir cliente" };
   }
+
+  await removeStorageObjects(CAMPAIGN_FILES_BUCKET, filePaths);
+  const logoPath = storagePathFromPublicUrl(client?.logo_url, CLIENT_LOGOS_BUCKET);
+  if (logoPath) await removeStorageObjects(CLIENT_LOGOS_BUCKET, [logoPath]);
 
   revalidatePath("/admin/clientes");
   revalidatePath("/admin");

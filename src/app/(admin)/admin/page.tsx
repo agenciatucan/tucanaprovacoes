@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Icon } from '@/components/ui/Icon';
+import { POST_GENERAL_STATUS_LABEL } from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Visão geral' };
 
@@ -194,14 +195,21 @@ export default async function AdminDashboard() {
   // Pré-busca IDs de campanhas ativas (exclui finalizado/arquivado)
   const { data: activeCampaignRows } = await supabase
     .from('campaigns')
-    .select('id')
+    .select('id, status')
     .not('status', 'in', '(finalizado,arquivado)');
-  const activeCampaignIds = (activeCampaignRows ?? []).map((c: any) => c.id as string);
+  const activeCampaignList = (activeCampaignRows ?? []) as { id: string; status: string }[];
+  const activeCampaignIds = activeCampaignList.map((c) => c.id);
+  // Cronograma em rascunho ainda não foi enviado ao cliente: seus posts pendentes
+  // contam como "em produção", não como "aguardando aprovação" (AUD-009).
+  const draftCampaignIds = activeCampaignList
+    .filter((c) => c.status === 'rascunho')
+    .map((c) => c.id);
+  const sentCampaignIds = activeCampaignIds.filter((id) => !draftCampaignIds.includes(id));
 
-  const applyActiveCampaignsFilter = (query: any) =>
-    activeCampaignIds.length > 0
-      ? query.in('campaign_id', activeCampaignIds)
-      : query.eq('campaign_id', '');
+  const NO_CAMPAIGN = '00000000-0000-0000-0000-000000000000';
+  const filterByCampaigns = (query: any, ids: string[]) =>
+    ids.length > 0 ? query.in('campaign_id', ids) : query.eq('campaign_id', NO_CAMPAIGN);
+  const applyActiveCampaignsFilter = (query: any) => filterByCampaigns(query, activeCampaignIds);
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const [
@@ -216,10 +224,12 @@ export default async function AdminDashboard() {
     { data: monthPostsRaw },
     { data: openCommentsData },
     { data: upcomingPostsRaw },
+    { count: inProductionPosts },
+    { count: draftPendingPosts },
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
     supabase.from('planning_schedules').select('*', { count: 'exact', head: true }).in('status', ['enviado_para_aprovacao', 'em_revisao']),
-    applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds)),
+    filterByCampaigns(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds), sentCampaignIds),
     applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).in('general_status', ['aprovado', 'programado']).in('client_id', activeClientIds)),
     applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_revisao').in('client_id', activeClientIds)),
     supabase.from('comments_history').select('*', { count: 'exact', head: true }).eq('status', 'aberta').in('client_id', activeClientIds),
@@ -228,7 +238,10 @@ export default async function AdminDashboard() {
     applyActiveCampaignsFilter(supabase.from('content_items').select('updated_at').gte('updated_at', monthStart).in('client_id', activeClientIds).limit(500)),
     supabase.from('comments_history').select('id, message, created_at, clients(id, name, company_name)').eq('status', 'aberta').order('created_at', { ascending: false }).limit(4),
     applyActiveCampaignsFilter(supabase.from('content_items').select('id, title, format, general_status, clients(id, name, company_name)').in('general_status', ['pendente', 'em_producao']).in('client_id', activeClientIds).order('updated_at', { ascending: false }).limit(4)),
+    applyActiveCampaignsFilter(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'em_producao').in('client_id', activeClientIds)),
+    filterByCampaigns(supabase.from('content_items').select('*', { count: 'exact', head: true }).eq('general_status', 'pendente').in('client_id', activeClientIds), draftCampaignIds),
   ]);
+  const productionPosts = (inProductionPosts ?? 0) + (draftPendingPosts ?? 0);
 
   // Heatmap: posts per day this month
   const postsPerDay: Record<number, number> = {};
@@ -246,12 +259,13 @@ export default async function AdminDashboard() {
   const todayPosts      = postsPerDay[brDay] ?? 0;
   const totalActiveCampaigns = activeCampaigns ?? 0;
 
-  // Funil de produção
+  // Funil de produção — só posts, com os mesmos rótulos do seletor de status (AUD-008).
+  // Antes "Em produção" mostrava os pendentes e "Aguardando aprovação" contava planejamentos.
   const funnelSegments = [
-    { label: 'Em produção',          value: pendingPosts ?? 0,           color: '#9aa15f' },
-    { label: 'Aguardando aprovação', value: pendingApprovalCount ?? 0,   color: '#df6a2d' },
-    { label: 'Com ajuste',           value: adjustPosts ?? 0,            color: '#e6a52e' },
-    { label: 'Aprovados',            value: approvedPosts ?? 0,          color: '#5b9e3f' },
+    { label: POST_GENERAL_STATUS_LABEL.em_producao, value: productionPosts,      color: '#9aa15f' },
+    { label: POST_GENERAL_STATUS_LABEL.pendente,    value: pendingPosts ?? 0,    color: '#df6a2d' },
+    { label: POST_GENERAL_STATUS_LABEL.em_revisao,  value: adjustPosts ?? 0,     color: '#e6a52e' },
+    { label: 'Aprovados',                           value: approvedPosts ?? 0,   color: '#5b9e3f' },
   ];
   const totalFunnel = funnelSegments.reduce((s, f) => s + f.value, 0);
 
@@ -259,9 +273,9 @@ export default async function AdminDashboard() {
   const kpis = [
     { label: 'Clientes ativos',        value: activeClients ?? 0,          color: '#1f2515', soft: '#f0f0eb', icon: 'users',           href: '/admin/clientes' as Route,                              delta: null,              spark: [1, 2, 2, 2, 3, activeClients ?? 0] },
     { label: 'Cronogramas ativos',     value: totalActiveCampaigns ?? 0,   color: '#0f766e', soft: '#e0f2f1', icon: 'calendar',        href: '/admin/cronogramas' as Route,                          delta: 'ativos',          spark: [2, 3, 2, 3, 4, totalActiveCampaigns ?? 0] },
-    { label: 'Aguardando aprovação',   value: pendingApprovalCount ?? 0,   color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/planejamento' as Route,                              delta: 'planejamentos', spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
-    { label: 'Posts pendentes',        value: pendingPosts ?? 0,           color: '#9aa15f', soft: '#ecedda', icon: 'flag',            href: '/admin/kanban' as Route,                                delta: 'para produzir',   spark: [9, 8, 8, 7, 7, pendingPosts ?? 0] },
-    { label: 'Posts aprovados',        value: approvedPosts ?? 0,          color: '#5b9e3f', soft: '#e6efdd', icon: 'check',           href: '/admin/kanban' as Route,                                delta: 'este mês',        spark: [0, 1, 2, 3, 4, approvedPosts ?? 0] },
+    { label: 'Planejamentos aguardando', value: pendingApprovalCount ?? 0, color: '#df6a2d', soft: '#f8e4d6', icon: 'clock',           href: '/admin/planejamento' as Route,                              delta: 'aprovação do cliente', spark: [1, 2, 2, 3, 4, pendingApprovalCount ?? 0] },
+    { label: 'Posts aguardando aprovação', value: pendingPosts ?? 0,       color: '#9aa15f', soft: '#ecedda', icon: 'flag',            href: '/admin/kanban' as Route,                                delta: 'do cliente',      spark: [9, 8, 8, 7, 7, pendingPosts ?? 0] },
+    { label: 'Posts aprovados',        value: approvedPosts ?? 0,          color: '#5b9e3f', soft: '#e6efdd', icon: 'check',           href: '/admin/kanban' as Route,                                delta: 'a publicar',      spark: [0, 1, 2, 3, 4, approvedPosts ?? 0] },
     { label: 'Com ajuste solicitado',  value: adjustPosts ?? 0,            color: '#e6a52e', soft: '#fbeed1', icon: 'edit',            href: '/admin/kanban' as Route,                           delta: null,              spark: [0, 1, 2, 1, 1, adjustPosts ?? 0] },
     { label: 'Observações abertas',    value: openComments ?? 0,           color: '#3a74d0', soft: '#dfe9f8', icon: 'message-circle',  href: '/admin/observacoes' as Route,                           delta: openComments === 0 ? 'tudo limpo' : null, spark: [2, 1, 1, 0, 0, openComments ?? 0] },
   ];
@@ -444,7 +458,7 @@ export default async function AdminDashboard() {
             {/* Upcoming posts */}
             <div className="dash-upcoming">
               <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 10 }}>
-                Posts em produção
+                Posts em andamento
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(upcomingPostsRaw ?? []).slice(0, 4).map((p: any) => {
@@ -463,7 +477,7 @@ export default async function AdminDashboard() {
                   );
                 })}
                 {(upcomingPostsRaw?.length ?? 0) === 0 && (
-                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum post em produção.</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>Nenhum post em andamento.</div>
                 )}
               </div>
             </div>

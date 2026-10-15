@@ -213,7 +213,12 @@ export default async function KanbanPage({
       week_label: item.week_label,
       campaign_name: campaign?.name ?? null,
       client_name: client?.company_name ?? client?.name ?? null,
-      column: postStatusToColumn(item.general_status ?? 'pendente'),
+      // Cronograma em rascunho ainda não foi enviado ao cliente: o post está em
+      // produção, não "em aprovação" (AUD-009).
+      column:
+        campaign?.status === 'rascunho' && (item.general_status ?? 'pendente') === 'pendente'
+          ? ('em_producao' as KanbanColumn)
+          : postStatusToColumn(item.general_status ?? 'pendente'),
       caption: item.caption ?? null,
     };
   });
