@@ -196,6 +196,7 @@ export default async function PublicPostPage({ params }: PublicPostPageProps) {
               postId={post.id}
               postTitle={post.title}
               visitorName={visitorName}
+              locked={Boolean(campaign.is_locked)}
             />
           </aside>
         </div>

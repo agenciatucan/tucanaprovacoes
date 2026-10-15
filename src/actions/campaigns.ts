@@ -221,14 +221,15 @@ export async function sendCampaignForApproval(
 
   const previousStatus = current?.status ?? "rascunho";
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("campaigns")
     .update({
       status: "enviado_para_aprovacao",
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId)
-    .in("status", ["rascunho", "em_revisao"]);
+    .in("status", ["rascunho", "em_revisao"])
+    .select("id");
 
   if (error) {
     logger.error("sendCampaignForApproval", error.message);
@@ -236,6 +237,14 @@ export async function sendCampaignForApproval(
     return {
       success: false,
       error: "Erro ao enviar cronograma para aprovação",
+    };
+  }
+
+  // Status fora de rascunho/em revisão (ex.: tela desatualizada): não notifica o cliente.
+  if (!updated || updated.length === 0) {
+    return {
+      success: false,
+      error: "O cronograma não está em rascunho ou em revisão. Atualize a página.",
     };
   }
 
@@ -282,10 +291,15 @@ export async function updateCampaignStatus(
 
   const supabase = await getSupabaseServerClient();
 
+  // Voltar para uma etapa de aprovação reabre o cronograma bloqueado (decisão Q6 —
+  // docs/auditoria-projeto, AUD-002); senão o cliente continuaria sem poder aprovar.
+  const reopensApproval = ["rascunho", "enviado_para_aprovacao", "em_revisao"].includes(status);
+
   const { error } = await supabase
     .from("campaigns")
     .update({
       status,
+      ...(reopensApproval ? { is_locked: false } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId);

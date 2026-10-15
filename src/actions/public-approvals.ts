@@ -27,6 +27,7 @@ type CampaignData = {
   approval_token?: string | null;
   status?: string | null;
   token_expires_at?: string | null;
+  is_locked?: boolean | null;
   clients?: ClientData | ClientData[] | null;
 };
 
@@ -87,7 +88,7 @@ async function findCampaignByToken(token: string): Promise<{
 
   const { data, error } = await supabase
     .from('campaigns')
-    .select('id, client_id, name, status, approval_token, token_expires_at, clients(name, company_name, logo_url)')
+    .select('id, client_id, name, status, approval_token, token_expires_at, is_locked, clients(name, company_name, logo_url)')
     .eq('approval_token', token)
     .maybeSingle();
 
@@ -251,12 +252,14 @@ export async function approvePublicPost(params: {
     // Revalida token antes de aprovar — garante que links expirados não aprovam posts
     const { data: tokenCheck } = await supabase
       .from('campaigns')
-      .select('id, token_expires_at, status')
+      .select('id, token_expires_at, status, is_locked')
       .eq('approval_token', token)
       .maybeSingle();
 
     if (!tokenCheck) return { success: false, error: 'Link inválido.' };
     if (tokenCheck.status === 'arquivado') return { success: false, error: 'Este cronograma foi arquivado.' };
+    // Cronograma aprovado fica bloqueado para o cliente (decisão Q4) — mesma regra do login.
+    if (tokenCheck.is_locked) return { success: false, error: 'Este cronograma já foi aprovado e não aceita novas alterações.' };
     if (tokenCheck.token_expires_at && new Date(tokenCheck.token_expires_at) < new Date()) {
       return { success: false, error: 'Este link de aprovação expirou.' };
     }
@@ -340,12 +343,14 @@ export async function requestPublicPostAdjustment(params: {
     // Revalida token antes de registrar ajuste
     const { data: tokenCheck } = await supabase
       .from('campaigns')
-      .select('id, token_expires_at, status')
+      .select('id, token_expires_at, status, is_locked')
       .eq('approval_token', token)
       .maybeSingle();
 
     if (!tokenCheck) return { success: false, error: 'Link inválido.' };
     if (tokenCheck.status === 'arquivado') return { success: false, error: 'Este cronograma foi arquivado.' };
+    // Cronograma aprovado fica bloqueado para o cliente (decisão Q4) — mesma regra do login.
+    if (tokenCheck.is_locked) return { success: false, error: 'Este cronograma já foi aprovado e não aceita novas alterações.' };
     if (tokenCheck.token_expires_at && new Date(tokenCheck.token_expires_at) < new Date()) {
       return { success: false, error: 'Este link de aprovação expirou.' };
     }

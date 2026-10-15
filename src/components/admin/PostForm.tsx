@@ -112,7 +112,15 @@ export default function PostForm({
         return;
       }
 
-      toast.success('Alterações salvas!');
+      if (updateResult.data.sentBackToApproval) {
+        toast.success('Alterações salvas — voltou para aprovação do cliente.', {
+          description: updateResult.data.campaignReopened
+            ? 'Um campo já aprovado foi alterado e o cronograma aprovado foi reaberto. Avise o cliente pelo cronograma.'
+            : 'Um campo já aprovado foi alterado e precisa ser aprovado de novo.',
+        });
+      } else {
+        toast.success('Alterações salvas!');
+      }
 
       router.refresh();
       setLoading(false);

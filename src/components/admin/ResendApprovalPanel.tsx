@@ -56,7 +56,11 @@ export default function ResendApprovalPanel({
       setLoading(false);
       return;
     }
-    toast.success('Post reenviado para aprovação do cliente!');
+    toast.success('Post reenviado para aprovação do cliente!', {
+      description: result.data.campaignReopened
+        ? 'O cronograma estava aprovado e foi reaberto. Avise o cliente pelo cronograma (Enviar para aprovação).'
+        : 'Para avisar o cliente, use "Enviar para aprovação" ou "Lembrar cliente" no cronograma.',
+    });
     setLoading(false);
   }
 

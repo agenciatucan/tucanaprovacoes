@@ -44,6 +44,11 @@ aprovação de planejamento. Requer usuários e banco de teste.
 
 ## Histórico
 
+### 2026-10-15 — Lote 1 da auditoria de produto (ver docs/auditoria-projeto)
+
+- Mudanças: AUD-002/003/004/006/007/019 (bloqueio e reabertura de cronograma, edição de conteúdo aprovado volta para aprovação, cronograma concluído vira "Finalizado", post em produção segura aprovação automática, histórico de reenvio gravado). Migração 029.
+- Checagem: type-check OK, lint 0 erros, build OK, E2E 50/50 (localhost). Fluxos logados não testados (sem usuários de teste); roteiro manual em `docs/auditoria-projeto/validacoes.md`.
+
 ### 2026-10-15 — Mudança manual de status do post não era gravada
 
 - Problema: ao mudar o status geral para "Concluído" (cliente aprovou fora do portal), a tela

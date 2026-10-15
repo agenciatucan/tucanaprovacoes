@@ -3,7 +3,7 @@
 // SERVER ACTIONS — Posts / Content Items
 // ============================================================
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import {
   contentItemSchema,
   type ContentItemInput,
@@ -49,6 +49,34 @@ async function getNextOrderIndex(
     .maybeSingle();
 
   return (data?.order_index ?? -1) + 1;
+}
+
+// Campos de conteúdo que o cliente aprova. Editar um deles depois de aprovado
+// devolve o campo para aprovação (decisão Q5 — docs/auditoria-projeto, AUD-006).
+const APPROVED_CONTENT_FIELDS = [
+  { field: "theme", status: "theme_status", label: "tema" },
+  { field: "caption", status: "caption_status", label: "legenda" },
+  { field: "script", status: "caption_status", label: "roteiro" },
+] as const;
+
+// Ação da equipe que devolve um post para aprovação reabre o cronograma já
+// aprovado/bloqueado, para o cliente poder aprovar de novo. O cliente não reabre
+// sozinho (decisões Q4 e Q6 — AUD-002). Retorna se o cronograma foi reaberto.
+async function reopenApprovedCampaign(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  campaignId: string
+) {
+  const { data, error } = await supabase
+    .from("campaigns")
+    .update({ is_locked: false, status: "em_revisao" })
+    .eq("id", campaignId)
+    .or("is_locked.eq.true,status.eq.aprovado")
+    .neq("status", "arquivado")
+    .select("id");
+
+  if (error) logger.error("reopenApprovedCampaign", error.message);
+
+  return (data?.length ?? 0) > 0;
 }
 
 export async function createContentItem(
@@ -121,7 +149,7 @@ export async function createContentItem(
 export async function updateContentItem(
   id: string,
   input: ContentItemInput
-): Promise<Result> {
+): Promise<Result<{ sentBackToApproval: boolean; campaignReopened: boolean }>> {
   const parsed = contentItemSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -138,12 +166,49 @@ export async function updateContentItem(
     return { success: false, error: "Sem permissão" };
   }
 
-  // Não sobrescreve status de aprovação ao editar conteúdo
   const { campaign_id, ...updateData } = parsed.data;
+
+  const { data: current } = await supabase
+    .from("content_items")
+    .select("campaign_id, client_id, theme, caption, script, theme_status, caption_status, artwork_status, general_status")
+    .eq("id", id)
+    .single();
+
+  if (!current) {
+    return { success: false, error: "Post não encontrado" };
+  }
+
+  // Campo aprovado que teve o texto alterado volta para "aguardando" (Q5).
+  // Post já publicado (finalizado) é só correção de registro: não volta.
+  const statusUpdates: Record<string, string> = {};
+  const editedLabels: string[] = [];
+
+  if (current.general_status !== "finalizado") {
+    for (const { field, status, label } of APPROVED_CONTENT_FIELDS) {
+      const before = (current[field] ?? "").trim();
+      const after = (updateData[field] ?? "").trim();
+      if (before !== after && current[status] === "aprovado") {
+        statusUpdates[status] = "aguardando";
+        editedLabels.push(label);
+      }
+    }
+  }
+
+  const sentBackToApproval = editedLabels.length > 0;
+
+  if (sentBackToApproval && current.general_status !== "em_producao") {
+    const nextStatuses = [
+      statusUpdates.theme_status ?? current.theme_status,
+      statusUpdates.caption_status ?? current.caption_status,
+      current.artwork_status,
+    ];
+    const anyAdjust = nextStatuses.some((s) => s === "ajuste_solicitado" || s === "substituir_tema");
+    statusUpdates.general_status = anyAdjust ? "em_revisao" : "pendente";
+  }
 
   const { error } = await supabase
     .from("content_items")
-    .update(updateData)
+    .update({ ...updateData, ...statusUpdates })
     .eq("id", id);
 
   if (error) {
@@ -155,10 +220,34 @@ export async function updateContentItem(
     };
   }
 
+  let campaignReopened = false;
+
+  if (sentBackToApproval) {
+    // Service role: a policy de INSERT em comments_history exige vínculo com o cliente,
+    // que admin/equipe não têm. Permissão já verificada por requireStaff.
+    const serviceClient = await getSupabaseServiceClient();
+    const { error: historyError } = await serviceClient.from("comments_history").insert({
+      content_item_id: id,
+      campaign_id: current.campaign_id,
+      client_id: current.client_id,
+      user_id: profile.id,
+      message: `Equipe alterou ${editedLabels.join(", ")} após a aprovação; enviado novamente para aprovação.`,
+      status: "resolvida",
+      resolved_at: new Date().toISOString(),
+      resolved_by: profile.id,
+    });
+
+    if (historyError) logger.warn("updateContentItem/history", historyError.message);
+
+    campaignReopened = await reopenApprovedCampaign(supabase, current.campaign_id);
+  }
+
   revalidatePath(`/admin/cronogramas/${campaign_id}`);
   revalidatePath(`/admin/posts/${id}`);
+  revalidatePath(`/cliente/posts/${id}`);
+  revalidatePath(`/cliente/cronogramas/${current.campaign_id}`);
 
-  return { success: true, data: undefined };
+  return { success: true, data: { sentBackToApproval, campaignReopened } };
 }
 
 export async function deleteContentItem(id: string): Promise<Result> {
@@ -364,7 +453,7 @@ export async function updatePostQuickField(
 // mantendo os que já foram aprovados. Recalcula o general_status.
 // Também resolve automaticamente as observações abertas desse post
 // e registra no histórico do card que o ajuste foi realizado.
-export async function resendForApproval(id: string): Promise<Result> {
+export async function resendForApproval(id: string): Promise<Result<{ campaignReopened: boolean }>> {
   const supabase = await getSupabaseServerClient();
   const profile = await requireStaff(supabase);
 
@@ -460,7 +549,9 @@ export async function resendForApproval(id: string): Promise<Result> {
 
   // Registrar no histórico do card que a equipe realizou o ajuste.
   // Esse registro aparece no histórico do post, mas não entra como observação aberta.
-  const { error: historyError } = await supabase
+  // Service role: a policy de INSERT exige vínculo com o cliente, que a equipe não tem.
+  const serviceClient = await getSupabaseServiceClient();
+  const { error: historyError } = await serviceClient
     .from("comments_history")
     .insert({
       content_item_id: id,
@@ -477,6 +568,9 @@ export async function resendForApproval(id: string): Promise<Result> {
     logger.warn("resendForApproval/history", historyError.message);
   }
 
+  // Cronograma aprovado/bloqueado volta para "em revisão" para o cliente poder aprovar (Q6).
+  const campaignReopened = await reopenApprovedCampaign(supabase, item.campaign_id);
+
   revalidatePath(`/admin/posts/${id}`);
   revalidatePath(`/admin/cronogramas/${item.campaign_id}`);
   revalidatePath(`/admin/observacoes`);
@@ -484,5 +578,5 @@ export async function resendForApproval(id: string): Promise<Result> {
   revalidatePath(`/cliente/posts/${id}`);
   revalidatePath(`/cliente/cronogramas/${item.campaign_id}`);
 
-  return { success: true, data: undefined };
+  return { success: true, data: { campaignReopened } };
 }

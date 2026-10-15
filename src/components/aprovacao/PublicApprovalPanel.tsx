@@ -12,6 +12,8 @@ type PublicApprovalPanelProps = {
   postTitle?: string | null;
   clientName?: string | null;
   visitorName?: string | null;
+  /** Cronograma aprovado: o cliente não pode mais aprovar nem pedir ajuste. */
+  locked?: boolean;
 };
 
 export default function PublicApprovalPanel({
@@ -20,6 +22,7 @@ export default function PublicApprovalPanel({
   postTitle,
   clientName,
   visitorName,
+  locked = false,
 }: PublicApprovalPanelProps) {
   const knownName = visitorName || clientName || '';
   const [name, setName] = useState(knownName);
@@ -179,6 +182,11 @@ export default function PublicApprovalPanel({
           </div>
         ) : null}
 
+        {locked ? (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Este cronograma já foi aprovado. Para qualquer alteração, fale com a equipe Tucan.
+          </div>
+        ) : (
         <div className="flex flex-col gap-3 sm:flex-row">
           {mode === 'adjustment' ? (
             <>
@@ -229,6 +237,7 @@ export default function PublicApprovalPanel({
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );
