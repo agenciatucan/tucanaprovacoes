@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
-import { CLIENT_VISIBLE_CAMPAIGN_STATUSES } from '@/lib/constants/status';
+import { CLIENT_ACTIVE_CAMPAIGN_STATUSES } from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Aprovados — Portal Tucan' };
 
@@ -38,7 +38,7 @@ export default async function AprovadosPage() {
         .from('campaigns')
         .select('id, name, client_id')
         .in('client_id', clientIds)
-        .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
+        .in('status', [...CLIENT_ACTIVE_CAMPAIGN_STATUSES])
     : { data: [] };
 
   const campaignIds = campaigns?.map((c) => c.id) ?? [];

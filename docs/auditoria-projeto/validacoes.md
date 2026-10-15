@@ -44,4 +44,4 @@ Validações anteriores no mesmo dia (QA e segurança, fluxos públicos e redire
 2. Em cronograma aprovado (bloqueado), editar um campo aprovado → cronograma passa a "Em revisão" e o botão "Enviar para aprovação" aparece.
 3. Link público de cronograma bloqueado → painel mostra "Este cronograma já foi aprovado".
 4. Marcar um post "Em produção" e aprovar todos os outros → cronograma **não** é aprovado automaticamente.
-5. ~~Concluir o último post → "Finalizado" no Histórico~~ (revisto): após a migração 030, concluir o último post → cronograma "Arquivado" e oculto do cliente.
+5. Concluir o último post de um cronograma (após a 031) → status "Finalizado"; some da tela inicial e de "Aprovados" do cliente e aparece no Histórico, onde abre normalmente.

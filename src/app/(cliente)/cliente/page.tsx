@@ -11,7 +11,7 @@ import type { PendingPost } from '@/components/cliente/PendingPostRow';
 import {
   CAMPAIGN_STATUS_KIND,
   CAMPAIGN_STATUS_LABEL,
-  CLIENT_VISIBLE_CAMPAIGN_STATUSES,
+  CLIENT_ACTIVE_CAMPAIGN_STATUSES,
 } from '@/lib/constants/status';
 
 export const metadata: Metadata = { title: 'Meus cronogramas' };
@@ -83,7 +83,7 @@ export default async function ClienteDashboard() {
         'id, name, type, status, period_label, start_date, created_at, content_items(id, general_status)'
       )
       .in('client_id', clientIds.length > 0 ? clientIds : ['__none__'])
-      .in('status', [...CLIENT_VISIBLE_CAMPAIGN_STATUSES])
+      .in('status', [...CLIENT_ACTIVE_CAMPAIGN_STATUSES])
       .order('created_at', { ascending: false }),
     supabase
       .from('planning_schedules')

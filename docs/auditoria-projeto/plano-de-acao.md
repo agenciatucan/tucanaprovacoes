@@ -13,7 +13,7 @@ _Revisado em 2026-10-15 após as respostas Q1–Q5 (ver [decisoes-e-duvidas.md](
 | AUD-001 | **Decisão: manter o link público como está** (resposta de 2026-10-15). Só passa a respeitar o bloqueio do cronograma (feito em AUD-002). Risco aceito: mensagem de ajuste pelo link continua sem registro visível | — | não será feito (decisão) |
 | AUD-004 | **Q3 = sim.** `fn_can_approve_campaign` passa a considerar `em_producao` como bloqueante; o trigger de status deixa de tratar `em_producao` como "já aprovado" | migração 029 | implementado — migração 029 aplicada — aguarda validação logada |
 | AUD-002 | **Q4 = não; Q6 = (a).** Bloqueio mantido para o cliente. Link público respeita o bloqueio (servidor e tela). Ações da equipe que devolvem post para aprovação (editar campo aprovado, reenviar) e a volta manual de status para rascunho/enviado/em revisão destravam o cronograma e o levam a `em_revisao` | — | implementado — aguarda validação logada |
-| AUD-003 | **Revertido por decisão (Q2 revista).** Cronograma concluído volta a ser arquivado e oculto do cliente (migração 030, que desfaz as partes 1 e 4 da 029). Resta decidir o destino da página "Histórico" do cliente, que fica sem conteúdo | migração 030 | não será feito (decisão) — migração 030 aplicada |
+| AUD-003 | **Q2 definitiva.** Concluído → `finalizado` (trigger, migração 031); tela inicial e "Aprovados" do cliente listam só cronogramas em andamento (`CLIENT_ACTIVE_CAMPAIGN_STATUSES`); Histórico lista os finalizados; `arquivado` segue oculto | migração 031 | implementado — aguarda aplicar 031 |
 
 ## Melhorar em seguida (P2)
 

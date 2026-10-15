@@ -6,6 +6,13 @@ export const CLIENT_VISIBLE_CAMPAIGN_STATUSES = [
   'finalizado',
 ] as const;
 
+// Cronogramas em andamento: listados na tela inicial e em "Aprovados" do cliente.
+// 'finalizado' (todos os posts publicados) continua acessível, mas só aparece
+// no "Histórico" (decisão de 2026-10-15 — docs/auditoria-projeto, AUD-003).
+export const CLIENT_ACTIVE_CAMPAIGN_STATUSES = CLIENT_VISIBLE_CAMPAIGN_STATUSES.filter(
+  (status) => status !== 'finalizado'
+);
+
 export const HIDDEN_FROM_CLIENT_CAMPAIGN_STATUSES = [
   'rascunho',
   'arquivado',
