@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
     try {
       const result = await supabase.auth.verifyOtp({ type, token_hash });
 
+      // verifyOtp não lança exceção em link inválido/expirado: devolve { error }.
+      if (result.error) {
+        logger.error('auth/confirm', result.error.message);
+        const message = encodeURIComponent('Link inválido ou expirado. Solicite um novo link de acesso.');
+        return NextResponse.redirect(`${origin}/login?error=${message}`);
+      }
+
       // Redireciona diretamente para o destino com os tokens no hash.
       // O formulário client-side (SetPasswordForm) lê os tokens do hash
       // e chama setSession() para estabelecer a sessão no browser.

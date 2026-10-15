@@ -6,6 +6,7 @@ import {
   getSupabaseServiceClient,
 } from '@/lib/supabase/server';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { isCampaignVisibleToClient } from '@/lib/constants/status';
 
 type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -25,6 +26,7 @@ type CampaignData = {
   title?: string | null;
   approval_token?: string | null;
   status?: string | null;
+  token_expires_at?: string | null;
   clients?: ClientData | ClientData[] | null;
 };
 
@@ -85,7 +87,7 @@ async function findCampaignByToken(token: string): Promise<{
 
   const { data, error } = await supabase
     .from('campaigns')
-    .select('id, client_id, name, status, approval_token, clients(name, company_name, logo_url)')
+    .select('id, client_id, name, status, approval_token, token_expires_at, clients(name, company_name, logo_url)')
     .eq('approval_token', token)
     .maybeSingle();
 
@@ -151,6 +153,25 @@ export async function getPublicPostForApproval(
         success: false,
         error:
           'Cronograma não encontrado para este token. Verifique se o token salvo no banco é o mesmo usado no link.',
+      };
+    }
+
+    // Mesmas regras da página do cronograma (getPublicAccessByToken): rascunho,
+    // arquivado ou link expirado não abrem nem aprovam posts pelo link público.
+    if (!isCampaignVisibleToClient(campaignResult.data.status)) {
+      return {
+        success: false,
+        error: 'Este cronograma não está disponível para aprovação pública.',
+      };
+    }
+
+    if (
+      campaignResult.data.token_expires_at &&
+      new Date(campaignResult.data.token_expires_at).getTime() < Date.now()
+    ) {
+      return {
+        success: false,
+        error: 'Este link de aprovação expirou.',
       };
     }
 

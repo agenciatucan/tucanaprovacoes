@@ -100,59 +100,6 @@ function getTokenFromAccess(access: unknown): string | null {
   );
 }
 
-function getCampaignIdFromAccess(access: unknown): string | null {
-  const accessData = access as
-    | {
-        id?: string | null;
-        campaign_id?: string | null;
-        campaign?: {
-          id?: string | null;
-          campaign_id?: string | null;
-        } | null;
-      }
-    | null
-    | undefined;
-
-  return (
-    accessData?.campaign_id ||
-    accessData?.id ||
-    accessData?.campaign?.campaign_id ||
-    accessData?.campaign?.id ||
-    null
-  );
-}
-
-function getSafePath(access: unknown, fallbackToken?: string | null): string {
-  const accessData = access as
-    | {
-        path?: string | null;
-        href?: string | null;
-        url?: string | null;
-        redirectTo?: string | null;
-      }
-    | null
-    | undefined;
-
-  const directPath =
-    accessData?.path ||
-    accessData?.href ||
-    accessData?.url ||
-    accessData?.redirectTo ||
-    null;
-
-  if (typeof directPath === 'string' && directPath.startsWith('/')) {
-    return directPath;
-  }
-
-  const token = fallbackToken || getTokenFromAccess(access);
-
-  if (token) {
-    return `/acesso/${token}`;
-  }
-
-  return '/';
-}
-
 async function findCampaignByToken(token: string): Promise<{
   data: PublicCampaignData | null;
   error: string | null;
@@ -161,13 +108,14 @@ async function findCampaignByToken(token: string): Promise<{
 
   const cleanToken = token.trim();
 
+  // O resultado volta para o navegador (server action / props): não incluir
+  // access_code nem dados de contato do cliente.
   const selectFields = `
     id,
     client_id,
     name,
     status,
     approval_token,
-    access_code,
     token_expires_at,
     period_label,
     start_date,
@@ -175,14 +123,17 @@ async function findCampaignByToken(token: string): Promise<{
     clients (
       id,
       name,
-      company_name,
-      email
+      company_name
     )
   `;
 
+  // ilike trata % e _ como curingas: sem escapar, "%" ou "AB%" casariam com
+  // códigos de outras campanhas (enumeração do código de acesso).
+  const escapedCode = cleanToken.replace(/[\\%_]/g, (c) => `\\${c}`);
+
   const attempts: Array<{ column: string; value: string; mode: 'eq' | 'ilike' }> = [
     { column: 'approval_token', value: cleanToken, mode: 'eq' },
-    { column: 'access_code', value: cleanToken, mode: 'ilike' },
+    { column: 'access_code', value: escapedCode, mode: 'ilike' },
   ];
 
   for (const attempt of attempts) {
@@ -409,29 +360,29 @@ export async function identifyPublicVisitor({
     const accessPayload = access ?? defaultAccess ?? token ?? null;
     const accessToken = token || getTokenFromAccess(accessPayload);
 
-    let campaignId = getCampaignIdFromAccess(accessPayload);
-    let safePath = getSafePath(accessPayload, accessToken);
-    let finalAccess = accessPayload;
-
-    if (accessToken) {
-      const campaignResult = await getPublicAccessByToken(accessToken);
-
-      if (!campaignResult.success) {
-        return campaignResult;
-      }
-
-      campaignId = campaignResult.data.id;
-      finalAccess = campaignResult.data;
-      safePath = `/acesso/${campaignResult.data.approval_token}`;
+    // A sessão pública só é criada para uma campanha validada pelo token —
+    // nunca por um campaign_id vindo do navegador.
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'Link de acesso inválido ou expirado.',
+      };
     }
 
-    if (campaignId) {
-      await savePublicAccessSession({
-        campaignId,
-        visitorName: cleanName,
-        visitorEmail: cleanEmail,
-      });
+    const campaignResult = await getPublicAccessByToken(accessToken);
+
+    if (!campaignResult.success) {
+      return campaignResult;
     }
+
+    const finalAccess = campaignResult.data;
+    const safePath = `/acesso/${campaignResult.data.approval_token}`;
+
+    await savePublicAccessSession({
+      campaignId: campaignResult.data.id,
+      visitorName: cleanName,
+      visitorEmail: cleanEmail,
+    });
 
     return {
       success: true,

@@ -29,10 +29,14 @@ function buildCsp(nonce: string): string {
 // chamado pelo GitHub Actions sem sessão de navegador) — precisa ficar de fora do
 // redirecionamento de sessão, senão o proxy barra a chamada antes de ela chegar na rota
 // e sempre devolve 307 para /login (fazendo o workflow de sync falhar sempre).
-const PUBLIC_EXACT_ROUTES = ["/", "/api/google/sync"];
+// /api/auth/session e /api/auth/resend são chamadas por /definir-senha antes de existir sessão
+// (a resend aplica rate limit próprio); /api/og é a imagem de preview buscada por crawlers
+// (WhatsApp etc.) sem cookies — redirecionar essas rotas para /login quebra os três fluxos.
+const PUBLIC_EXACT_ROUTES = ["/", "/api/google/sync", "/api/auth/session", "/api/auth/resend", "/api/og"];
 // /auth/* (callback/confirm) e /definir-senha são acessados via link de e-mail (convite/reset),
 // quando o usuário ainda não tem sessão — precisam ser públicos para trocar o código por sessão.
-const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso", "/auth", "/definir-senha"];
+// /recuperar-senha é usada justamente por quem não consegue entrar.
+const PUBLIC_PREFIX_ROUTES = ["/login", "/acesso", "/auth", "/definir-senha", "/recuperar-senha"];
 const ADMIN_ROUTES = ["/admin"];
 const CLIENT_ROUTES = ["/cliente"];
 

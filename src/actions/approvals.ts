@@ -11,6 +11,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { logger } from "@/lib/logger";
+import { isCampaignVisibleToClient } from "@/lib/constants/status";
 import { notifyClientRequestedAdjustment } from "@/lib/whatsapp-notifications";
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
@@ -52,6 +53,22 @@ export async function submitApproval(input: ApprovalInput): Promise<Result> {
       .maybeSingle();
 
     if (!clientUser) return { success: false, error: "Sem permissão para este cronograma" };
+    if (!isCampaignVisibleToClient(campaign.status)) {
+      return { success: false, error: "Este cronograma não está disponível para aprovação" };
+    }
+  }
+
+  // O post precisa pertencer ao cronograma validado acima — as atualizações
+  // abaixo usam service role e, sem isso, alterariam post de outro cliente.
+  if (parsed.data.content_item_id) {
+    const { data: ownedItem } = await supabase
+      .from("content_items")
+      .select("id")
+      .eq("id", parsed.data.content_item_id)
+      .eq("campaign_id", parsed.data.campaign_id)
+      .maybeSingle();
+
+    if (!ownedItem) return { success: false, error: "Post não encontrado neste cronograma" };
   }
 
   // Registrar aprovação (registro imutável)
@@ -294,7 +311,7 @@ export async function approveAllPending(
 
   const { data: campaign } = await supabase
     .from("campaigns")
-    .select("client_id, is_locked, name")
+    .select("client_id, is_locked, name, status")
     .eq("id", parsed.data.campaign_id)
     .single();
 
@@ -310,6 +327,9 @@ export async function approveAllPending(
       .maybeSingle();
 
     if (!clientUser) return { success: false, error: "Sem permissão para este cronograma" };
+    if (!isCampaignVisibleToClient(campaign.status)) {
+      return { success: false, error: "Este cronograma não está disponível para aprovação" };
+    }
   }
 
   const serviceClient = await getSupabaseServiceClient();

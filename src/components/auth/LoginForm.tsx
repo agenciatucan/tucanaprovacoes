@@ -1,12 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { signIn } from '@/actions/auth';
+import { signIn, signInFormAction } from '@/actions/auth';
 import { Icon } from '@/components/ui/Icon';
 import { toast } from 'sonner';
 
 export default function LoginForm() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,7 +30,9 @@ export default function LoginForm() {
   }
 
   return (
-    <form action="/api/auth/callback" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    // action = server action de fallback: antes da hidratação o navegador faz POST para ela
+    // (nunca GET com e-mail/senha na URL). Depois de hidratado, o onSubmit assume.
+    <form action={signInFormAction} onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="field">
         <label className="field-label" htmlFor="email">E-mail</label>
         <input id="email" name="email" type="email" required autoComplete="email" className="input" placeholder="seu@email.com.br" />

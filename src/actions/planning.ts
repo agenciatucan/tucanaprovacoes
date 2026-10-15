@@ -13,6 +13,10 @@ import { notifyPlanningForApproval, notifyPlanningReminder } from "@/lib/whatsap
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string };
 
+// Status em que o cliente pode aprovar/comentar pelo link público
+// (os mesmos que a página /acesso/planejamento/[token] trata como editáveis).
+const PLANNING_CLIENT_EDITABLE_STATUSES = ["enviado_para_aprovacao", "em_revisao"];
+
 async function requireStaff(supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -386,6 +390,9 @@ export async function savePlanningItemNote(
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
   if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
+  if (!PLANNING_CLIENT_EDITABLE_STATUSES.includes(schedule.status)) {
+    return { success: false, error: "Este planejamento não está disponível para aprovação" };
+  }
 
   const { data: item } = await service
     .from("planning_items")
@@ -419,14 +426,23 @@ export async function approvePlanning(token: string): Promise<Result> {
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
+  if (!PLANNING_CLIENT_EDITABLE_STATUSES.includes(schedule.status)) {
+    return { success: false, error: "Este planejamento não está disponível para aprovação" };
+  }
 
-  // Marca como aprovado
-  const { error: approvalError } = await service
+  // Marca como aprovado de forma condicional: se dois envios chegarem juntos
+  // (duplo clique, duas abas), só um passa e o cronograma é criado uma única vez.
+  const { data: transitioned, error: approvalError } = await service
     .from("planning_schedules")
     .update({ status: "aprovado" })
-    .eq("id", schedule.id);
+    .eq("id", schedule.id)
+    .in("status", PLANNING_CLIENT_EDITABLE_STATUSES)
+    .select("id");
 
   if (approvalError) return { success: false, error: "Erro ao aprovar planejamento" };
+  if (!transitioned || transitioned.length === 0) {
+    return { success: false, error: "Planejamento já aprovado" };
+  }
 
   // Busca os itens para criar o cronograma
   const { data: items } = await service
@@ -525,8 +541,10 @@ export async function requestPlanningAdjustment(
 
   if (!schedule) return { success: false, error: "Link inválido ou expirado" };
   if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
-  if (schedule.status === "arquivado") return { success: false, error: "Planejamento arquivado" };
   if (schedule.status === "aprovado") return { success: false, error: "Planejamento já aprovado" };
+  if (!PLANNING_CLIENT_EDITABLE_STATUSES.includes(schedule.status)) {
+    return { success: false, error: "Este planejamento não está disponível para aprovação" };
+  }
 
   const { error } = await service
     .from("planning_schedules")

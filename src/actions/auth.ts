@@ -32,6 +32,12 @@ export async function signIn(input: unknown): Promise<Result> {
 
   if (error) {
     logger.error("signIn", { message: error.message, status: error.status });
+    if (error.code === "invalid_credentials") {
+      return { success: false, error: "E-mail ou senha incorretos." };
+    }
+    if (error.code === "email_not_confirmed") {
+      return { success: false, error: "E-mail ainda não confirmado. Use o link do convite para ativar o acesso." };
+    }
     return { success: false, error: `Erro: ${error.message}` };
   }
 

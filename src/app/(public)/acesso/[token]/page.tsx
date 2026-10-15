@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Route } from 'next';
-import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import TokenAccessForm from '@/components/auth/TokenAccessForm';
 import { getPublicCampaignByAccess, getPublicSession } from '@/actions/public-access';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -74,7 +74,9 @@ export default async function PublicCampaignPage({ params }: Props) {
     );
   }
 
-  const supabase = await getSupabaseServerClient();
+  // Visitante do link público não tem sessão: a leitura usa service role, escopada
+  // pela campanha (e cliente) do token já validado em getPublicCampaignByAccess.
+  const supabase = await getSupabaseServiceClient();
 
   const { data: items } = await supabase
     .from('content_items')
@@ -82,6 +84,7 @@ export default async function PublicCampaignPage({ params }: Props) {
       'id, week_label, order_index, format, title, theme, objective, general_status, theme_status, caption_status, artwork_status'
     )
     .eq('campaign_id', campaign.id)
+    .eq('client_id', campaign.client_id)
     .order('order_index');
 
   const posts = items ?? [];
