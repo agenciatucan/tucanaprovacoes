@@ -26,5 +26,6 @@
 **Etapa 2 — Lote 1 de implementação: código pronto em 2026-10-15** (AUD-002, 003, 004, 006, 007 e o novo AUD-019).
 
 - **Concluído:** alterações de código e migração 029 preparadas; QA (type-check, lint, build, 50 testes E2E) passando. Detalhes em [historico.md](historico.md).
-- **Pendente:** commit/deploy; aplicar a migração 029 no Supabase; validar os fluxos logados pelo roteiro em [validacoes.md](validacoes.md). Até lá os itens ficam "implementado — aguarda validação".
-- **Próximo passo recomendado:** publicar o código, rodar a 029 e seguir o roteiro de validação. Depois, lote 2: AUD-013 → AUD-005 → AUD-008 → AUD-009, e AUD-010.
+- **Publicado:** commit `a619994` em produção; migração 029 aplicada (2 cronogramas restaurados como "Finalizado"); E2E 50/50 em produção.
+- **Pendente:** validar os fluxos logados pelo roteiro em [validacoes.md](validacoes.md). Até lá os itens ficam "implementado — aguarda validação".
+- **Próximo passo recomendado:** seguir o roteiro de validação com um cronograma real. Depois, lote 2: AUD-013 → AUD-005 → AUD-008 → AUD-009, e AUD-010.

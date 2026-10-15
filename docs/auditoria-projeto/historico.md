@@ -28,3 +28,5 @@ Registro cronológico. Não apagar entradas anteriores; correções futuras deve
 | AUD-019 | Registros de histórico da equipe (reenvio e edição) gravados com service role | `src/actions/content-items.ts` |
 
 Verificação: type-check OK; lint 0 erros (77 warnings preexistentes); `next build` OK; Playwright 50/50 (desktop + celular) contra localhost. Fluxos logados **não** executados (sem usuários/banco de teste) — itens ficam como "implementado — aguarda validação", não "concluído". Migração 029 preparada, **não aplicada**.
+- Publicado: commit `a619994` (main), deploy na Vercel; Playwright 50/50 contra produção.
+- Migração 029 aplicada pelo responsável. Verificado somente leitura: os 2 cronogramas antes `arquivado` agora estão `finalizado` (status atuais: 2 `em_producao`, 2 `finalizado`). Fluxos logados ainda pendentes de validação (roteiro em validacoes.md).
