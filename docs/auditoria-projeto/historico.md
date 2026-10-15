@@ -49,3 +49,4 @@ Verificação: type-check OK; lint 0 erros (77 warnings preexistentes); `next bu
 | AUD-010 | Exclusão de cliente, cronograma e post remove os arquivos do bucket `campaign-files` (e o logo em `client-logos`), coletando os caminhos antes e removendo só depois da exclusão no banco. **Não feito:** preservar `approvals` após exclusão (mudança de FK/NOT NULL; decisão de negócio pendente, ver Q8) | `src/lib/storage/cleanup.ts`, `src/actions/clients.ts`, `src/actions/campaigns.ts`, `src/actions/content-items.ts` |
 
 Verificação: type-check OK; lint 0 erros, 77 warnings (igual ao início do lote); `next build` OK; Playwright 50/50 (localhost). Fluxos logados e exclusões não executados (sem banco de teste; exclusão em produção não é permitida).
+- Lote 2 publicado: commit `d7f4652` (main); Playwright 50/50 contra produção após o deploy. Fluxos logados aguardam validação.
