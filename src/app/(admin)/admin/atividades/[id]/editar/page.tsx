@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import ActivityForm from '@/components/admin/ActivityForm';
 import { Icon } from '@/components/ui/Icon';
 import { deleteActivity } from '@/actions/activities';
@@ -17,14 +18,7 @@ export default async function EditarAtividadePage({ params }: Props) {
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('auth_user_id', user.id)
-    .single();
+  const profile = await getCurrentProfile();
 
   if (!profile || !['admin', 'equipe'].includes(profile.role)) redirect('/admin');
 

@@ -1,20 +1,16 @@
 import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { TopBar } from '@/components/ui/TopBar';
 import { signOut } from '@/actions/auth';
 
 export default async function ClienteLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('user_profiles').select('id, name, role').eq('auth_user_id', user.id).single();
-
+  const profile = await getCurrentProfile();
   if (!profile) redirect('/login');
   if (['admin', 'equipe'].includes(profile.role)) redirect('/admin');
 
   // Verificar se o usuário tem pelo menos um cliente ativo vinculado
+  const supabase = await getSupabaseServerClient();
   const { data: activeLink } = await supabase
     .from('client_users')
     .select('client_id, clients!inner(status)')

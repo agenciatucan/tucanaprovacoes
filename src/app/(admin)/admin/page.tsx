@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { Icon } from '@/components/ui/Icon';
 import { POST_GENERAL_STATUS_LABEL } from '@/lib/constants/status';
 
@@ -176,10 +177,7 @@ export default async function AdminDashboard() {
 
   const greeting = brHour < 12 ? 'Bom dia' : brHour < 18 ? 'Boa tarde' : 'Boa noite';
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: currentProfile } = user
-    ? await supabase.from('user_profiles').select('name').eq('auth_user_id', user.id).single()
-    : { data: null };
+  const currentProfile = await getCurrentProfile();
   const userName = currentProfile?.name?.split(' ')[0] ?? 'Admin';
 
   const monthStart = new Date(year, month, 1).toISOString();

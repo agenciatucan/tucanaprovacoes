@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import ApprovalPanel from '@/components/aprovacao/ApprovalPanel';
@@ -116,17 +117,7 @@ export default async function PostDetailPage({ params }: Props) {
 
   const supabase = await getSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('id, name')
-    .eq('auth_user_id', user.id)
-    .single();
+  const profile = await getCurrentProfile();
 
   if (!profile) redirect('/login');
 

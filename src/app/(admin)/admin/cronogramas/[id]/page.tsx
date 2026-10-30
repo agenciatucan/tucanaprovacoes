@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import CampaignActions from '@/components/admin/CampaignActions';
@@ -199,10 +200,7 @@ export default async function GerenciarCronogramaPage({
 
   const supabase = await getSupabaseServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: currentProfile } = user
-    ? await supabase.from('user_profiles').select('role').eq('auth_user_id', user.id).single()
-    : { data: null };
+  const currentProfile = await getCurrentProfile();
   const isAdmin = currentProfile?.role === 'admin';
 
   const { data: campaign } = await supabase

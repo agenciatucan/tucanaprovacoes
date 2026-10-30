@@ -44,6 +44,12 @@ aprovação de planejamento. Requer usuários e banco de teste.
 
 ## Histórico
 
+### 2026-10-30 — Site lento para carregar
+
+- Causa: cada navegação logada fazia ~8 idas e voltas ao Supabase **em série** antes de buscar os dados da tela: proxy (`getUser` + papel), layout (`getUser` + perfil + `getUser` de novo em `getUnreadCount`) e página (`getUser` + perfil). Não havia `loading.tsx`, então o clique parecia travado até o servidor terminar.
+- Correção: proxy usa `getClaims()` (JWT ES256 validado localmente, sem chamar o servidor de Auth) e só consulta o papel em `/admin` e `/cliente`; novo `src/lib/auth/current-user.ts` (`getAuthUserId`/`getCurrentProfile` com React `cache()`) compartilhado por layouts, páginas e `getUnreadCount` — 1 consulta de perfil por request; esqueleto de carregamento em `(admin)` e `(cliente)`. Server Actions e `requireAdmin` continuam com `getUser()`.
+- Checagem: type-check OK, lint 0 erros, build OK, E2E 50/50 (localhost). Fluxo logado não testado automaticamente (testes não fazem login).
+
 ### 2026-10-15 — Posts do planejamento entram em produção
 
 - Posts criados pelo planejamento entram "Em produção" e saem para "Aguardando aprovação" com legenda + arquivo visível; rótulos da tela do cronograma unificados. Migração opcional 032.

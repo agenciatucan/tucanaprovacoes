@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/components/ui/Icon';
 import { CLIENT_ACTIVE_CAMPAIGN_STATUSES } from '@/lib/constants/status';
@@ -19,11 +20,7 @@ const FMT_CLASS: Record<string, string> = {
 
 export default async function AprovadosPage() {
   const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('user_profiles').select('id, name').eq('auth_user_id', user.id).single();
+  const profile = await getCurrentProfile();
   if (!profile) redirect('/login');
 
   // Clientes que o usuário tem acesso

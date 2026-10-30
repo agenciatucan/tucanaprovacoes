@@ -1,5 +1,6 @@
 "use server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getAuthUserId } from "@/lib/auth/current-user";
 import { revalidatePath } from "next/cache";
 
 export type NotificationItem = {
@@ -14,10 +15,9 @@ export type NotificationItem = {
 };
 
 export async function getUnreadCount(): Promise<number> {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 0;
+  if (!(await getAuthUserId())) return 0;
 
+  const supabase = await getSupabaseServerClient();
   const { count } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })

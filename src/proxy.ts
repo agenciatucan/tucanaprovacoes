@@ -81,7 +81,11 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user }, error } = await supabase.auth.getUser();
+  // getClaims() valida a assinatura do JWT localmente (chaves ES256 via JWKS em cache),
+  // sem a ida ao servidor de Auth que o getUser() fazia em TODA requisição.
+  // Continua renovando a sessão (cookies) quando o access token expira.
+  const { data: claimsData, error } = await supabase.auth.getClaims();
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null;
 
   const isPublicRoute =
     PUBLIC_EXACT_ROUTES.includes(pathname) ||
@@ -104,6 +108,9 @@ export async function proxy(request: NextRequest) {
     }
     return NextResponse.redirect(loginUrl);
   }
+
+  // Rotas autenticadas fora de /admin e /cliente (ex.: /api/*) não dependem do papel
+  if (!isAdminRoute && !isClientRoute) return response;
 
   const role = await getUserRole(supabase, user.id);
 

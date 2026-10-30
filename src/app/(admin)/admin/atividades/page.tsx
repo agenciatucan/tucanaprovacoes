@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/auth/current-user';
 import { Icon } from '@/components/ui/Icon';
 import ActivityCardActions from '@/components/admin/ActivityCardActions';
 import {
@@ -119,10 +120,7 @@ export default async function AtividadesPage({
   const supabase = await getSupabaseServerClient();
 
   // Current user profile (for "Minhas" shortcut)
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: currentProfile } = user
-    ? await supabase.from('user_profiles').select('id').eq('auth_user_id', user.id).single()
-    : { data: null };
+  const currentProfile = await getCurrentProfile();
   const currentProfileId = currentProfile?.id ?? null;
 
   // ── Build query ────────────────────────────────────────────────────────────
