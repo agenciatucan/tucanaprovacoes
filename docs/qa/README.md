@@ -49,6 +49,7 @@ aprovação de planejamento. Requer usuários e banco de teste.
 - Causa: cada navegação logada fazia ~8 idas e voltas ao Supabase **em série** antes de buscar os dados da tela: proxy (`getUser` + papel), layout (`getUser` + perfil + `getUser` de novo em `getUnreadCount`) e página (`getUser` + perfil). Não havia `loading.tsx`, então o clique parecia travado até o servidor terminar.
 - Correção: proxy usa `getClaims()` (JWT ES256 validado localmente, sem chamar o servidor de Auth) e só consulta o papel em `/admin` e `/cliente`; novo `src/lib/auth/current-user.ts` (`getAuthUserId`/`getCurrentProfile` com React `cache()`) compartilhado por layouts, páginas e `getUnreadCount` — 1 consulta de perfil por request; esqueleto de carregamento em `(admin)` e `(cliente)`. Server Actions e `requireAdmin` continuam com `getUser()`.
 - Checagem: type-check OK, lint 0 erros, build OK, E2E 50/50 (localhost). Fluxo logado não testado automaticamente (testes não fazem login).
+- Publicado: commit `3ae9b5a` (main), deploy na Vercel; Playwright 50/50 contra produção. Fluxo logado aguarda validação manual.
 
 ### 2026-10-15 — Posts do planejamento entram em produção
 
